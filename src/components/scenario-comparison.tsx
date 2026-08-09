@@ -1,10 +1,14 @@
+import { Users } from "lucide-react";
 import Link from "next/link";
 import { benchData, contestantOf } from "@/lib/bench";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { RankBadge } from "./rank-badge";
 import { KindBadge } from "./kind-badge";
 
 /**
- * 场景对比图：每个场景一张卡片，展示该场景内各条目的排名与指标条
- * （资源/刻横向条，人口峰值与击杀率作为副指标）。纯 React+SVG，无图表库。
+ * 场景对比图：每场景一张 Card，展示该场景内条目排名与指标条。
+ * 资源/刻横向条 + 人口峰值副条；颜色取 token（brand-gradient）。
  */
 export function ScenarioComparison() {
   return (
@@ -17,102 +21,88 @@ export function ScenarioComparison() {
           )
           .sort((a, b) => a.stat.avgRank - b.stat.avgRank);
 
-        const maxResources = Math.max(
-          1e-9,
-          ...entries.map((e) => e.stat.resourcesPerTick),
-        );
+        const maxResources = Math.max(1e-9, ...entries.map((e) => e.stat.resourcesPerTick));
         const maxPeak = Math.max(1e-9, ...entries.map((e) => e.stat.populationPeak));
 
         return (
-          <section key={scenario.name} className="card flex flex-col p-5">
-            <header className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-text-primary">
+          <Card key={scenario.name}>
+            <CardHeader className="flex-row items-start justify-between gap-3 space-y-0">
+              <div className="min-w-0">
+                <CardTitle className="flex items-baseline gap-2 text-base">
                   {scenario.label}
-                  <span className="ml-2 text-xs font-normal text-text-tertiary tnum">
+                  <span className="font-sans text-xs font-normal text-muted-foreground tnum">
                     {scenario.name}
                   </span>
-                </h3>
-                <p className="mt-0.5 text-xs leading-relaxed text-text-secondary">
+                </CardTitle>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                   {scenario.template.configNote}
                 </p>
               </div>
-              <span className="shrink-0 rounded-lg border border-border-primary px-2 py-1 text-[11px] text-text-tertiary tnum">
+              <Badge variant="outline" className="shrink-0 gap-1">
+                <Users className="h-3 w-3" />
                 {scenario.matches.length} 场
-              </span>
-            </header>
-
-            <ul className="space-y-2.5">
+              </Badge>
+            </CardHeader>
+            <CardContent className="space-y-1.5">
               {entries.map(({ row, stat }) => {
                 const contestant = contestantOf(row.contestantId);
                 const resourcesBar = (stat.resourcesPerTick / maxResources) * 100;
                 const peakBar = (stat.populationPeak / maxPeak) * 100;
                 return (
-                  <li
+                  <Link
                     key={row.contestantId}
-                    className="group rounded-xl border border-transparent px-2 py-2 transition-colors hover:border-border-primary hover:bg-surface-tertiary/40"
+                    href={`/entry/${row.contestantId}`}
+                    className="group block rounded-md border border-transparent px-2 py-2 transition-colors hover:border-border hover:bg-secondary/40"
                   >
-                    <Link href={`/entry/${row.contestantId}`} className="flex items-center gap-3">
-                      <span className="w-12 shrink-0 text-right">
-                        <span
-                          className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ${
-                            stat.avgRank <= 1
-                              ? "bg-rank-gold text-black/80"
-                              : stat.avgRank <= 2
-                                ? "bg-rank-silver text-black/70"
-                                : stat.avgRank <= 3
-                                  ? "bg-rank-bronze text-white/90"
-                                  : "bg-surface-tertiary text-text-tertiary"
-                          }`}
-                        >
-                          {stat.avgRank}
-                        </span>
+                    <div className="flex items-center gap-3">
+                      <span className="w-10 shrink-0">
+                        <RankBadge rank={Math.round(stat.avgRank)} size="sm" />
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
                           <span className="flex min-w-0 items-center gap-2">
-                            <span className="truncate text-xs font-medium text-text-primary">
+                            <span className="truncate text-xs font-medium text-foreground group-hover:text-brand">
                               {contestant?.label ?? row.contestantId}
                             </span>
                             <KindBadge kind={contestant?.kind ?? "python"} />
                           </span>
-                          <span className="shrink-0 text-[11px] text-text-tertiary tnum">
+                          <span className="shrink-0 text-[11px] text-muted-foreground tnum">
                             均排 {stat.avgRank.toFixed(1)} · 杀率 {stat.killRate.toFixed(2)}
                           </span>
                         </div>
                         <div className="mt-1.5 space-y-1">
                           <div className="flex items-center gap-2">
-                            <span className="w-10 shrink-0 text-[10px] text-text-tertiary">资源/刻</span>
-                            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-tertiary">
+                            <span className="w-10 shrink-0 text-[10px] text-muted-foreground">资源/刻</span>
+                            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
                               <div
-                                className="h-full rounded-full bg-gradient-accent transition-all"
+                                className="h-full rounded-full bg-brand-gradient transition-all"
                                 style={{ width: `${Math.max(2, resourcesBar)}%` }}
                               />
                             </div>
-                            <span className="w-12 shrink-0 text-right text-[10px] text-text-secondary tnum">
+                            <span className="w-12 shrink-0 text-right text-[10px] text-muted-foreground tnum">
                               {stat.resourcesPerTick.toFixed(3)}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="w-10 shrink-0 text-[10px] text-text-tertiary">人口峰值</span>
-                            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-tertiary">
+                            <span className="w-10 shrink-0 text-[10px] text-muted-foreground">人口峰值</span>
+                            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
                               <div
-                                className="h-full rounded-full bg-accent-primary/70 transition-all"
+                                className="h-full rounded-full bg-brand/70 transition-all"
                                 style={{ width: `${Math.max(2, peakBar)}%` }}
                               />
                             </div>
-                            <span className="w-12 shrink-0 text-right text-[10px] text-text-secondary tnum">
+                            <span className="w-12 shrink-0 text-right text-[10px] text-muted-foreground tnum">
                               {stat.populationPeak.toFixed(1)}
                             </span>
                           </div>
                         </div>
                       </div>
-                    </Link>
-                  </li>
+                    </div>
+                  </Link>
                 );
               })}
-            </ul>
-          </section>
+            </CardContent>
+          </Card>
         );
       })}
     </div>

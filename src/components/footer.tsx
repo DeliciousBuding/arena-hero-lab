@@ -1,30 +1,34 @@
+import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { benchData } from "@/lib/bench";
+import { Separator } from "@/components/ui/separator";
 
-/** 精简 footer：数据源仓库 + 版本 + schema，无废话。 */
+/** 精简 footer：数据源仓库 + 版本 + schema，底部 hairline 分隔。 */
 export function Footer() {
   return (
-    <footer className="hairline">
-      <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-6 text-xs text-text-tertiary sm:flex-row sm:items-center sm:justify-between sm:px-6">
+    <footer className="border-t border-border">
+      <div className="container-page flex flex-col gap-3 px-4 py-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="flex items-center gap-3">
           <span>© 2026 Arena Hero</span>
-          <span>·</span>
+          <Separator orientation="vertical" className="h-3" />
           <Link
             href="https://github.com/DeliciousBuding/arena-hero-leaderboard"
             target="_blank"
             rel="noreferrer"
-            className="link-hover text-text-secondary"
+            className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
           >
             arena-hero-leaderboard
+            <ExternalLink className="h-3 w-3" />
           </Link>
-          <span>·</span>
+          <Separator orientation="vertical" className="h-3" />
           <Link
             href="https://github.com/DeliciousBuding/arena"
             target="_blank"
             rel="noreferrer"
-            className="link-hover text-text-secondary"
+            className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
           >
             数据源 arena
+            <ExternalLink className="h-3 w-3" />
           </Link>
         </div>
         <span className="tnum">

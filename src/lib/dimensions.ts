@@ -9,6 +9,10 @@ export interface DimensionRow {
   id: string;
   label: string;
   kind: "python" | "builtin";
+  /** GitHub 仓库（社区 agent 第三方来源；v3.1，convert 侧映射）。 */
+  repoUrl?: string;
+  /** Linux DO 社区帖子（讨论来源；v3.1，convert 侧映射）。 */
+  linuxdoUrl?: string;
   primary: string;
   delta: string | null;
   secondary: string;
@@ -41,12 +45,17 @@ function baseRows(entry: LeaderboardRow): {
   id: string;
   label: string;
   kind: "python" | "builtin";
+  repoUrl?: string;
+  linuxdoUrl?: string;
 } {
+  const contestant = contestantOf(entry.contestantId);
   return {
     rank: entry.rank,
     id: entry.contestantId,
-    label: contestantOf(entry.contestantId)?.label ?? entry.contestantId,
-    kind: contestantOf(entry.contestantId)?.kind ?? "python",
+    label: contestant?.label ?? entry.contestantId,
+    kind: contestant?.kind ?? "python",
+    ...(contestant?.repoUrl !== undefined ? { repoUrl: contestant.repoUrl } : {}),
+    ...(contestant?.linuxdoUrl !== undefined ? { linuxdoUrl: contestant.linuxdoUrl } : {}),
   };
 }
 

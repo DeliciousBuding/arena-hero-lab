@@ -18,9 +18,9 @@ function colorOf(id: string, roster: string[]): string {
 }
 
 /**
- * 击杀时序图（v3.1）：横向时间轴（tick 0 → ticks），每行一个玩家，
- * 每击杀事件一个标记——位置 = 事件 tick，颜色 = 击杀者，悬浮显示
- * 击杀者 → 被击杀者。纯 SVG 服务端渲染（无客户端交互依赖）。
+ * 击杀时序图（v3.1）：横向 tick 轴 × 玩家行，每击杀事件一个标记。
+ * 位置 = tick，颜色 = 击杀者，悬浮显示"击杀者 → 被击杀者"。
+ * 纯 SVG 服务端渲染，边线/文字色取设计 token。
  */
 export function KillTimeline({
   events,
@@ -40,7 +40,6 @@ export function KillTimeline({
   const leftPad = 110;
   const rightPad = 16;
   const topPad = 14;
-  const bottomPad = 26;
   const width = 720;
   const innerWidth = width - leftPad - rightPad;
 
@@ -49,16 +48,14 @@ export function KillTimeline({
 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} role="img" aria-label="击杀时序图">
-      {/* 时间轴 */}
       <line
         x1={leftPad}
         y1={topPad + roster.length * rowHeight}
         x2={width - rightPad}
         y2={topPad + roster.length * rowHeight}
-        stroke="var(--color-border-primary, #413d39)"
+        stroke="var(--color-border)"
         strokeWidth={1}
       />
-      {/* tick 刻度 */}
       {[0, 0.25, 0.5, 0.75, 1].map((fraction) => {
         const tickLabel = Math.round(totalTicks * fraction);
         const px = leftPad + fraction * innerWidth;
@@ -69,7 +66,7 @@ export function KillTimeline({
               y1={topPad}
               x2={px}
               y2={topPad + roster.length * rowHeight}
-              stroke="var(--color-border-faint, #2c2a27)"
+              stroke="var(--color-border-faint)"
               strokeWidth={0.5}
               strokeDasharray="2 4"
             />
@@ -78,7 +75,7 @@ export function KillTimeline({
               y={topPad + roster.length * rowHeight + 16}
               textAnchor="middle"
               fontSize={10}
-              fill="var(--color-text-tertiary, #8f8b82)"
+              fill="var(--color-muted-foreground)"
             >
               {tickLabel}
             </text>
@@ -86,7 +83,6 @@ export function KillTimeline({
         );
       })}
 
-      {/* 玩家行 */}
       {roster.map((player, index) => {
         const y = topPad + index * rowHeight + rowHeight / 2;
         return (
@@ -96,7 +92,7 @@ export function KillTimeline({
               y={y + 3}
               textAnchor="end"
               fontSize={11}
-              fill="var(--color-text-secondary, #9c9a94)"
+              fill="var(--color-muted-foreground)"
             >
               {player.label}
             </text>
@@ -106,14 +102,13 @@ export function KillTimeline({
               y1={y}
               x2={width - rightPad}
               y2={y}
-              stroke="var(--color-border-faint, #2c2a27)"
+              stroke="var(--color-border-faint)"
               strokeWidth={0.5}
             />
           </g>
         );
       })}
 
-      {/* 击杀事件 */}
       {sorted.map((event, index) => {
         const px = x(event.tick);
         const rowIndex = event.victim ? roster.findIndex((r) => r.id === event.victim) : -1;
@@ -134,14 +129,13 @@ export function KillTimeline({
         );
       })}
 
-      {/* 空态 */}
       {sorted.length === 0 && (
         <text
           x={leftPad + innerWidth / 2}
           y={topPad + (roster.length * rowHeight) / 2}
           textAnchor="middle"
           fontSize={12}
-          fill="var(--color-text-tertiary, #8f8b82)"
+          fill="var(--color-muted-foreground)"
         >
           本场无核心摧毁
         </text>

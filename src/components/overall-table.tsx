@@ -4,6 +4,17 @@ import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { contestantOf, type LeaderboardRow } from "@/lib/bench";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ContestantLinks } from "./contestant-links";
 import { KindBadge } from "./kind-badge";
 import { RankBadge } from "./rank-badge";
 
@@ -11,8 +22,9 @@ type SortKey = "rank" | "composite" | "avgRank" | "killRate" | "economyScore";
 type SortDir = "asc" | "desc";
 
 /**
- * 榜单增强表（v3）：名次徽章 + 对照组视觉区分 + composite/rank/kill/economy 多列排序。
- * survivalScore 为 v2 兼容字段（v3 恒 1.0），按需求不在表中展示。
+ * 主榜单表：名次徽章 + 对照组视觉区分 + composite/rank/kill/economy 多列排序。
+ * 用 Table 原语统一排版；列头 Button cycle sort，键盘可访问。
+ * 行内带 GitHub/LinuxDO 外链群（agent 来源）。
  */
 export function OverallTable({
   rows,
@@ -31,11 +43,11 @@ export function OverallTable({
     return [...list].sort((a, b) => (a[sortKey] - b[sortKey]) * dir);
   }, [rows, limit, sortKey, sortDir]);
 
-  const COLUMNS: { key: SortKey; label: string; align?: "right"; hint: string }[] = [
-    { key: "composite", label: "综合分", align: "right", hint: "composite（0–1）" },
-    { key: "avgRank", label: "平均名次", align: "right", hint: "avgRank（越小越好）" },
-    { key: "killRate", label: "击杀/场", align: "right", hint: "killRate" },
-    { key: "economyScore", label: "经济分", align: "right", hint: "economyScore（0–1）" },
+  const COLUMNS: { key: SortKey; label: string; hint: string }[] = [
+    { key: "composite", label: "综合分", hint: "composite（0–1）" },
+    { key: "avgRank", label: "平均名次", hint: "avgRank（越小越好）" },
+    { key: "killRate", label: "击杀/场", hint: "killRate" },
+    { key: "economyScore", label: "经济分", hint: "economyScore（0–1）" },
   ];
 
   function cycleSort(key: SortKey) {
@@ -57,20 +69,25 @@ export function OverallTable({
 
   return (
     <div className="thin-scroll overflow-x-auto">
-      <table className="w-full min-w-[680px] border-collapse text-sm">
-        <thead>
-          <tr className="border-b border-border-primary text-xs text-text-tertiary">
-            <th className="w-12 pb-2 pl-1 text-left font-medium">名次</th>
-            <th className="pb-2 text-left font-medium">条目</th>
+      <Table className="min-w-[760px]">
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="w-14 pl-1">名次</TableHead>
+            <TableHead>条目</TableHead>
             {COLUMNS.map((col) => (
-              <th key={col.key} className={`pb-2 ${col.align === "right" ? "text-right" : ""}`}>
-                <button
+              <TableHead key={col.key} className="pr-1 text-right">
+                <Button
                   type="button"
                   onClick={() => cycleSort(col.key)}
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "h-7 gap-1.5 px-1.5 text-xs font-medium hover:bg-secondary hover:text-foreground",
+                    activeCol(col.key)
+                      ? "text-brand"
+                      : "text-muted-foreground",
+                  )}
                   title={`按 ${col.hint} 排序`}
-                  className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors hover:bg-surface-tertiary hover:text-text-primary ${
-                    activeCol(col.key) ? "font-semibold text-accent-primary" : "font-medium"
-                  }`}
                 >
                   {col.label}
                   {activeCol(col.key) ? (
@@ -82,74 +99,82 @@ export function OverallTable({
                   ) : (
                     <ArrowUpDown className="h-3 w-3 opacity-50" />
                   )}
-                </button>
-              </th>
+                </Button>
+              </TableHead>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {sorted.map((row) => {
             const contestant = contestantOf(row.contestantId);
             const isBaseline = contestant?.kind === "builtin";
             return (
-              <tr
+              <TableRow
                 key={row.contestantId}
-                className={`group border-b border-border-faint transition-colors last:border-b-0 ${
-                  isBaseline ? "bg-rank-gold/[0.045] hover:bg-rank-gold/[0.09]" : "hover:bg-surface-tertiary/40"
-                }`}
+                className={cn(
+                  "group",
+                  isBaseline && "bg-rank-gold/[0.04] hover:bg-rank-gold/[0.08]",
+                )}
               >
-                <td className="py-7 pl-1">
+                <TableCell className="pl-1">
                   <RankBadge rank={row.rank} />
-                </td>
-                <td className="py-7">
-                  <Link
-                    href={`/entry/${row.contestantId}`}
-                    className="flex items-center gap-2 transition-colors group-hover:text-accent-primary"
-                  >
-                    <span className="max-w-56 truncate font-medium leading-tight text-text-primary">
-                      {contestant?.label ?? row.contestantId}
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/entry/${row.contestantId}`}
+                        className="max-w-56 truncate font-medium leading-tight text-foreground transition-colors group-hover:text-brand"
+                      >
+                        {contestant?.label ?? row.contestantId}
+                      </Link>
+                      <KindBadge kind={contestant?.kind ?? "python"} />
+                    </div>
+                    <span className="text-[11px] leading-tight text-muted-foreground tnum">
+                      {row.contestantId}
                     </span>
-                    <KindBadge kind={contestant?.kind ?? "python"} />
-                  </Link>
-                  <span className="block text-[11px] leading-tight text-text-tertiary tnum">
-                    {row.contestantId}
-                  </span>
-                </td>
-                <td className="py-7 pr-1 text-right">
-                  <span className={`font-medium tnum ${activeCol("composite") ? "text-accent-primary" : "text-text-primary"}`}>
+                    {contestant && (contestant.repoUrl !== undefined || contestant.linuxdoUrl !== undefined) ? (
+                      <ContestantLinks contestant={contestant} variant="inline" />
+                    ) : null}
+                  </div>
+                </TableCell>
+                <TableCell className="pr-1 text-right">
+                  <span className={cn("font-medium tnum", activeCol("composite") ? "text-brand" : "text-foreground")}>
                     {pct(row.composite)}
                   </span>
-                  <span className="block text-[11px] text-text-tertiary tnum">
+                  <span className="block text-[11px] text-muted-foreground tnum">
                     rankScore {pct(row.rankScore)}
                   </span>
-                </td>
-                <td className="py-7 pr-1 text-right">
-                  <span className={`font-medium tnum ${activeCol("avgRank") ? "text-accent-primary" : "text-text-primary"}`}>
+                </TableCell>
+                <TableCell className="pr-1 text-right">
+                  <span className={cn("font-medium tnum", activeCol("avgRank") ? "text-brand" : "text-foreground")}>
                     {row.avgRank.toFixed(2)}
                   </span>
-                  <span className="block text-[11px] text-text-tertiary tnum">± {row.rankStddev.toFixed(2)}</span>
-                </td>
-                <td className="py-7 pr-1 text-right">
-                  <span className={`font-medium tnum ${activeCol("killRate") ? "text-accent-primary" : "text-text-primary"}`}>
+                  <span className="block text-[11px] text-muted-foreground tnum">
+                    ± {row.rankStddev.toFixed(2)}
+                  </span>
+                </TableCell>
+                <TableCell className="pr-1 text-right">
+                  <span className={cn("font-medium tnum", activeCol("killRate") ? "text-brand" : "text-foreground")}>
                     {row.killRate.toFixed(2)}
                   </span>
-                  <span className="block text-[11px] text-text-tertiary tnum">
+                  <span className="block text-[11px] text-muted-foreground tnum">
                     killScore {pct(row.killScore)}
                   </span>
-                </td>
-                <td className="py-7 pr-1 text-right">
-                  <span className={`font-medium tnum ${activeCol("economyScore") ? "text-accent-primary" : "text-text-primary"}`}>
+                </TableCell>
+                <TableCell className="pr-1 text-right">
+                  <span className={cn("font-medium tnum", activeCol("economyScore") ? "text-brand" : "text-foreground")}>
                     {pct(row.economyScore)}
                   </span>
-                  <span className="block text-[11px] text-text-tertiary tnum">
+                  <span className="block text-[11px] text-muted-foreground tnum">
                     rankScore {pct(row.rankScore)}
                   </span>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }

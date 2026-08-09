@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import type { BenchmarkScenario } from "@/lib/bench";
+import { cn } from "@/lib/utils";
 import { KillTimeline } from "@/components/kill-timeline";
 
 /**
- * 击杀时序面板：场景 × 种子切换（客户端交互），展示选定场次的
- * 核心摧毁时间线（tick 轴 × 玩家行，标记颜色 = 击杀者）。
+ * 击杀时序面板：场景 × 种子切换（Button group），展示选定场次的击杀时间线。
+ * 切换按钮用 ghost/brand 变体，键盘可访问。
  */
 export function KillTimelinePanel({
   scenarios,
@@ -31,42 +32,46 @@ export function KillTimelinePanel({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-        <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+        <div className="inline-flex rounded-md border border-border bg-secondary/50 p-1">
           {scenarios.map((s, index) => (
             <button
               key={s.name}
               type="button"
               onClick={() => switchScenario(index)}
-              className={`border px-2.5 py-1 text-xs transition-colors ${
+              className={cn(
+                "rounded-sm px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                 index === scenarioIndex
-                  ? "border-text-primary bg-surface-tertiary text-text-primary"
-                  : "border-border-primary text-text-tertiary hover:text-text-secondary"
-              }`}
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
             >
               {s.label}
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-text-tertiary">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <span>种子</span>
-          {seeds.map((seed, index) => (
-            <button
-              key={seed}
-              type="button"
-              onClick={() => setSeedIndex(index)}
-              className={`tnum border px-2 py-0.5 transition-colors ${
-                index === seedIndex
-                  ? "border-accent-primary/60 text-accent-primary"
-                  : "border-border-primary text-text-tertiary hover:text-text-secondary"
-              }`}
-            >
-              {seed}
-            </button>
-          ))}
+          <div className="inline-flex gap-1">
+            {seeds.map((seed, index) => (
+              <button
+                key={seed}
+                type="button"
+                onClick={() => setSeedIndex(index)}
+                className={cn(
+                  "tnum rounded-sm border px-2 py-0.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                  index === seedIndex
+                    ? "border-brand/60 bg-brand-soft text-brand"
+                    : "border-border text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {seed}
+              </button>
+            ))}
+          </div>
         </div>
         {match && (
-          <span className="text-xs text-text-tertiary">
+          <span className="text-xs text-muted-foreground">
             {match.winner ? `胜方 ${roster.find((r) => r.id === match.winner)?.label ?? match.winner}` : "平局"}
           </span>
         )}

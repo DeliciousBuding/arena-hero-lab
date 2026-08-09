@@ -1,7 +1,7 @@
 {
   "schema": "arena.bench.report.v3",
   "generatedAt": "2026-08-09T16:37:05.904Z",
-  "convertedAt": "2026-08-09T16:37:51.194Z",
+  "convertedAt": "2026-08-09T18:39:05.108Z",
   "source": "D:/Code/Projects/arena/arena-hero-leaderboard/scripts/input",
   "params": {
     "players": 10,
@@ -29,49 +29,65 @@
       "id": "farmer",
       "label": "farmer（守矿）",
       "kind": "python",
-      "configNote": "默认配置（arena-hero-agent CoreFarmer，worker_target=12/beacon_policy=retreat）"
+      "configNote": "Drew-Z 社区实现：资源优先（resource-first），12W+4V+4R 基础舰队，v0.14 动态价格适配",
+      "repoUrl": "https://github.com/Drew-Z/arena-hero-agent",
+      "linuxdoUrl": "https://linux.do/t/topic/2703873"
     },
     {
       "id": "core",
       "label": "core（官方参考）",
       "kind": "python",
-      "configNote": "默认配置（arena-hero-guide arena_core_agent，mode=harvest/target=30）"
+      "configNote": "VelvetEvening 社区进攻向指南（双策略 v3.3，arena_core_agent，mode=harvest/target=30）",
+      "repoUrl": "https://github.com/VelvetEvening/ArenaHero-nearly-perfect-guide",
+      "linuxdoUrl": "https://linux.do/t/topic/2715054"
     },
     {
       "id": "waaiging",
       "label": "waaiging（战术）",
       "kind": "python",
-      "configNote": "默认配置（arena-hero-clone-waaiging SmartTactic）"
+      "configNote": "Waaiging 社区战术 agent（SmartTactic，4 模式自适应经济/动态产兵/编队推进/Core 斩首/信标控制）",
+      "repoUrl": "https://github.com/Waaiging/ArenaHero",
+      "linuxdoUrl": "https://linux.do/t/topic/2721042"
     },
     {
       "id": "tactic",
       "label": "tactic（均衡防守）",
       "kind": "python",
-      "configNote": "默认配置（arena-hero-tactic）"
+      "configNote": "feixingwawa 社区战术客户端（资源优先 + 均衡防守，12W/4V/4R 爬坡、矿点智能调度、Beacon 导向探索）",
+      "repoUrl": "https://github.com/feixingwawa/arena-hero-tactic",
+      "linuxdoUrl": "https://linux.do/t/topic/2726683"
     },
     {
       "id": "arena-evolve",
       "label": "arena-evolve（进化冠军）",
       "kind": "python",
-      "configNote": "默认冠军（arena-evolve evolve_v7_best）"
+      "configNote": "Torther 基因启发式策略 + GA 进化研究（evolve_v7_best 冠军快照）",
+      "repoUrl": "https://github.com/Torther/arena-evolve",
+      "linuxdoUrl": "https://linux.do/t/topic/2723397"
     },
     {
       "id": "waaiging-agg",
       "label": "waaiging-agg（进攻变体）",
       "kind": "python",
-      "configNote": "SDK 注入（config-injection v3，R1 接线）：ARENA_CFG_MEMORY_MODE=aggress （TacticMemory.mode 点分路径——进攻模式开关，默认 develop→aggress；SDK 层探针验证有效，桥端通道待 R2，见 v3 文档 §条目）"
+      "configNote": "Waaiging 社区战术变体（进攻倾向：mode=aggress，6 先锋 + 9 游侠前压）",
+      "repoUrl": "https://github.com/Waaiging/ArenaHero",
+      "linuxdoUrl": "https://linux.do/t/topic/2721042"
     },
     {
       "id": "core-mil",
       "label": "core-mil（军事变体）",
       "kind": "python",
-      "configNote": "SDK 注入（config-injection v3）：ARENA_CFG_TARGET=20 + ARENA_CFG_MODE=harvest （提前结束经济扩张，省资源转兵力投入——mode 无 military 值，用 target 缩短发育期；SDK 层 decide_kwargs 覆盖验证有效，桥端通道待 R2，见 v3 文档 §条目）"
+      "configNote": "VelvetEvening 社区指南变体（军事倾向：mode=control/target=8）",
+      "repoUrl": "https://github.com/VelvetEvening/ArenaHero-nearly-perfect-guide",
+      "linuxdoUrl": "https://linux.do/t/topic/2715054"
     },
     {
       "id": "farmer-eco",
       "label": "farmer-eco（纯经济对照）",
       "kind": "python",
-      "configNote": "SDK 注入（config-injection v3）：ARENA_CFG_WORKER_TARGET=8（低于默认 12，纯经济发育对照——任务书指定值；SDK 层探针验证有效，桥端通道待 R2，见 v3 文档 §条目）"
+      "configNote": "Drew-Z 社区实现变体（经济倾向：worker_target=16/beacon_policy=retreat）",
+      "repoUrl": "https://github.com/Drew-Z/arena-hero-agent",
+      "linuxdoUrl": "https://linux.do/t/topic/2703873"
     },
     {
       "id": "ts-aggressive",
@@ -543,7 +559,8 @@
               "unitsLost": 2,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 2,
@@ -701,7 +718,8 @@
               "unitsLost": 1,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 3,
@@ -859,7 +877,8 @@
               "unitsLost": 1,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 4,
@@ -1017,7 +1036,8 @@
               "unitsLost": 0,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 5,
@@ -1175,7 +1195,8 @@
               "unitsLost": 0,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         }
       ]
     },
@@ -1457,7 +1478,8 @@
               "unitsLost": 2,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 2,
@@ -1615,7 +1637,8 @@
               "unitsLost": 2,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 3,
@@ -1773,7 +1796,8 @@
               "unitsLost": 4,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 4,
@@ -1931,7 +1955,8 @@
               "unitsLost": 1,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 5,
@@ -2089,7 +2114,8 @@
               "unitsLost": 6,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         }
       ]
     },
@@ -2371,7 +2397,8 @@
               "unitsLost": 0,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 2,
@@ -2529,7 +2556,8 @@
               "unitsLost": 0,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 3,
@@ -2687,7 +2715,8 @@
               "unitsLost": 0,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 4,
@@ -2845,7 +2874,8 @@
               "unitsLost": 1,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 5,
@@ -3003,7 +3033,8 @@
               "unitsLost": 0,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         }
       ]
     },
@@ -3285,7 +3316,8 @@
               "unitsLost": 0,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 2,
@@ -3443,7 +3475,8 @@
               "unitsLost": 3,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 3,
@@ -3601,7 +3634,8 @@
               "unitsLost": 4,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 4,
@@ -3759,7 +3793,8 @@
               "unitsLost": 0,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 5,
@@ -3917,7 +3952,8 @@
               "unitsLost": 5,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         }
       ]
     },
@@ -4199,7 +4235,8 @@
               "unitsLost": 3,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 2,
@@ -4357,7 +4394,8 @@
               "unitsLost": 1,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 3,
@@ -4515,7 +4553,8 @@
               "unitsLost": 0,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 4,
@@ -4673,7 +4712,8 @@
               "unitsLost": 1,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 5,
@@ -4831,7 +4871,8 @@
               "unitsLost": 4,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         }
       ]
     },
@@ -5113,7 +5154,8 @@
               "unitsLost": 5,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 2,
@@ -5271,7 +5313,8 @@
               "unitsLost": 1,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 3,
@@ -5429,7 +5472,8 @@
               "unitsLost": 0,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 4,
@@ -5587,7 +5631,8 @@
               "unitsLost": 0,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 5,
@@ -5745,7 +5790,8 @@
               "unitsLost": 5,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         }
       ]
     },
@@ -6027,7 +6073,8 @@
               "unitsLost": 3,
               "isWinner": true
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 2,
@@ -6185,7 +6232,8 @@
               "unitsLost": 3,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 3,
@@ -6343,7 +6391,8 @@
               "unitsLost": 0,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 4,
@@ -6501,7 +6550,8 @@
               "unitsLost": 1,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         },
         {
           "seed": 5,
@@ -6659,7 +6709,8 @@
               "unitsLost": 8,
               "isWinner": false
             }
-          }
+          },
+          "killEvents": []
         }
       ]
     }

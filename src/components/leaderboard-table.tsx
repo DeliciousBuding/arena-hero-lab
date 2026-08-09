@@ -4,14 +4,25 @@ import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { DimensionRow } from "@/lib/dimensions";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ContestantLinks } from "./contestant-links";
 import { KindBadge } from "./kind-badge";
 import { RankBadge } from "./rank-badge";
 
 type SortMode = "rank" | "asc" | "desc";
 
 /**
- * arena.ai 风格 top10 表：名次 | 条目 | 数值。
- * 点击数值列头可循环切换排序（升序/降序/按名次）。
+ * 维度榜单表：名次 | 条目 | 数值。
+ * 用 Table 原语统一排版；列头 Button 切换排序（升/降/名次）。
+ * 条目名旁加 KindBadge + 外链群（GitHub/LinuxDO）。
  */
 export function LeaderboardTable({
   rows,
@@ -26,12 +37,8 @@ export function LeaderboardTable({
 
   const sorted = useMemo(() => {
     const list = showAll ? rows : rows.slice(0, 10);
-    if (mode === "asc") {
-      return [...list].sort((a, b) => a.sortValue - b.sortValue);
-    }
-    if (mode === "desc") {
-      return [...list].sort((a, b) => b.sortValue - a.sortValue);
-    }
+    if (mode === "asc") return [...list].sort((a, b) => a.sortValue - b.sortValue);
+    if (mode === "desc") return [...list].sort((a, b) => b.sortValue - a.sortValue);
     return [...list].sort((a, b) => a.rank - b.rank);
   }, [rows, mode, showAll]);
 
@@ -40,16 +47,18 @@ export function LeaderboardTable({
   }
 
   return (
-    <table className="w-full border-collapse text-sm">
-      <thead>
-        <tr className="border-b border-border-primary text-xs text-text-tertiary">
-          <th className="w-10 pb-2 pl-1 text-left font-medium">名次</th>
-          <th className="pb-2 text-left font-medium">条目</th>
-          <th className="pb-2 pr-1 text-right font-medium">
-            <button
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-12 pl-1">名次</TableHead>
+          <TableHead>条目</TableHead>
+          <TableHead className="pr-1 text-right">
+            <Button
               type="button"
               onClick={cycleSort}
-              className="inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:bg-surface-tertiary hover:text-text-primary"
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1.5 px-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
               title="点击切换排序（升序/降序/名次）"
             >
               {valueLabel}
@@ -60,43 +69,59 @@ export function LeaderboardTable({
               ) : (
                 <ArrowDown className="h-3 w-3" />
               )}
-            </button>
-          </th>
-        </tr>
-      </thead>
-      <tbody>
+            </Button>
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {sorted.map((row) => (
-          <tr
-            key={row.id}
-            className="group border-b border-border-primary/60 transition-colors last:border-b-0 hover:bg-surface-tertiary/50"
-          >
-            <td className="py-2 pl-1">
-              <RankBadge rank={row.rank} />
-            </td>
-            <td className="py-2">
-              <Link
-                href={`/entry/${row.id}`}
-                className="flex flex-col leading-tight transition-colors group-hover:text-accent-primary"
-              >
-                <span className="flex items-center gap-1.5">
-                  <span className="font-medium text-text-primary">{row.label}</span>
+          <TableRow key={row.id} className="group">
+            <TableCell className="pl-1">
+              <RankBadge rank={row.rank} size="sm" />
+            </TableCell>
+            <TableCell>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-1.5">
+                  <Link
+                    href={`/entry/${row.id}`}
+                    className="font-medium text-foreground transition-colors group-hover:text-brand"
+                  >
+                    {row.label}
+                  </Link>
                   <KindBadge kind={row.kind} />
-                </span>
-                <span className="text-[11px] text-text-tertiary tnum">{row.id}</span>
-              </Link>
-            </td>
-            <td className="py-2 pr-1 text-right">
-              <span className="font-semibold text-text-primary tnum">{row.primary}</span>
+                </div>
+                <div className="flex items-center gap-2 text-[11px] text-muted-foreground tnum">
+                  <span>{row.id}</span>
+                </div>
+                {row.repoUrl !== undefined || row.linuxdoUrl !== undefined ? (
+                  <ContestantLinks
+                    contestant={{
+                      id: row.id,
+                      label: row.label,
+                      kind: row.kind,
+                      configNote: "",
+                      ...(row.repoUrl !== undefined ? { repoUrl: row.repoUrl } : {}),
+                      ...(row.linuxdoUrl !== undefined ? { linuxdoUrl: row.linuxdoUrl } : {}),
+                    }}
+                    variant="inline"
+                  />
+                ) : null}
+              </div>
+            </TableCell>
+            <TableCell className="pr-1 text-right">
+              <span className="font-semibold text-foreground tnum">{row.primary}</span>
               {row.delta ? (
-                <span className="ml-1 text-xs font-normal text-text-tertiary tnum">{row.delta}</span>
+                <span className="ml-1 text-xs font-normal text-muted-foreground tnum">
+                  {row.delta}
+                </span>
               ) : null}
-              <span className="block text-[11px] font-normal text-text-tertiary tnum">
+              <span className="block text-[11px] font-normal text-muted-foreground tnum">
                 {row.secondary}
               </span>
-            </td>
-          </tr>
+            </TableCell>
+          </TableRow>
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 }

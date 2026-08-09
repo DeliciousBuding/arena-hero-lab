@@ -1,6 +1,7 @@
 /**
  * 迷你柱状图：单指标跨场景对比（纯 SVG，无图表库）。
  * 柱高按该条目各场景中的最大值归一化；柱顶标注数值。
+ * 颜色取自设计 token（brand / muted），不硬编码。
  */
 export function MiniBars({
   items,
@@ -41,14 +42,14 @@ export function MiniBars({
               width={barW}
               height={barH}
               rx={3}
-              fill={item.value == null ? "var(--heat-0)" : "var(--accent-primary)"}
-              opacity={item.value == null ? 1 : 0.85}
+              fill={item.value == null ? "var(--color-muted)" : "var(--color-brand)"}
+              opacity={item.value == null ? 0.5 : 0.85}
             />
             <text
               x={cx}
               y={height + 12}
               textAnchor="middle"
-              style={{ fontSize: 9, fill: "var(--text-tertiary)" }}
+              style={{ fontSize: 9, fill: "var(--color-muted-foreground)" }}
             >
               {item.label}
             </text>

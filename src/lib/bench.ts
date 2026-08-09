@@ -9,6 +9,10 @@ export interface Contestant {
   label: string;
   kind: "python" | "builtin";
   configNote: string;
+  /** GitHub 仓库（社区 agent 第三方来源；v3.1，convert 侧映射）。 */
+  repoUrl?: string;
+  /** Linux DO 社区帖子（讨论来源；v3.1，convert 侧映射）。 */
+  linuxdoUrl?: string;
 }
 
 export interface LeaderboardRow {

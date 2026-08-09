@@ -44,6 +44,45 @@ const SCENARIO_LABELS: Record<string, string> = {
   "ffa-defense-pressure": "资源枯竭",
 };
 
+/** 条目 id → GitHub 仓库（社区 agent 全部第三方，无官方；展示用，不依赖评测产物）。
+ *  来源：docs/reference/repository-classification.md 第三方表登记。 */
+const CONTESTANT_REPO_URL: Record<string, string> = {
+  farmer: "https://github.com/Drew-Z/arena-hero-agent",
+  "farmer-eco": "https://github.com/Drew-Z/arena-hero-agent",
+  core: "https://github.com/VelvetEvening/ArenaHero-nearly-perfect-guide",
+  "core-mil": "https://github.com/VelvetEvening/ArenaHero-nearly-perfect-guide",
+  waaiging: "https://github.com/Waaiging/ArenaHero",
+  "waaiging-agg": "https://github.com/Waaiging/ArenaHero",
+  tactic: "https://github.com/feixingwawa/arena-hero-tactic",
+  "arena-evolve": "https://github.com/Torther/arena-evolve",
+};
+
+/** 条目 id → Linux DO 帖子（社区讨论来源；展示用，不依赖评测产物）。
+ *  来源：docs/reference/repository-classification.md 第三方表登记。 */
+const CONTESTANT_LINUXDO_URL: Record<string, string> = {
+  farmer: "https://linux.do/t/topic/2703873",
+  "farmer-eco": "https://linux.do/t/topic/2703873",
+  core: "https://linux.do/t/topic/2715054",
+  "core-mil": "https://linux.do/t/topic/2715054",
+  waaiging: "https://linux.do/t/topic/2721042",
+  "waaiging-agg": "https://linux.do/t/topic/2721042",
+  tactic: "https://linux.do/t/topic/2726683",
+  "arena-evolve": "https://linux.do/t/topic/2723397",
+};
+
+/** 条目 id → 展示用配置说明（覆盖评测产物 configNote 的"官方"措辞——
+ *  这些 agent 全部是社区第三方实现，无官方 agent；文案对齐各仓库 README 定位）。 */
+const CONTESTANT_CONFIG_NOTE: Record<string, string> = {
+  farmer: "Drew-Z 社区实现：资源优先（resource-first），12W+4V+4R 基础舰队，v0.14 动态价格适配",
+  "farmer-eco": "Drew-Z 社区实现变体（经济倾向：worker_target=16/beacon_policy=retreat）",
+  core: "VelvetEvening 社区进攻向指南（双策略 v3.3，arena_core_agent，mode=harvest/target=30）",
+  "core-mil": "VelvetEvening 社区指南变体（军事倾向：mode=control/target=8）",
+  waaiging: "Waaiging 社区战术 agent（SmartTactic，4 模式自适应经济/动态产兵/编队推进/Core 斩首/信标控制）",
+  "waaiging-agg": "Waaiging 社区战术变体（进攻倾向：mode=aggress，6 先锋 + 9 游侠前压）",
+  tactic: "feixingwawa 社区战术客户端（资源优先 + 均衡防守，12W/4V/4R 爬坡、矿点智能调度、Beacon 导向探索）",
+  "arena-evolve": "Torther 基因启发式策略 + GA 进化研究（evolve_v7_best 冠军快照）",
+};
+
 interface PerPlayerStats {
   aliveTicks: number;
   beaconTicks: number;
@@ -92,7 +131,7 @@ interface RawReport {
       rank: Record<string, number>;
       perPlayer: Record<string, PerPlayerStats>;
       /** v3.1 击杀时序事件（旧产物缺失）。 */
-      killEvents?: { tick: number; destroyedBy: string[] }[];
+      killEvents?: { tick: number; destroyedBy: string[]; victim?: string }[];
     }[];
   }[];
 }
@@ -205,6 +244,13 @@ function main(): void {
           destroyedBy: event.destroyedBy
             .map((rawId) => resolvePlayerId(rawId, match.seed, contestantIds))
             .filter((id): id is string => id !== null),
+          ...(event.victim === undefined
+            ? {}
+            : {
+                victim:
+                  resolvePlayerId(event.victim, match.seed, contestantIds) ??
+                  event.victim,
+              }),
         })),
       };
     });
@@ -270,7 +316,9 @@ function main(): void {
       id: c.id,
       label: c.label,
       kind: c.kind,
-      configNote: c.configNote,
+      configNote: CONTESTANT_CONFIG_NOTE[c.id] ?? c.configNote,
+      ...(CONTESTANT_REPO_URL[c.id] !== undefined ? { repoUrl: CONTESTANT_REPO_URL[c.id] } : {}),
+      ...(CONTESTANT_LINUXDO_URL[c.id] !== undefined ? { linuxdoUrl: CONTESTANT_LINUXDO_URL[c.id] } : {}),
     })),
     leaderboard,
     scenarios,

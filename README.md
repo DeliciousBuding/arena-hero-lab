@@ -7,18 +7,26 @@ arena-hero 模拟器评测 v3 的产品级 Leaderboard 网站（独立 git 仓�
 
 ## 技术栈
 
+四层现代 UI 栈（shadcn 语法 + Radix 行为 + Tailwind token + Lucide 图标）：
+
 - Next.js 16（App Router）+ React 19 + TypeScript
-- Tailwind CSS v4（CSS 变量设计令牌：surface/text/accent/heat 色阶、阴影、圆角）
-- lucide-react（图标）
-- 图表：全部自绘 SVG（热图 / v3 四维雷达 / 迷你柱状图 / 指标条），零图表库依赖
+- Tailwind CSS v4（CSS 变量设计令牌：语义色 / brand 琥珀 / rank 金银铜 / heat 7 阶 / 圆角 / 阴影 / serif+sans 字体族）
+- shadcn 风格 ui 原语（`src/components/ui/`）：card / badge / button / separator / tabs / tooltip / scroll-area / table / stat
+- class-variance-authority（cva 变体约束）+ clsx + tailwind-merge（`cn()` 消解冲突）
+- @radix-ui/react-*（separator / tabs / tooltip / scroll-area / slot / switch）——键盘可访问 + ARIA
+- next/font（Inter + Noto Serif SC，Anthropic 风格 serif 标题 + sans 正文）
+- lucide-react（统一图标语言）
+- 图表：全部自绘 SVG（热图 / v3 四维雷达 / 迷你柱状图 / 指标条 / 击杀时序），零图表库依赖
+
+设计约束：同一组件圆角/颜色/间距/字号必须取自 token，禁止就地造数；交互状态（hover/active/focus-visible/disabled）全部在 cva 变体内定义，不分裂。
 
 ## 页面结构
 
 | 路由 | 内容 |
 |---|---|
-| `/` | 榜单总览：hero + 前三名领奖台 + 综合排名增强表（多列排序）+ 场景×条目热图（资源/杀率/存活切换）+ 场景对比 + 关于本站 |
-| `/leaderboard` | 全量榜单：4 张 v3 维度卡片（综合分 / 经济 / 击杀 / 场景梯度） |
-| `/entry/[id]` | 条目详情：v3 四维雷达 + 排名分项 + 场景×指标小图 + 分场景表现 + 单场明细 |
+| `/` | 榜单总览：hero（serif 标题 + 数据 stat 群）+ 前三名领奖台 + 综合排名表（多列排序）+ 评测方法说明 + 场景×条目热图 + 场景对比 |
+| `/leaderboard` | 全量榜单：4 张维度卡片（综合分 / 经济 / 击杀 / 场景梯度）+ 搜索 |
+| `/entry/[id]` | 条目详情：头部卡片（GitHub/LinuxDO 外链）+ 策略画像（可观测性洞察）+ v3 四维雷达 + 排名分项 + 场景指标小图 + 分场景表 + 单场明细 + 击杀时序 |
 
 ## 启动
 

@@ -4,6 +4,15 @@ import { GitBranch, Trophy } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { benchData } from "@/lib/bench";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { ThemeToggle } from "./theme-toggle";
 
 const NAV_ITEMS = [
@@ -11,54 +20,73 @@ const NAV_ITEMS = [
   { href: "/leaderboard", label: "全维度" },
   { href: "/#heatmap", label: "热图" },
   { href: "/#scenarios", label: "场景" },
-];
+] as const;
 
-/** arena.ai 风格顶部导航：透明底 + 0.57px 细线 + 48px 高，sticky。 */
+/**
+ * 顶部导航：sticky + 半透明背景模糊，48px 高，底部 hairline。
+ * 用 Button asChild 组合 Link，焦点环统一。
+ */
 export function AppChrome() {
   const pathname = usePathname();
-  const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href.split("#")[0]));
+  const isActive = (href: string) =>
+    href === "/" ? pathname === "/" : pathname.startsWith(href.split("#")[0]);
 
   return (
-    <nav className="sticky top-0 z-40 bg-surface-secondary/95 backdrop-blur">
-      <div className="mx-auto flex h-12 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+    <nav className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
+      <div className="container-page flex h-14 items-center justify-between gap-4 px-4 sm:px-6">
         <div className="flex items-center gap-3">
-          <div className="flex h-6 w-6 items-center justify-center rounded-sm bg-accent-primary/90">
-            <Trophy className="h-3.5 w-3.5 text-surface-secondary" />
-          </div>
-          <Link href="/" className="text-sm font-medium tracking-tight text-text-primary link-hover">
-            Arena Hero
+          <Link
+            href="/"
+            className="flex items-center gap-2.5 text-sm font-medium tracking-tight text-foreground transition-colors hover:text-brand"
+          >
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-foreground text-background">
+              <Trophy className="h-3.5 w-3.5" />
+            </span>
+            <span className="font-serif text-base">Arena Hero</span>
           </Link>
+          <Separator orientation="vertical" className="hidden h-5 sm:block" />
+          <Badge variant="outline" className="hidden sm:inline-flex">
+            {benchData.schema}
+          </Badge>
         </div>
 
-        <div className="hidden items-center gap-6 sm:flex">
+        <div className="hidden items-center gap-1 sm:flex">
           {NAV_ITEMS.map((item) => (
-            <Link
+            <Button
               key={item.href}
-              href={item.href}
-              className={`text-sm transition-colors ${
-                isActive(item.href) ? "font-medium text-text-primary" : "text-text-secondary hover:text-text-primary"
-              }`}
+              asChild
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "h-8",
+                isActive(item.href)
+                  ? "bg-secondary text-foreground"
+                  : "text-muted-foreground",
+              )}
             >
-              {item.label}
-            </Link>
+              <Link href={item.href}>{item.label}</Link>
+            </Button>
           ))}
         </div>
 
-        <div className="flex items-center gap-3">
-          <span className="hidden text-xs text-text-tertiary tnum md:block">{benchData.schema}</span>
-          <Link
-            href="https://github.com/DeliciousBuding/arena-hero-leaderboard"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="GitHub 仓库"
-            className="text-text-secondary transition-colors hover:text-text-primary"
-          >
-            <GitBranch className="h-4 w-4" />
-          </Link>
+        <div className="flex items-center gap-1.5">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button asChild variant="ghost" size="icon-sm" aria-label="GitHub 仓库">
+                <Link
+                  href="https://github.com/DeliciousBuding/arena-hero-leaderboard"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <GitBranch className="h-4 w-4" />
+                </Link>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>源码仓库</TooltipContent>
+          </Tooltip>
           <ThemeToggle />
         </div>
       </div>
-      <div className="hairline" />
     </nav>
   );
 }
