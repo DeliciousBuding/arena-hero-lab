@@ -2,6 +2,7 @@ import { ArrowLeft, Award, CircleAlert } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { KindBadge } from "@/components/kind-badge";
+import { KillTimelinePanel } from "@/components/kill-timeline-panel";
 import { MiniBars } from "@/components/mini-bars";
 import { RadarChart } from "@/components/radar-chart";
 import { RankBadge } from "@/components/rank-badge";
@@ -368,6 +369,19 @@ export default async function EntryPage({
             </tbody>
           </table>
         </div>
+      </section>
+      {/* ===== 击杀时序 ===== */}
+      <section className="mt-6 card p-6">
+        <SectionHeader
+          title="击杀时序"
+          enTitle="Kill Timeline"
+          description="核心摧毁事件沿 tick 轴展开：每行一个玩家，标记位置 = 摧毁时刻、颜色 = 击杀者（悬浮查看击杀者 → 被击杀者）。"
+        />
+        <KillTimelinePanel
+          scenarios={benchData.scenarios}
+          roster={benchData.contestants.map((c) => ({ id: c.id, label: c.label }))}
+          ticks={benchData.params.ticks}
+        />
       </section>
     </div>
   );

@@ -74,11 +74,20 @@ export interface MatchPlayerStats {
   isWinner: boolean;
 }
 
+export interface KillEvent {
+  tick: number;
+  destroyedBy: string[];
+  /** 被摧毁核心的归属条目 id（v3.1；旧数据可能缺失）。 */
+  victim?: string;
+}
+
 export interface BenchmarkMatch {
   seed: number;
   winner: string;
   rank: Record<string, number>;
   players: Record<string, MatchPlayerStats>;
+  /** 击杀时序事件（v3.1；旧数据可能缺失）。 */
+  killEvents?: KillEvent[];
 }
 
 export interface BenchmarkScenario {

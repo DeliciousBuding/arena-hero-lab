@@ -91,6 +91,8 @@ interface RawReport {
       winner: string;
       rank: Record<string, number>;
       perPlayer: Record<string, PerPlayerStats>;
+      /** v3.1 击杀时序事件（旧产物缺失）。 */
+      killEvents?: { tick: number; destroyedBy: string[] }[];
     }[];
   }[];
 }
@@ -193,7 +195,18 @@ function main(): void {
         bucket.bestRank = Math.min(bucket.bestRank, rank);
         bucket.worstRank = Math.max(bucket.worstRank, rank);
       }
-      return { seed: match.seed, winner: match.winner, rank: match.rank, players };
+      return {
+        seed: match.seed,
+        winner: match.winner,
+        rank: match.rank,
+        players,
+        killEvents: (match.killEvents ?? []).map((event) => ({
+          tick: event.tick,
+          destroyedBy: event.destroyedBy
+            .map((rawId) => resolvePlayerId(rawId, match.seed, contestantIds))
+            .filter((id): id is string => id !== null),
+        })),
+      };
     });
 
     for (const bucket of Object.values(statsForEntry)) {
