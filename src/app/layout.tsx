@@ -6,10 +6,10 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Arena Hero · 模拟器评测榜单",
   description:
-    "arena-hero 模拟器评测 v2 Leaderboard：10 个 agent 条目 × 5 场景 × 3 种子，综合分 / 击杀 / 生存 / 场景梯度 / 五维画像 / 生态。",
+    "arena-hero 模拟器评测 v3 Leaderboard：agent 条目 × 场景 × 种子对抗，综合分 / 名次 / 击杀 / 经济多维对比，全量图表前端渲染（React + SVG），静态导出部署于 GitHub Pages。",
 };
 
-const THEME_INIT_SCRIPT = `try{var t=localStorage.getItem('arena-leaderboard-theme');if(t==='light'){document.documentElement.classList.remove('dark')}else{document.documentElement.classList.add('dark')}}catch(e){}`;
+const THEME_INIT_SCRIPT = `try{var s=localStorage.getItem('arena-leaderboard-theme');var d=window.matchMedia('(prefers-color-scheme: dark)').matches;if(s==='light'){document.documentElement.classList.remove('dark')}else if(s==='dark'){document.documentElement.classList.add('dark')}else if(d){document.documentElement.classList.add('dark')}else{document.documentElement.classList.remove('dark')}}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

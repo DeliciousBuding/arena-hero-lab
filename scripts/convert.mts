@@ -1,12 +1,21 @@
 /**
- * 数据转换脚本：results.json（schema arena.bench.report.v2）→ src/data/bench.json
+ * 数据转换脚本：results.json（schema arena.bench.report.v3）→ src/data/bench.json
  *
  * 用法：
- *   node scripts/convert.mts                        # 使用 scripts/input/results.json（仓库内置副本）
- *   node scripts/convert.mts --source=<path>        # 从指定路径读取（如实时 runs 目录）
+ *   npx tsx scripts/convert.mts                          # 仓库内置副本 scripts/input/results.json
+ *   npx tsx scripts/convert.mts <path-to-results.json>   # 指定评测产物（推荐）
+ *   npx tsx scripts/convert.mts --source=<path>          # 等价写法
  *
  * 输出 src/data/bench.json 为静态数据，前端构建时直接 import，不接后端。
- * 本脚本只做确定性变换（聚合/排序/格式化），不编造任何数字。
+ * 本脚本只做确定性变换（字段裁剪/聚合/排序/中文标签映射），不编造任何数字。
+ *
+ * v3 契约要点（arena.bench.report.v3）：
+ * - leaderboard[]：composite/avgRank/killRate/economyScore/rankScore/killScore/
+ *   survivalMedian/survivalScore（survival* 为 v2 兼容字段，v3 恒 1.0，前端标注弃用）
+ * - scenarios[]：perEntry[contestantId] 提供 killRate/resourcesPerTick/survivalMedian/
+ *   populationPeak/avgRank/beaconTicks/firstKillTick/damagePerLoss
+ * - matches[]：perPlayer 键形如 `<id>-s<seed>`，rank/winner 同键
+ * - contestants[]：kind: python | builtin（builtin = 对照组）
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -14,21 +23,26 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const defaultSource = resolve(repoRoot, "scripts/input/results.json");
-const sourceArg = process.argv.find((a) => a.startsWith("--source="));
-const sourcePath = sourceArg ? resolve(sourceArg.slice("--source=".length)) : defaultSource;
+const sourceArg =
+  process.argv.find((a) => a.startsWith("--source=")) ??
+  process.argv.find((a) => a.endsWith(".json") && !a.startsWith("-"));
+const sourcePath = sourceArg
+  ? resolve(sourceArg.startsWith("--source=") ? sourceArg.slice("--source=".length) : sourceArg)
+  : defaultSource;
 const outputPath = resolve(repoRoot, "src/data/bench.json");
 
-/** 场景中文名（展示用，纯翻译） */
+const SCHEMA = "arena.bench.report.v3";
+
+/** 场景名 → 中文标签（展示用，纯翻译，不改变任何数值） */
 const SCENARIO_LABELS: Record<string, string> = {
   "ffa-dense": "高密度冲突",
   "ffa-std": "标准地图",
   "ffa-open": "开阔地图",
   "ffa-scarce": "资源匮乏",
   "ffa-random": "随机落点",
+  "ffa-resource-race": "中央矿争夺",
+  "ffa-defense-pressure": "资源枯竭",
 };
-
-/** 归一化五维的顺序与中文名 */
-const PROFILE_DIMENSIONS = ["economy", "military", "survival", "beacon", "expansion"] as const;
 
 interface PerPlayerStats {
   aliveTicks: number;
@@ -60,19 +74,13 @@ interface RawReport {
     contestantId: string;
     avgRank: number;
     composite: number;
+    economyScore: number;
     killRate: number;
     killScore: number;
     rankScore: number;
     survivalMedian: number;
     survivalScore: number;
   }[];
-  profiles: Record<
-    string,
-    {
-      normalized: Record<(typeof PROFILE_DIMENSIONS)[number], number>;
-      raw: Record<(typeof PROFILE_DIMENSIONS)[number], number>;
-    }
-  >;
   scenarios: {
     name: string;
     seedCount: number;
@@ -87,7 +95,7 @@ interface RawReport {
   }[];
 }
 
-interface EntryScenarioStat {
+export interface EntryScenarioStat {
   avgRank: number;
   bestRank: number;
   worstRank: number;
@@ -116,55 +124,26 @@ function stddev(values: number[]): number {
   return Math.sqrt(mean(values.map((v) => (v - m) ** 2)));
 }
 
-/** 简易 CSV 解析（支持 BOM、空字段、引号） */
-function parseCsv(text: string): string[][] {
-  const clean = text.replace(/^\uFEFF/, "");
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = "";
-  let inQuotes = false;
-  for (let i = 0; i < clean.length; i++) {
-    const ch = clean[i];
-    if (inQuotes) {
-      if (ch === '"') {
-        if (clean[i + 1] === '"') {
-          field += '"';
-          i++;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        field += ch;
-      }
-    } else if (ch === '"') {
-      inQuotes = true;
-    } else if (ch === ",") {
-      row.push(field);
-      field = "";
-    } else if (ch === "\n" || ch === "\r") {
-      if (ch === "\r" && clean[i + 1] === "\n") i++;
-      row.push(field);
-      field = "";
-      if (row.some((c) => c !== "")) rows.push(row);
-      row = [];
-    } else {
-      field += ch;
-    }
+/** perPlayer 键（`<id>-s<seed>` 或裸 id）→ 条目 id */
+function resolvePlayerId(key: string, seed: number, contestantIds: string[]): string | null {
+  if (contestantIds.includes(key)) return key;
+  const suffix = `-s${seed}`;
+  if (key.endsWith(suffix) && contestantIds.includes(key.slice(0, -suffix.length))) {
+    return key.slice(0, -suffix.length);
   }
-  row.push(field);
-  if (row.some((c) => c !== "")) rows.push(row);
-  return rows;
+  return null;
 }
 
 function main(): void {
   const raw: RawReport = JSON.parse(readFileSync(sourcePath, "utf8"));
-  if (raw.schema !== "arena.bench.report.v2") {
-    throw new Error(`Unexpected schema: ${raw.schema} (expect arena.bench.report.v2)`);
+  if (raw.schema !== SCHEMA) {
+    throw new Error(`Unexpected schema: ${raw.schema} (expect ${SCHEMA})`);
   }
 
+  const contestantIds = raw.contestants.map((c) => c.id);
   const scenarioIds = raw.scenarios.map((s) => s.name);
 
-  /** 每个条目 × 每个场景的聚合指标（由全部 matches 计算） */
+  /** 每条目 × 每场景的聚合指标（由全部 matches 派生，供分场景表/详情页使用） */
   const entryScenarioStats: Record<string, Record<string, EntryScenarioStat>> = {};
 
   const scenarios = raw.scenarios.map((scenario) => {
@@ -173,10 +152,8 @@ function main(): void {
     const matches = scenario.matches.map((match) => {
       const players: Record<string, PerPlayerStats & { isWinner: boolean }> = {};
       for (const [key, stats] of Object.entries(match.perPlayer)) {
-        // key 形如 "arena-evolve-s1" / "arena-evolve-s2" / "arena-evolve-s3" / "ts-aggressive"
-        const id = key.endsWith("-s1") || key.endsWith("-s2") || key.endsWith("-s3")
-          ? key.slice(0, -3)
-          : key;
+        const id = resolvePlayerId(key, match.seed, contestantIds);
+        if (!id) continue;
         players[id] = { ...stats, isWinner: match.winner === key };
         const bucket = (statsForEntry[id] ??= {
           avgRank: 0,
@@ -206,9 +183,10 @@ function main(): void {
         bucket.beaconTicks += stats.beaconTicks;
         bucket.matchCount += 1;
         if (stats.firstKillTick !== null) {
-          bucket.firstKillTick = bucket.firstKillTick === null
-            ? stats.firstKillTick
-            : Math.min(bucket.firstKillTick, stats.firstKillTick);
+          bucket.firstKillTick =
+            bucket.firstKillTick === null
+              ? stats.firstKillTick
+              : Math.min(bucket.firstKillTick, stats.firstKillTick);
         }
         const rank = match.rank[key] ?? match.rank[id] ?? 0;
         bucket.avgRank += rank;
@@ -246,42 +224,34 @@ function main(): void {
     };
   });
 
-  /** 榜单：按综合分降序，附跨场景排名统计 */
+  /** 榜单：按综合分降序，附每场景平均名次与跨场景波动（由 perEntry.avgRank 派生） */
   const sortedLeaderboard = [...raw.leaderboard].sort((a, b) => b.composite - a.composite);
   const leaderboard = sortedLeaderboard.map((entry, index) => {
-    const perScenario = entryScenarioStats[entry.contestantId] ?? {};
-    const ranks = Object.values(perScenario).map((s) => s.avgRank);
     const scenarioRanks = Object.fromEntries(
-      Object.entries(perScenario).map(([name, s]) => [name, s.avgRank]),
+      scenarios.map((s) => [s.name, s.perEntry[entry.contestantId]?.avgRank ?? null]),
     );
+    const rankValues = Object.values(scenarioRanks).filter((v): v is number => v != null);
     return {
       rank: index + 1,
       contestantId: entry.contestantId,
       composite: entry.composite,
       avgRank: entry.avgRank,
-      rankStddev: stddev(ranks),
+      rankStddev: stddev(rankValues),
       killRate: entry.killRate,
       killScore: entry.killScore,
       rankScore: entry.rankScore,
+      economyScore: entry.economyScore,
       survivalMedian: entry.survivalMedian,
       survivalScore: entry.survivalScore,
       scenarioRanks,
     };
   });
 
-  /** CSV 汇总表 → 结构化行 */
-  const csvText = readFileSync(resolve(repoRoot, "public/research/06_summary_table.csv"), "utf8");
-  const csvRows = parseCsv(csvText);
-  const csvHeader = csvRows[0] ?? [];
-  const summaryTable = csvRows.slice(1).map((cells) =>
-    Object.fromEntries(csvHeader.map((h, i) => [h, cells[i] ?? ""])),
-  );
-
   const output = {
     schema: raw.schema,
     generatedAt: raw.generatedAt,
     convertedAt: new Date().toISOString(),
-    source: "data/runs/sim/arena-bench-v2-d874a86e1931",
+    source: dirname(sourcePath).replace(/\\/g, "/"),
     params: raw.params,
     contestants: raw.contestants.map((c) => ({
       id: c.id,
@@ -289,12 +259,9 @@ function main(): void {
       kind: c.kind,
       configNote: c.configNote,
     })),
-    profileDimensions: [...PROFILE_DIMENSIONS],
-    profiles: raw.profiles,
     leaderboard,
     scenarios,
     entryScenarioStats,
-    summaryTable: { header: csvHeader, rows: summaryTable },
     scenarioOrder: scenarioIds,
   };
 
@@ -303,7 +270,7 @@ function main(): void {
   console.log(`[convert] ${sourcePath} -> ${outputPath}`);
   console.log(
     `[convert] ${leaderboard.length} entries, ${scenarios.length} scenarios, ` +
-      `${scenarios.reduce((n, s) => n + s.matches.length, 0)} matches, ${summaryTable.length} summary rows`,
+      `${scenarios.reduce((n, s) => n + s.matches.length, 0)} matches`,
   );
 }
 

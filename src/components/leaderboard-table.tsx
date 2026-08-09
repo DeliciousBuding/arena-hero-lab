@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { DimensionRow } from "@/lib/dimensions";
+import { KindBadge } from "./kind-badge";
 import { RankBadge } from "./rank-badge";
 
 type SortMode = "rank" | "asc" | "desc";
@@ -77,7 +78,10 @@ export function LeaderboardTable({
                 href={`/entry/${row.id}`}
                 className="flex flex-col leading-tight transition-colors group-hover:text-accent-primary"
               >
-                <span className="font-medium text-text-primary">{row.label}</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="font-medium text-text-primary">{row.label}</span>
+                  <KindBadge kind={row.kind} />
+                </span>
                 <span className="text-[11px] text-text-tertiary tnum">{row.id}</span>
               </Link>
             </td>

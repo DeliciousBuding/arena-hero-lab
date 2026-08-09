@@ -1,24 +1,23 @@
-import type { ProfileDimensionKey } from "@/lib/bench";
-import { PROFILE_DIM_LABELS } from "@/lib/bench";
-
 export interface RadarValue {
-  key: ProfileDimensionKey;
+  key: string;
+  label: string;
   value: number;
 }
 
 /**
- * 五维雷达图：纯 SVG 渲染（服务端可执行）。
- * 归一化 0–1 值，网格环 25/50/75/100%，多边形为五维画像。
+ * v3 四维雷达图：纯 SVG 渲染（服务端可执行）。
+ * 维度为 kill / rank / economy / survival 四项 0–1 分数，
+ * 网格环 25/50/75/100%，值为 0 的顶点收缩到圆心（如实反映分数）。
  */
 export function RadarChart({
   values,
-  size = 280,
+  size = 300,
 }: {
   values: RadarValue[];
   size?: number;
 }) {
   const center = size / 2;
-  const radius = size / 2 - 46;
+  const radius = size / 2 - 52;
   const angleStep = (Math.PI * 2) / values.length;
 
   const pointAt = (value: number, index: number) => {
@@ -40,7 +39,7 @@ export function RadarChart({
       width={size}
       height={size}
       role="img"
-      aria-label="五维画像雷达图"
+      aria-label="v3 四维分数雷达图"
       className="mx-auto"
     >
       {/* 网格环 */}
@@ -73,38 +72,55 @@ export function RadarChart({
           />
         );
       })}
-      {/* 数据多边形 */}
+      {/* 数据多边形：渐变描边 + 半透明填充 */}
+      <defs>
+        <linearGradient id="radar-fill" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="var(--accent-primary)" stopOpacity={0.28} />
+          <stop offset="100%" stopColor="var(--accent-secondary)" stopOpacity={0.18} />
+        </linearGradient>
+        <linearGradient id="radar-stroke" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="var(--accent-primary)" />
+          <stop offset="100%" stopColor="var(--accent-secondary)" />
+        </linearGradient>
+      </defs>
       <polygon
         points={polygonPoints}
-        fill="var(--accent-soft)"
-        stroke="var(--accent-primary)"
+        fill="url(#radar-fill)"
+        stroke="url(#radar-stroke)"
         strokeWidth={2}
         strokeLinejoin="round"
       />
       {/* 顶点 + 轴标签 */}
       {values.map((v, i) => {
         const p = pointAt(v.value, i);
-        const label = pointAt(1.16, i);
+        const label = pointAt(1.2, i);
         return (
           <g key={v.key}>
-            <circle cx={p.x} cy={p.y} r={3} fill="var(--accent-primary)" />
+            <circle
+              cx={p.x}
+              cy={p.y}
+              r={v.value < 0.02 ? 0 : 3.2}
+              fill="var(--accent-primary)"
+              stroke="var(--surface-primary)"
+              strokeWidth={1.5}
+            />
             <text
               x={label.x}
               y={label.y}
               textAnchor="middle"
               dominantBaseline="middle"
               className="fill-current"
-              style={{ color: "var(--text-secondary)", fontSize: 11 }}
+              style={{ color: "var(--text-primary)", fontSize: 12, fontWeight: 600 }}
             >
-              {PROFILE_DIM_LABELS[v.key]}
+              {v.label}
             </text>
             <text
               x={label.x}
-              y={label.y + 13}
+              y={label.y + 14}
               textAnchor="middle"
               dominantBaseline="middle"
               className="tnum"
-              style={{ color: "var(--text-tertiary)", fontSize: 10 }}
+              style={{ color: "var(--text-secondary)", fontSize: 11 }}
             >
               {v.value.toFixed(2)}
             </text>

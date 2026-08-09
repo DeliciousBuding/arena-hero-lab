@@ -1,73 +1,96 @@
 # arena-hero-leaderboard
 
-arena-hero 模拟器评测 v2 的产品级 Leaderboard 网站（独立 git 仓库）。
-前端视觉复刻 [arena.ai/leaderboard](https://arena.ai/leaderboard)（sidebar + 分类卡片 + 榜单表 + footer、深色为主），
-数据来自评测产物 `arena.bench.report.v2`（10 条目 × 5 场景 × 3 种子），全部静态生成，无后端。
+arena-hero 模拟器评测 v3 的产品级 Leaderboard 网站（独立 git 仓库）。
+视觉参考 [arena.ai/leaderboard](https://arena.ai/leaderboard)（sidebar + 卡片 + 精致表格 + 深色为主），
+**所有图表（热图 / 雷达 / 榜单 / 对比条）全部由前端 React + SVG 渲染，无 Python 出图、无图表库依赖**。
+数据来自评测产物 `arena.bench.report.v3`，静态导出（`output: "export"`）部署于 GitHub Pages。
 
 ## 技术栈
 
 - Next.js 16（App Router）+ React 19 + TypeScript
-- Tailwind CSS v4（CSS 变量令牌，类名风格参考原站 `bg-surface-primary` / `text-text-primary`）
+- Tailwind CSS v4（CSS 变量设计令牌：surface/text/accent/heat 色阶、阴影、圆角）
 - lucide-react（图标）
-- 图表：五维雷达为自绘 SVG（无图表库）；科研图集为评测流程产出的白底 PNG
+- 图表：全部自绘 SVG（热图 / v3 四维雷达 / 迷你柱状图 / 指标条），零图表库依赖
 
 ## 页面结构
 
 | 路由 | 内容 |
 |---|---|
-| `/` | 榜单总览：项目说明 hero + 搜索 + 6 张维度卡片（综合分/击杀/生存规模/场景梯度/五维画像/生态）+ 研究报告（7 张白底图 + CSV 汇总表）+ 关于本站 |
-| `/leaderboard?dim=<id>` | 全量榜单：6 张卡片纵向排列，`dim` 参数定位高亮 |
-| `/entry/[id]` | 条目详情：五维雷达 + 画像原始值 + 分场景表现（3 场均值）+ 单场明细（15 场全指标） |
+| `/` | 榜单总览：hero + 前三名领奖台 + 综合排名增强表（多列排序）+ 场景×条目热图（资源/杀率/存活切换）+ 场景对比 + 关于本站 |
+| `/leaderboard` | 全量榜单：4 张 v3 维度卡片（综合分 / 经济 / 击杀 / 场景梯度） |
+| `/entry/[id]` | 条目详情：v3 四维雷达 + 排名分项 + 场景×指标小图 + 分场景表现 + 单场明细 |
 
 ## 启动
 
 ```bash
 pnpm install
-pnpm dev        # http://localhost:3000
-pnpm build      # 生产构建（零错误验证）
-pnpm start      # 生产模式运行
+pnpm dev        # 本地开发（basePath /arena-hero-leaderboard 下访问）
+pnpm build      # 生产构建（静态导出，产出 out/）
+pnpm preview    # 本地预览 out/（自动剥离 basePath，等效 npx serve out）
 pnpm lint       # eslint
 ```
 
-## 数据刷新
+## 数据更新（评测跑完 → 转换 → 构建）
 
 ```bash
-# 使用仓库内置副本（scripts/input/results.json）
-node scripts/convert.mts
+# 方式一：仓库内置副本（scripts/input/results.json，当前为 v3 冒烟样例）
+npx tsx scripts/convert.mts
 
-# 或直接指向最新评测产物目录
-node scripts/convert.mts --source="D:/Code/Projects/arena/data/runs/sim/<run-id>/results.json"
+# 方式二：直接指向最新评测产物（推荐，全量评测完成后用此覆盖刷新）
+npx tsx scripts/convert.mts D:/Code/Projects/arena/data/runs/sim/<run-id>/results.json
+
+pnpm build      # 重新构建，让新数据生效
 ```
 
-`scripts/convert.mts`（Node 24+ 原生运行 .mts）做确定性变换：
+`scripts/convert.mts` 做**确定性变换**（可重复运行、覆盖输出，不编造任何数字）：
 
-1. 校验 `schema === "arena.bench.report.v2"`
-2. 聚合 15 场 matches → 每条目×每场景统计（均值/最好最差/击杀/采集/上交等）
-3. 计算跨场景名次标准差（`±` 误差展示）
-4. 解析 `06_summary_table.csv`（支持 BOM/空字段）
-5. 输出 `src/data/bench.json`（构建时静态 import）
+1. 校验 `schema === "arena.bench.report.v3"`
+2. 字段裁剪：contestants / leaderboard（含 economyScore、v2 兼容字段 survivalMedian/survivalScore 恒 1.0）/ scenarios（perEntry + matches）
+3. 场景名 → 中文标签映射（如 `ffa-resource-race` → 中央矿争夺）
+4. 派生计算：按综合分排序得 rank、由各场景 avgRank 算 rankStddev 与 scenarioRanks、由 matches 聚合每条目×每场景统计
+5. 输出 `src/data/bench.json`（构建时静态 import，前端不再直接读 results.json）
 
-转换后需要 `pnpm build`（或 dev 会自动热更）让新数据生效。
-`src/data/bench.json` 与 `scripts/input/results.json` 均已提交，仓库可离线复现。
+刷新数据后：全量评测产物灌入 → 重新运行同一命令 → `pnpm build` → 推送即自动部署。
+
+## 部署（GitHub Pages）
+
+采用 **GitHub Pages 官方 Actions 方案**（`.github/workflows/deploy.yml`）：
+
+1. 将本仓库推到 GitHub（第一次推送前先 `git remote add origin <repo-url>`）
+2. 仓库 Settings → Pages → **Build and deployment → Source 选择 "GitHub Actions"**
+3. 之后每次 `push` 到 `master` 即自动构建 `pnpm build` 并部署到
+   `https://<user>.github.io/arena-hero-leaderboard/`（也可在 Actions 页手动 Run workflow）
+
+说明：
+
+- `next.config.ts`：`output: "export"` + `basePath: "/arena-hero-leaderboard"` + `images.unoptimized: true`
+  —— 所有 Link/资源由 Next 自动处理 basePath 前缀，无动态 API（数据全静态 import）。
+- 本地预览：`pnpm build && pnpm preview`（或 `npx serve out`，但需自行处理 basePath 前缀）。
+- 若 Actions 方案受阻（如组织限制），退化为 push `gh-pages` 分支方案：
+  `pnpm build` 后把 `out/` 内容提交到 `gh-pages` 分支，Pages Source 选择该分支。
+- `public/.nojekyll`：避免 GitHub Pages 的 Jekyll 处理。
 
 ## 目录结构
 
 ```
 arena-hero-leaderboard/
+├── .github/workflows/deploy.yml   # GitHub Pages 官方 Actions 部署
 ├── scripts/
-│   ├── convert.mts          # 数据转换脚本（可复跑）
-│   └── input/results.json   # 评测产物副本（只读源）
+│   ├── convert.mts                # 数据转换脚本（npx tsx 运行，可重跑覆盖）
+│   ├── preview.mjs                # 本地静态预览（basePath 感知）
+│   └── input/results.json         # 评测产物副本（只读源，v3 冒烟样例）
 ├── src/
-│   ├── app/                 # 路由：/ /leaderboard /entry/[id]
-│   ├── components/          # sidebar/维度卡片/榜单表/雷达图/研究区块/footer
-│   ├── lib/                 # 类型 + 数据层 + 维度定义
-│   └── data/bench.json      # 转换产物（静态数据）
-├── public/research/         # 白底科研图集（7 PNG + CSV）
-└── docs/research/           # 侦察与验证记录
+│   ├── app/                       # 路由：/ /leaderboard /entry/[id]
+│   ├── components/                # 热图/雷达/榜单表/场景对比/迷你柱状图/sidebar/footer
+│   ├── lib/                       # 类型 + 数据层 + 维度定义
+│   └── data/bench.json            # 转换产物（静态数据，提交入库可离线复现）
+└── public/                        # .nojekyll 等静态资源
 ```
 
 ## 数据说明
 
 - 所有数字均派生自 `results.json`，转换脚本只做聚合/排序/格式化，无任何 mock 榜单数字。
-- 综合分公式 `rankScore×0.6 + killScore×0.2 + survivalScore×0.2` 由本数据集最小二乘拟合精确验证（最大误差 8e-16）。
-- 交互：表格列头点击排序（升/降/名次）、搜索过滤、明/暗主题切换（localStorage 持久化）、移动端 sidebar 抽屉。
+- v3 榜单分项：composite / rankScore / killScore / economyScore；survivalScore 与
+  survivalMedian 为 v2 兼容字段（v3 恒 1.0，已弃用，前端标注并隐藏）。
+- 内置对照组（kind: builtin，如 ts-aggressive / ts-safety）以琥珀色徽章与底纹区分。
+- 交互：表格列头点击排序、热图指标切换、明/暗主题切换（localStorage 持久化）、移动端 sidebar 抽屉。

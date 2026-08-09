@@ -2,44 +2,99 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* 设计令牌：浅色为默认值，.dark 覆盖为深色（arena.ai 风格变量名） */
+/**
+ * 设计令牌：对齐 arena.ai/leaderboard 实测（2026-08-09 浏览器侦察）。
+ * 暖黑深色为默认（arena.ai prefersDark）；浅色模式为反色暖白。
+ * 品牌色：arena.ai 黄 hsl(47 95% 49%)，克制用于排名徽章/链接 hover。
+ * 字体：baselGrotesk（arena.ai 主字）→ ui-sans-serif fallback；中文 Noto Sans SC。
+ */
 @theme inline {
   --color-surface-primary: var(--surface-primary);
   --color-surface-secondary: var(--surface-secondary);
   --color-surface-tertiary: var(--surface-tertiary);
   --color-border-primary: var(--border-primary);
+  --color-border-faint: var(--border-faint);
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-tertiary: var(--text-tertiary);
   --color-accent-primary: var(--accent-primary);
   --color-accent-soft: var(--accent-soft);
-  --color-rank-gold: #f2b63e;
+  --color-accent-secondary: var(--accent-secondary);
+  --color-rank-gold: #e8b941;
   --color-rank-silver: #b8c0cc;
-  --color-rank-bronze: #cd7f4f;
+  --color-rank-bronze: #c8743f;
+  --shadow-card: var(--shadow-card);
+  --shadow-card-hover: var(--shadow-card-hover);
+  --shadow-glow: var(--shadow-glow);
 }
 
 :root {
-  --surface-primary: #ffffff;
-  --surface-secondary: #f6f6f7;
-  --surface-tertiary: #ececf0;
-  --border-primary: #e4e4e7;
-  --text-primary: #18181b;
-  --text-secondary: #6f6f78;
-  --text-tertiary: #9b9ba4;
-  --accent-primary: #4f46e5;
-  --accent-soft: rgba(79, 70, 229, 0.08);
+  /* 浅色（暖白，arena.ai light mode 反色） */
+  --surface-primary: #f4f0eb;
+  --surface-secondary: #ffffff;
+  --surface-tertiary: #ece7e0;
+  --border-primary: #d8d2c9;
+  --border-faint: #e8e2d8;
+  --text-primary: #1a1a18;
+  --text-secondary: #5c5751;
+  --text-tertiary: #8a847d;
+  --accent-primary: #b8881a;
+  --accent-secondary: #c8743f;
+  --accent-soft: rgba(184, 136, 26, 0.08);
+  --accent-gradient: linear-gradient(135deg, #b8881a 0%, #c8743f 100%);
+  --shadow-card: 0 1px 2px rgb(26 26 24 / 0.04), 0 4px 16px rgb(26 26 24 / 0.04);
+  --shadow-card-hover: 0 2px 4px rgb(26 26 24 / 0.06), 0 12px 28px rgb(26 26 24 / 0.08);
+  --shadow-glow: 0 0 0 1px rgb(184 136 26 / 0.2), 0 8px 32px rgb(184 136 26 / 0.18);
+
+  /* 热图色阶：暖色（低=浅米，高=琥珀→橙→深棕），贴合 arena.ai 暖调 */
+  --heat-0: #ece7e0;
+  --heat-1: #f5e6c8;
+  --heat-2: #e8c97a;
+  --heat-3: #d9a441;
+  --heat-4: #c8743f;
+  --heat-5: #a85624;
+  --heat-6: #7a3d18;
+  --heat-text-0: #8a847d;
+  --heat-text-1: #5c4a1a;
+  --heat-text-2: #4a3a10;
+  --heat-text-3: #2e2008;
+  --heat-text-4: #ffffff;
+  --heat-text-5: #ffffff;
+  --heat-text-6: #ffffff;
 }
 
 .dark {
-  --surface-primary: #14141a;
-  --surface-secondary: #101016;
-  --surface-tertiary: #1c1c25;
-  --border-primary: rgba(255, 255, 255, 0.09);
-  --text-primary: #f4f4f5;
-  --text-secondary: #a1a1aa;
-  --text-tertiary: #71717a;
-  --accent-primary: #8b8bf7;
-  --accent-soft: rgba(139, 139, 247, 0.12);
+  /* 深色（暖黑，arena.ai 实测：bg #252523 / 文字 #f4f0eb / 边框 #413d39） */
+  --surface-primary: #252523;
+  --surface-secondary: #1f1f1d;
+  --surface-tertiary: #2d2c29;
+  --border-primary: #413d39;
+  --border-faint: #34302c;
+  --text-primary: #f4f0eb;
+  --text-secondary: #a8a29a;
+  --text-tertiary: #71706a;
+  --accent-primary: #e8b941;
+  --accent-secondary: #c8743f;
+  --accent-soft: rgba(232, 185, 65, 0.1);
+  --accent-gradient: linear-gradient(135deg, #e8b941 0%, #c8743f 100%);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 6px 20px rgb(0 0 0 / 0.2);
+  --shadow-card-hover: 0 2px 4px rgb(0 0 0 / 0.4), 0 14px 32px rgb(0 0 0 / 0.35);
+  --shadow-glow: 0 0 0 1px rgb(232 185 65 / 0.25), 0 8px 36px rgb(232 185 65 / 0.22);
+
+  --heat-0: #2d2c29;
+  --heat-1: #3a3220;
+  --heat-2: #5c4a1a;
+  --heat-3: #7a5d18;
+  --heat-4: #b8881a;
+  --heat-5: #e8b941;
+  --heat-6: #f5d768;
+  --heat-text-0: #71706a;
+  --heat-text-1: #d9a441;
+  --heat-text-2: #e8c97a;
+  --heat-text-3: #f5e6c8;
+  --heat-text-4: #f4f0eb;
+  --heat-text-5: #1a1a18;
+  --heat-text-6: #1a1a18;
 }
 
 @layer base {
@@ -53,33 +108,74 @@
   body {
     background-color: var(--surface-secondary);
     color: var(--text-primary);
+    /* baselGrotesk（arena.ai 主字）→ ui-sans-serif fallback；中文 Noto Sans SC */
     font-family:
+      "baselGrotesk",
       ui-sans-serif,
       system-ui,
       -apple-system,
       "Segoe UI",
-      Roboto,
+      "Noto Sans SC",
       "PingFang SC",
       "Hiragino Sans GB",
       "Microsoft YaHei",
-      "Noto Sans CJK SC",
       sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   ::selection {
     background: var(--accent-primary);
-    color: #fff;
+    color: var(--surface-secondary);
+  }
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.015em;
+  }
+  /* arena.ai 实测 h1 font-weight 300（细体，极简）——hero/section 标题用细体 */
+  h1 {
+    font-weight: 300;
   }
 }
 
-/* 数字排版：等宽数字，避免榜单跳动 */
+/* 等宽数字（榜单/表格数字不跳动） */
 @utility tnum {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
 }
 
-/* 细滚动条（研究表格容器） */
+/* 细滚动条 */
 @utility thin-scroll {
   scrollbar-width: thin;
   scrollbar-color: var(--border-primary) transparent;
+}
+
+/* 卡片：圆角 / 边框 / 背景 / 阴影 */
+@utility card {
+  border-radius: 1rem;
+  border: 1px solid var(--border-primary);
+  background-color: var(--surface-primary);
+  box-shadow: var(--shadow-card);
+}
+
+/* 渐变强调文本 */
+@utility text-gradient {
+  background-image: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* 渐变块 */
+@utility bg-gradient-accent {
+  background-image: var(--accent-gradient);
+}
+
+/* 热图单元格悬浮 */
+.heat-cell {
+  transition: stroke 0.15s ease;
+}
+.heat-cell:hover {
+  stroke: var(--text-primary);
 }

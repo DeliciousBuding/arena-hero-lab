@@ -1,15 +1,13 @@
 /**
  * 静态数据层：直接 import scripts/convert.mts 生成的 bench.json。
- * 所有展示数字均来自 arena.bench.report.v2 评测产物，不包含任何 mock 数据。
+ * 所有展示数字均来自 arena.bench.report.v3 评测产物，不包含任何 mock 数据。
  */
 import rawBench from "@/data/bench.json";
-
-export type ProfileDimensionKey = "economy" | "military" | "survival" | "beacon" | "expansion";
 
 export interface Contestant {
   id: string;
   label: string;
-  kind: string;
+  kind: "python" | "builtin";
   configNote: string;
 }
 
@@ -22,9 +20,25 @@ export interface LeaderboardRow {
   killRate: number;
   killScore: number;
   rankScore: number;
+  economyScore: number;
+  /** v2 兼容字段：v3 恒 1.0（展示时标注已弃用） */
   survivalMedian: number;
+  /** v2 兼容字段：v3 恒 1.0（展示时标注已弃用） */
   survivalScore: number;
-  scenarioRanks: Record<string, number>;
+  scenarioRanks: Record<string, number | null>;
+}
+
+/** v3 场景级 perEntry 指标（与 results.json 契约一致，null = 未参赛） */
+export interface ScenarioEntryStat {
+  avgRank: number;
+  beaconTicks: number;
+  damagePerLoss: number;
+  firstKillTick: number | null;
+  killMatches: number;
+  killRate: number;
+  populationPeak: number;
+  resourcesPerTick: number;
+  survivalMedian: number;
 }
 
 export interface EntryScenarioStat {
@@ -71,7 +85,7 @@ export interface BenchmarkScenario {
   name: string;
   label: string;
   template: { configNote: string; radius: number; randomDrop: boolean; resources: string };
-  perEntry: Record<string, Record<string, number | null>>;
+  perEntry: Record<string, ScenarioEntryStat | null>;
   matches: BenchmarkMatch[];
 }
 
@@ -80,17 +94,17 @@ export interface BenchmarkData {
   generatedAt: string;
   convertedAt: string;
   source: string;
-  params: { players: number; rulesVersion: string; scenarios: string[]; seeds: number[]; ticks: number };
+  params: {
+    players: number;
+    rulesVersion: string;
+    scenarios: string[];
+    seeds: number[];
+    ticks: number;
+  };
   contestants: Contestant[];
-  profileDimensions: ProfileDimensionKey[];
-  profiles: Record<
-    string,
-    { normalized: Record<ProfileDimensionKey, number>; raw: Record<ProfileDimensionKey, number> }
-  >;
   leaderboard: LeaderboardRow[];
   scenarios: BenchmarkScenario[];
   entryScenarioStats: Record<string, Record<string, EntryScenarioStat>>;
-  summaryTable: { header: string[]; rows: Record<string, string>[] };
   scenarioOrder: string[];
 }
 
@@ -104,18 +118,14 @@ export function leaderboardRowOf(id: string): LeaderboardRow | undefined {
   return benchData.leaderboard.find((e) => e.contestantId === id);
 }
 
-export function profileOf(id: string) {
-  return benchData.profiles[id];
-}
-
 export function scenarioOf(name: string): BenchmarkScenario | undefined {
   return benchData.scenarios.find((s) => s.name === name);
 }
 
-export const PROFILE_DIM_LABELS: Record<ProfileDimensionKey, string> = {
-  economy: "经济",
-  military: "军事",
-  survival: "生存",
-  beacon: "信标",
-  expansion: "扩张",
-};
+/** v3 雷达四维：kill / rank / economy / survival（均为 0–1 分数） */
+export const SCORE_DIMENSIONS: { key: keyof LeaderboardRow; label: string; enLabel: string }[] = [
+  { key: "killScore", label: "击杀", enLabel: "Kill" },
+  { key: "rankScore", label: "名次", enLabel: "Rank" },
+  { key: "economyScore", label: "经济", enLabel: "Economy" },
+  { key: "survivalScore", label: "生存", enLabel: "Survival" },
+] as const;

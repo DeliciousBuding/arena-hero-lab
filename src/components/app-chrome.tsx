@@ -10,7 +10,7 @@ import { ThemeToggle } from "./theme-toggle";
 const NAV_ITEMS = [
   { href: "/", label: "榜单概览", icon: LayoutGrid },
   { href: "/leaderboard", label: "全量榜单", icon: BarChart3 },
-  { href: "/#research", label: "研究报告", icon: FileSearch },
+  { href: "/#heatmap", label: "热图分析", icon: FileSearch },
   { href: "/#about", label: "关于本站", icon: ScrollText },
 ];
 
@@ -21,8 +21,8 @@ function SidebarContent() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-3 px-5 pb-6 pt-6">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft">
-          <Trophy className="h-4.5 w-4.5 text-accent-primary" />
+        <div className="bg-gradient-accent flex h-9 w-9 items-center justify-center rounded-xl">
+          <Trophy className="h-4.5 w-4.5 text-white" />
         </div>
         <div className="leading-tight">
           <div className="text-sm font-semibold text-text-primary">Arena Hero</div>
