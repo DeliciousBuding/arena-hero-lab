@@ -17,12 +17,12 @@ export const DIMENSION_ICONS: Record<string, ComponentType<{ className?: string 
 export function DimensionCard({ dimension }: { dimension: Dimension }) {
   const Icon = DIMENSION_ICONS[dimension.icon] ?? Trophy;
   return (
-    <section className="flex flex-col overflow-hidden rounded-2xl border border-border-primary bg-surface-primary shadow-sm">
-      <header className="flex items-start justify-between gap-3 border-b border-border-primary px-5 py-4">
+    <section className="flex flex-col border-b border-border-primary">
+      <header className="flex items-start justify-between gap-3 border-b border-border-faint px-1 py-4">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft">
-            <Icon className="h-5 w-5 text-accent-primary" />
-          </div>
+          <span className="pt-0.5 text-accent-primary">
+            <Icon className="h-4 w-4" />
+          </span>
           <div>
             <h2 className="flex items-baseline gap-2 text-base font-semibold text-text-primary">
               {dimension.title}

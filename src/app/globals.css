@@ -151,12 +151,14 @@
   scrollbar-color: var(--border-primary) transparent;
 }
 
-/* 卡片：圆角 / 边框 / 背景 / 阴影 */
+/* 容器：arena.ai 扁平风格——无圆角/无阴影，细线分隔 */
 @utility card {
-  border-radius: 1rem;
-  border: 1px solid var(--border-primary);
-  background-color: var(--surface-primary);
-  box-shadow: var(--shadow-card);
+  border-bottom: 1px solid var(--border-primary);
+}
+
+/* 细线分隔块（arena.ai 实测 0.57px 超细线） */
+@utility hairline {
+  border-bottom: 0.5px solid var(--border-primary);
 }
 
 /* 渐变强调文本 */
@@ -178,4 +180,12 @@
 }
 .heat-cell:hover {
   stroke: var(--text-primary);
+}
+
+/* arena.ai 风格：链接 hover 变品牌黄（浅色/深色均适用） */
+.link-hover {
+  transition: color 0.15s ease;
+}
+.link-hover:hover {
+  color: var(--accent-primary);
 }

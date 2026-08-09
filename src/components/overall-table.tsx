@@ -94,14 +94,14 @@ export function OverallTable({
             return (
               <tr
                 key={row.contestantId}
-                className={`group border-b border-border-primary/60 transition-colors last:border-b-0 ${
-                  isBaseline ? "bg-rank-gold/[0.045] hover:bg-rank-gold/[0.09]" : "hover:bg-surface-tertiary/50"
+                className={`group border-b border-border-faint transition-colors last:border-b-0 ${
+                  isBaseline ? "bg-rank-gold/[0.045] hover:bg-rank-gold/[0.09]" : "hover:bg-surface-tertiary/40"
                 }`}
               >
-                <td className="py-2.5 pl-1">
+                <td className="py-7 pl-1">
                   <RankBadge rank={row.rank} />
                 </td>
-                <td className="py-2.5">
+                <td className="py-7">
                   <Link
                     href={`/entry/${row.contestantId}`}
                     className="flex items-center gap-2 transition-colors group-hover:text-accent-primary"
@@ -115,21 +115,21 @@ export function OverallTable({
                     {row.contestantId}
                   </span>
                 </td>
-                <td className="py-2.5 pr-1 text-right">
-                  <span className={`font-semibold tnum ${activeCol("composite") ? "text-accent-primary" : "text-text-primary"}`}>
+                <td className="py-7 pr-1 text-right">
+                  <span className={`font-medium tnum ${activeCol("composite") ? "text-accent-primary" : "text-text-primary"}`}>
                     {pct(row.composite)}
                   </span>
                   <span className="block text-[11px] text-text-tertiary tnum">
                     rankScore {pct(row.rankScore)}
                   </span>
                 </td>
-                <td className="py-2.5 pr-1 text-right">
+                <td className="py-7 pr-1 text-right">
                   <span className={`font-medium tnum ${activeCol("avgRank") ? "text-accent-primary" : "text-text-primary"}`}>
                     {row.avgRank.toFixed(2)}
                   </span>
                   <span className="block text-[11px] text-text-tertiary tnum">± {row.rankStddev.toFixed(2)}</span>
                 </td>
-                <td className="py-2.5 pr-1 text-right">
+                <td className="py-7 pr-1 text-right">
                   <span className={`font-medium tnum ${activeCol("killRate") ? "text-accent-primary" : "text-text-primary"}`}>
                     {row.killRate.toFixed(2)}
                   </span>
@@ -137,7 +137,7 @@ export function OverallTable({
                     killScore {pct(row.killScore)}
                   </span>
                 </td>
-                <td className="py-2.5 pr-1 text-right">
+                <td className="py-7 pr-1 text-right">
                   <span className={`font-medium tnum ${activeCol("economyScore") ? "text-accent-primary" : "text-text-primary"}`}>
                     {pct(row.economyScore)}
                   </span>
