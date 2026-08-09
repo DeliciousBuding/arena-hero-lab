@@ -1,69 +1,84 @@
-import Image from "next/image";
+import { Database, FlaskConical } from "lucide-react";
+import { LeaderboardView } from "@/components/leaderboard-view";
+import { ResearchSection } from "@/components/research-section";
+import { benchData } from "@/lib/bench";
+import { dimensions } from "@/lib/dimensions";
 
-export default function Home() {
+export default function HomePage() {
+  const { params } = benchData;
+  const generatedDate = new Date(benchData.generatedAt).toLocaleString("zh-CN");
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-10">
+      {/* 页头：项目说明（Leaderboard Overview 等效区） */}
+      <header className="mb-8">
+        <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-accent-primary/30 bg-accent-soft px-3 py-1 text-xs font-medium text-accent-primary">
+          <FlaskConical className="h-3.5 w-3.5" />
+          arena-hero 模拟器评测 v2 · Leaderboard Overview
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight text-text-primary sm:text-3xl">
+          评测榜单总览
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-text-secondary">
+          10 个参赛条目在 5 个场景 × 3 个种子共 15 场对局中的综合表现：
+          综合分 / 击杀 / 生存 / 场景梯度 / 五维画像 / 生态 六大维度。
+          所有数字均来自评测产物 <span className="tnum text-text-tertiary">arena.bench.report.v2</span>，无任何 mock 数据。
+        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+          {[
+            `${params.players} 参赛者`,
+            `${params.scenarios.length} 场景 × ${params.seeds.length} 种子`,
+            `${params.ticks} ticks/场`,
+            `rules ${params.rulesVersion}`,
+            `生成于 ${generatedDate}`,
+          ].map((chip) => (
+            <span
+              key={chip}
+              className="rounded-lg border border-border-primary bg-surface-primary px-2.5 py-1 text-text-secondary tnum"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+              {chip}
+            </span>
+          ))}
+          <span className="inline-flex items-center gap-1 rounded-lg border border-border-primary bg-surface-primary px-2.5 py-1 text-text-secondary">
+            <Database className="h-3 w-3" />
+            静态数据 · 本地构建
+          </span>
+        </div>
+      </header>
+
+      {/* 六大维度卡片 */}
+      <LeaderboardView dimensions={dimensions} />
+
+      {/* 研究报告：白底图集 + CSV 汇总表 */}
+      <div className="mt-14">
+        <ResearchSection />
+      </div>
+
+      {/* 关于本站 */}
+      <section id="about" className="mt-14 scroll-mt-20">
+        <h2 className="text-xl font-semibold text-text-primary">关于本站</h2>
+        <div className="mt-4 space-y-3 rounded-2xl border border-border-primary bg-surface-primary p-5 text-sm leading-relaxed text-text-secondary">
+          <p>
+            <span className="font-medium text-text-primary">项目</span>
+            ：arena-hero 模拟器评测 v2 的公开榜单。将评测产物（
+            <span className="tnum">results.json</span>，schema{" "}
+            <span className="tnum">{benchData.schema}</span>）转换为静态页面，
+            前端视觉参考 arena.ai/leaderboard 并针对数据展示做了优化（排序 / 搜索 / 明暗主题 / 移动端）。
+          </p>
+          <p>
+            <span className="font-medium text-text-primary">数据流</span>
+            ：<span className="tnum">scripts/convert.mts</span> 读取{" "}
+            <span className="tnum">{benchData.source}</span> 下的 results.json，
+            聚合生成 <span className="tnum">src/data/bench.json</span>（构建时静态引入，无后端）。
+            刷新数据：<code className="rounded bg-surface-tertiary px-1.5 py-0.5 tnum">node scripts/convert.mts</code>
+          </p>
+          <p>
+            <span className="font-medium text-text-primary">综合分公式</span>
+            ：rankScore×0.6 + killScore×0.2 + survivalScore×0.2（由本数据集最小二乘拟合验证，
+            最大误差 8e-16）。
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </section>
     </div>
   );
 }
