@@ -89,9 +89,9 @@ export function AppChrome() {
         <div className="flex items-center gap-1.5">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button asChild variant="ghost" size="icon-sm" aria-label="GitHub 仓库">
+              <Button asChild variant="ghost" size="icon-sm" aria-label="arena 仓库（评测与模拟器）">
                 <Link
-                  href="https://github.com/DeliciousBuding/arena-hero-leaderboard"
+                  href="https://github.com/DeliciousBuding/arena"
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -99,7 +99,7 @@ export function AppChrome() {
                 </Link>
               </Button>
             </TooltipTrigger>
-            <TooltipContent>GitHub 仓库</TooltipContent>
+            <TooltipContent>arena 仓库（评测与模拟器）</TooltipContent>
           </Tooltip>
           <Button
             asChild
