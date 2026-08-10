@@ -31,7 +31,7 @@ export function ScenarioRankStrip({
     Math.max(0.04, Math.min(1, (players - rank) / Math.max(1, players - 1)));
 
   return (
-    <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {rows.map(({ scenario, rank }) => (
         <div key={scenario.name} className="flex items-center gap-3">
           <span className="w-20 shrink-0 text-xs font-medium text-foreground">

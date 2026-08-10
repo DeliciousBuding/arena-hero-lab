@@ -18,7 +18,16 @@ export function Heatmap() {
   const [metricKey, setMetricKey] = useState<ScenarioMetricKey>("resourcesPerTick");
   const metric = HEATMAP_METRICS.find((m) => m.key === metricKey) ?? HEATMAP_METRICS[0];
 
-  const entries = [...benchData.leaderboard].sort((a, b) => a.rank - b.rank);
+  /** 主榜 + 对照组全 10 条目（对照组列头标金点，数值同热图量纲可并列展示）。 */
+  const entries = [
+    ...benchData.leaderboard,
+    ...(benchData.leaderboardControl ?? []),
+  ].sort((a, b) => {
+    const aControl = a.contestantId.startsWith("ts-");
+    const bControl = b.contestantId.startsWith("ts-");
+    if (aControl !== bControl) return aControl ? 1 : -1;
+    return a.rank - b.rank;
+  });
   const scenarios = benchData.scenarioOrder
     .map((name) => benchData.scenarios.find((s) => s.name === name))
     .filter((s): s is BenchmarkScenario => Boolean(s));
@@ -85,6 +94,7 @@ export function Heatmap() {
           >
             {entries.map((entry, col) => {
               const contestant = contestantOf(entry.contestantId);
+              const isControl = contestant?.kind === "builtin";
               const x = ROW_LABEL_W + PAD + col * CELL_W + CELL_W / 2;
               return (
                 <g key={entry.contestantId}>
@@ -95,7 +105,7 @@ export function Heatmap() {
                     className="tnum"
                     style={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
                   >
-                    {entry.rank}. {entry.contestantId}
+                    {isControl ? entry.contestantId : `${entry.rank}. ${entry.contestantId}`}
                   </text>
                   <text
                     x={x}
@@ -103,9 +113,9 @@ export function Heatmap() {
                     textAnchor="middle"
                     style={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
                   >
-                    {contestant?.kind === "builtin" ? "对照组" : "agent"}
+                    {isControl ? "对照组" : "agent"}
                   </text>
-                  {contestant?.kind === "builtin" ? (
+                  {isControl ? (
                     <circle cx={x} cy={HEADER_H - 4} r={2.5} fill="var(--color-rank-gold)" />
                   ) : null}
                 </g>

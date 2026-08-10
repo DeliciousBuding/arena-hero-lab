@@ -173,6 +173,7 @@ export default async function EntryPage({
               {ACTIVE_SCORE_DIMENSIONS.map((dim) => {
                 const value = entry[dim.key] as number;
                 const dimRank = inMainBoard ? dimensionRankOf(id, dim.key) : null;
+                const isExtrapolated = !inMainBoard && value > 1;
                 return (
                   <div key={dim.key}>
                     <div className="mb-1 flex items-baseline justify-between text-sm">
@@ -185,12 +186,17 @@ export default async function EntryPage({
                           </span>
                         )}
                       </span>
-                      <span className="tnum text-muted-foreground">{pct(value)}</span>
+                      <span className="tnum text-muted-foreground">
+                        {pct(value)}
+                        {isExtrapolated && (
+                          <span className="ml-1 text-[10px] text-rank-bronze">外推</span>
+                        )}
+                      </span>
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-muted">
                       <div
                         className="h-full rounded-full bg-brand-gradient transition-all"
-                        style={{ width: `${Math.max(2, value * 100)}%` }}
+                        style={{ width: `${Math.max(2, Math.min(100, value * 100))}%` }}
                       />
                     </div>
                   </div>

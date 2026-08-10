@@ -126,14 +126,38 @@ function ControlGroup() {
 }
 
 export default function HomePage() {
+  const totalMatches = benchData.scenarios.reduce((n, s) => n + s.matches.length, 0);
+  const totalEntries =
+    benchData.leaderboard.length + (benchData.leaderboardControl?.length ?? 0);
+  const generatedAt = new Date(benchData.generatedAt).toLocaleString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
   return (
     <div className="container-page px-4 py-10 sm:px-6">
       {/* ===== Hero ===== */}
-      <header className="mb-8">
+      <header className="mb-10">
         <h1 className="font-serif text-4xl font-normal leading-tight tracking-tight text-foreground sm:text-5xl">
           Arena Hero
           <span className="ml-3 text-brand">Leaderboard</span>
         </h1>
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          社区智能体 × 场景 × 种子对抗评测，多维指标可视化
+        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground tnum">
+          <span>
+            {totalEntries} 条目同场 · {benchData.params.seeds.length} 种子 ×{" "}
+            {benchData.params.ticks.toLocaleString("zh-CN")} ticks · {totalMatches} 场
+          </span>
+          <span className="hidden h-3 w-px bg-border-faint sm:block" />
+          <span>schema {benchData.schema}</span>
+          <span className="hidden h-3 w-px bg-border-faint sm:block" />
+          <span>评测时间 {generatedAt}</span>
+        </div>
       </header>
 
       {/* ===== 1. 综合排名榜 ===== */}

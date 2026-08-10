@@ -60,10 +60,11 @@ function aggregateKillStats(contestantId: string): KillAggregate {
 /** 击杀贡献统计面板（server component，跨 35 场聚合 killEvents） */
 export function KillStats({ contestantId }: { contestantId: string }) {
   const stats = aggregateKillStats(contestantId);
+  const totalMatches = benchData.scenarios.reduce((n, s) => n + s.matches.length, 0);
   if (stats.kills === 0 && stats.deaths === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        跨 35 场无核心摧毁事件（纯经济/防守型，或未参与斩首）。
+        跨 {totalMatches} 场无核心摧毁事件（纯经济/防守型，或未参与斩首）。
       </p>
     );
   }

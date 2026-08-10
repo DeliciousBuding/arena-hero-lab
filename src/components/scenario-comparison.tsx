@@ -19,10 +19,15 @@ export function ScenarioComparison() {
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
       {benchData.scenarios.map((scenario) => {
-        const entries = [...benchData.leaderboard]
-          .map((row) => ({ row, stat: scenario.perEntry[row.contestantId] }))
-          .filter((e): e is { row: (typeof benchData.leaderboard)[number]; stat: NonNullable<typeof e.stat> } =>
-            e.stat != null,
+        /** 主榜 + 对照组（对照组由 avgRank 参与排序，KindBadge 区分）。 */
+        const entries = [
+          ...benchData.leaderboard.map((row) => ({ row, control: false })),
+          ...(benchData.leaderboardControl ?? []).map((row) => ({ row, control: true })),
+        ]
+          .map(({ row, control }) => ({ row, control, stat: scenario.perEntry[row.contestantId] }))
+          .filter(
+            (e): e is { row: (typeof benchData.leaderboard)[number]; control: boolean; stat: NonNullable<typeof e.stat> } =>
+              e.stat != null,
           )
           .sort((a, b) => a.stat.avgRank - b.stat.avgRank);
 

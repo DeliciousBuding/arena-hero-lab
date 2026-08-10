@@ -69,12 +69,17 @@ export function AppChrome() {
     return () => observer.disconnect();
   }, [pathname]);
 
-  /** 锚点链接按 scroll spy 高亮；首页 Leaderboard 在 hero/榜单区亮。 */
+  /** 锚点链接按 scroll spy 高亮；首页 Leaderboard 在 hero/榜单/对照组区亮。 */
   const isActive = (href: string): boolean => {
     if (href.includes("#")) {
       return activeSection === href.slice(2);
     }
-    return pathname === "/" && (activeSection === null || activeSection === "rankings");
+    return (
+      pathname === "/" &&
+      (activeSection === null ||
+        activeSection === "rankings" ||
+        activeSection === "control")
+    );
   };
 
   return (
