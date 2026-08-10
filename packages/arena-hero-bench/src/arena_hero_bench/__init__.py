@@ -12,6 +12,7 @@ from arena_hero_bench.orchestration import (
     ShardResult,
     merge_shards,
 )
+from arena_hero_bench.storage import FilesystemArtifactStore
 
 __all__ = [
     "ArtifactManifest",
@@ -22,6 +23,7 @@ __all__ = [
     "ContestantManifest",
     "ContestantRegistry",
     "DistributedExecutor",
+    "FilesystemArtifactStore",
     "FrozenConfig",
     "LocalExecutor",
     "RunManifest",
