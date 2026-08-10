@@ -34,4 +34,14 @@ object and repeated `put` calls are idempotent.
   so traversal and Windows separator inputs are rejected before any filesystem
   operation.
 
+Power-loss durability: file bytes are fsynced before the atomic rename on every
+platform. On POSIX the parent directory is fsynced after the rename (and the
+store's `objects/` directory is fsynced after first creating a shard
+directory), which makes the rename durable on local filesystems; if a directory
+fsync is unavailable the write degrades to best-effort. On Windows the rename
+is atomic but directories are not fsynced because there is no portable
+directory fsync, so a power loss immediately after the rename may not persist
+the rename itself. This is a reference adapter, not a database-grade durability
+layer.
+
 No database, network, or external service is used.
