@@ -101,6 +101,81 @@ arena-evolve 人口峰值最高（动态产兵 + 资源充足）。farmer 系人
 
 **启示**：保守变体（微调参数）通常正收益；激进变体（改变 mode）大负收益，除非场景专精。
 
+## 5.5 击杀模式深度分析（killEvents 87 事件，修复后数据）
+
+> 数据源：v3.1 killEvents（2026-08-10 修复 WorkerMatchFile 序列化后落盘，30/35 场 87 事件）
+
+### 击杀贡献（谁是猎手）
+
+| 击杀者 | 击杀次数 | 占比 | 占该 agent 场均 |
+|---|---:|---:|---:|
+| **arena-evolve** | 48 | 55.2% | 2.05/场 |
+| core-mil | 18 | 20.7% | 0.51/场 |
+| core | 10 | 11.5% | 0.29/场 |
+| waaiging | 10 | 11.5% | 0.29/场 |
+| waaiging-agg | 1 | 1.1% | 0.03/场 |
+| farmer / farmer-eco / tactic | 0 | 0% | 0.00 |
+
+arena-evolve 是**绝对猎手**（48 次，占 55%），印证 killRate 1.37 最高。farmer 系 + tactic **零击杀**（纯经济/防守，无 Core 斩首能力）。
+
+### 被击杀分布（谁是猎物）
+
+| 被击杀方 | 被杀次数 | 占比 |
+|---|---:|---:|
+| **tactic** | 28 | 32.2% |
+| waaiging-agg | 23 | 26.4% |
+| farmer-eco | 12 | 13.8% |
+| farmer | 9 | 10.3% |
+| core | 7 | 8.0% |
+| waaiging | 5 | 5.7% |
+| core-mil | 1 | 1.1% |
+| arena-evolve | **0** | **0%** |
+| unknown | 2 | 2.3% |
+
+- **tactic 是最大提款机**（28 次被杀）——印证它垫底（综合分 0.4%），完全无防御
+- **arena-evolve 0 被杀**——**无敌**，从不被斩首（最强攻击即最强防御 + 资源优势保 Core）
+- waaiging-agg 第二受害者（23 次）——激进变体前压暴露 Core
+
+### 击杀时机（tick 三段）
+
+| 时段 | tick 范围 | 事件数 | 占比 |
+|---|---|---:|---:|
+| 早期 | 0–666 | 3 | 3.4% |
+| **中期** | 667–1333 | **64** | **73.6%** |
+| 晚期 | 1334–2000 | 20 | 23.0% |
+
+中期是击杀高峰（74%）——资源积累后爆发 Core 斩首冲突。早期几乎无击杀（3%）——全在发展经济。晚期 23%——收尾清扫残局。
+
+### 击杀关系矩阵（>1 次的关系）
+
+| 击杀者 → 被击杀方 | 次数 | 解读 |
+|---|---:|---|
+| **arena-evolve → tactic** | 23 | arena-evolve 专杀 tactic（提款） |
+| **arena-evolve → waaiging-agg** | 19 | 杀激进变体（前压暴露） |
+| core-mil → farmer-eco | 11 | 军事变体杀经济型 |
+| core → farmer | 8 | 进攻基座杀资源型 |
+| waaiging → core | 5 | waaiging 反杀 core |
+| core-mil → waaiging-agg | 4 | 军事杀激进 |
+| arena-evolve → waaiging | 4 | 杀均衡基座 |
+| waaiging → tactic | 4 | waaiging 也吃 tactic |
+| arena-evolve → core | 2 | 杀进攻基座 |
+
+**洞察**：arena-evolve 几乎吃所有弱者（tactic/waaiging-agg/waaiging/core），但**从不被吃**——食物链顶端。waaiging 有反杀 core 的能力（5 次），是唯一对 core 系有斩首威胁的均衡型 agent。
+
+### 各场景击杀密度
+
+| 场景 | 事件数 | 密度解读 |
+|---|---:|---|
+| ffa-defense-pressure | 17 | 资源枯竭逼冲突（最高） |
+| ffa-std | 15 | 标准对抗 |
+| ffa-random | 15 | 随机落点 |
+| ffa-dense | 14 | 高密度 |
+| ffa-resource-race | 13 | 中央矿争夺 |
+| ffa-scarce | 11 | 资源匮乏（较少冲突） |
+| **ffa-open** | **2** | 开阔地图最分散（最少冲突） |
+
+ffa-defense-pressure（资源枯竭）击杀最多——压力逼出 Core 斩首。ffa-open（开阔）最少——地形分散难接触。
+
 ## 6. 场景梯度发现
 
 - **ffa-dense/ffa-std/ffa-scarce/ffa-resource-race/ffa-defense-pressure**（资源密集/标准/枯竭/中央矿/压制）：arena-evolve 统治（资源充足时基因启发式最优）
