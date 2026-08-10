@@ -86,6 +86,8 @@ The current static site remains available at
 
 - [Architecture](docs/architecture.md)
 - [Contributing](CONTRIBUTING.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [License](LICENSE)
 - [Security policy](SECURITY.md)
 - [Web design system](docs/design-system.md)
 
