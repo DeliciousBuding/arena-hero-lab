@@ -1,6 +1,6 @@
 # Arena Hero Leaderboard
 
-模拟器评测榜单站点：把 arena-hero 多智能体对抗评测（7 场景 × 5 种子 × 8 玩家，35 场）的数据变成一组直观的图表。
+模拟器评测榜单站点：把 arena-hero 多智能体对抗评测（7 场景 × 5 种子，10 条目同场对抗）的数据变成一组直观的图表。
 
 **在线地址：<https://deliciousbuding.github.io/arena-hero-leaderboard/>**
 
@@ -15,7 +15,7 @@
 
 arena-hero 是一个基于 [Arena Hero](https://github.com/HenryXiaoYang/arena-hero) 的模拟器评测平台（评测引擎在 [DeliciousBuding/arena](https://github.com/DeliciousBuding/arena)）。本仓库是它的评测结果展示站：
 
-- 8 个社区智能体同场对抗（farmer / core / waaiging / tactic / arena-evolve 及变体）
+- 8 个社区智能体同场对抗（farmer / core / waaiging / tactic / arena-evolve 及变体）+ 2 个 TS 内置对照组
 - 7 种场景 × 5 个随机种子，共 35 场完整对局
 - 每场输出资源曲线、人口曲线、击杀时序等可观测数据
 
@@ -26,11 +26,11 @@ arena-hero 是一个基于 [Arena Hero](https://github.com/HenryXiaoYang/arena-h
 | 区块 | 内容 |
 |---|---|
 | Overall Rankings | 综合分排名（arena.ai 风格条形图，可搜索） |
-| Score Profile | 击杀 / 名次 / 经济 / 生存四维归一化对比 |
-| Dimension Breakdown | 经济 / 击杀 / 场景梯度三个维度独立排名 |
+| Control Group | TS 内置对照组（同场对抗，独立量纲，不参与主榜） |
+| Scenario Leaderboards | 每个场景独立擂台（平均名次 + 资源/刻条） |
+| Score Profile | 击杀 / 名次 / 经济三维归一化对比 |
 | Scenario Heatmap | 场景 × 条目指标矩阵（资源/刻 · 击杀率 · 平均名次） |
-| Scenario Comparison | 每个场景内的条目表现（资源速率 + 人口峰值） |
-| Entry 详情页 | 单智能体深度页：四维雷达、分场景表现、击杀时序、效率曲线 |
+| Entry 详情页 | 单智能体深度页：三维雷达、分场景名次条、效率曲线、击杀时序、单场明细 |
 
 ## 快速开始
 
@@ -55,12 +55,14 @@ pnpm build
 
 ## 部署
 
-推送到 `master` 分支即触发 [GitHub Actions](.github/workflows/deploy.yml) 自动构建并部署到 GitHub Pages。也可以手动部署到 `gh-pages` 分支：
+线上采用 **GitHub Pages 静态部署**：本地 `pnpm build` 后把 `out/` 推送到 `gh-pages` 分支（Pages 以 legacy 分支模式托管）。
 
 ```bash
 pnpm build
 pnpm deploy:gh-pages   # 把 out/ 推送到 gh-pages 分支
 ```
+
+> `.github/workflows/deploy.yml`（Actions 自动部署）保留在仓库中，账号计费问题解决后可切回自动部署。
 
 ## 技术栈
 
@@ -72,7 +74,7 @@ pnpm deploy:gh-pages   # 把 out/ 推送到 gh-pages 分支
 ## 仓库结构
 
 ```
-├── .github/workflows/deploy.yml   # GitHub Pages 自动部署
+├── .github/workflows/deploy.yml   # GitHub Pages 自动部署（Actions 恢复后启用）
 ├── scripts/
 │   ├── convert.mts                # 评测产物 → 站点数据（确定性变换）
 │   ├── deploy-gh-pages.sh         # 手动部署到 gh-pages 分支

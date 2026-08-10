@@ -18,9 +18,9 @@ import { ThemeToggle } from "./theme-toggle";
 
 const NAV_ITEMS = [
   { href: "/", label: "Leaderboard", sectionId: "rankings" },
-  { href: "/#dimensions", label: "维度", sectionId: "dimensions" },
-  { href: "/#heatmap", label: "热图", sectionId: "heatmap" },
   { href: "/#scenarios", label: "场景", sectionId: "scenarios" },
+  { href: "/#scores", label: "画像", sectionId: "scores" },
+  { href: "/#heatmap", label: "热图", sectionId: "heatmap" },
 ] as const;
 
 /** GitHub 经典黑猫头像（官方 mark-github octicon，fill 风格）。 */
@@ -39,7 +39,8 @@ export function GitHubIcon({ className }: { className?: string }) {
 
 /**
  * 顶部导航：sticky + 半透明背景模糊，48px 高，底部 hairline。
- * 右侧 = GitHub 黑猫 + Linux DO（@作者）+ 主题切换；锚点项按滚动位置 scroll spy 高亮。
+ * 右侧 = Arena Hero 官网（美术 logo）+ GitHub + Linux DO 官方帖 + 主题切换；
+ * 锚点项按滚动位置 scroll spy 高亮。
  */
 export function AppChrome() {
   const pathname = usePathname();
@@ -117,6 +118,24 @@ export function AppChrome() {
         <div className="flex items-center gap-1.5">
           <Tooltip>
             <TooltipTrigger asChild>
+              <Button asChild variant="ghost" size="icon-sm" aria-label="Arena Hero 官网">
+                <Link
+                  href="https://app.arenahero.io/"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <img
+                    src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/arenahero-mark.svg`}
+                    alt=""
+                    className="h-4 w-4 rounded"
+                  />
+                </Link>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Arena Hero 官网</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
               <Button asChild variant="ghost" size="icon-sm" aria-label="arena 仓库（评测与模拟器）">
                 <Link
                   href="https://github.com/DeliciousBuding/arena"
@@ -129,28 +148,24 @@ export function AppChrome() {
             </TooltipTrigger>
             <TooltipContent>arena 仓库（评测与模拟器）</TooltipContent>
           </Tooltip>
-          <Button
-            asChild
-            variant="ghost"
-            size="sm"
-            className="group h-8 gap-2 rounded-full px-2.5"
-          >
-            <Link
-              href="https://linux.do/u/delicious233"
-              target="_blank"
-              rel="noreferrer"
-              aria-label="Linux DO 社区（作者 @delicious233）"
-            >
-              <img
-                src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/linuxdo-mark.png`}
-                alt=""
-                className="h-5 w-5 rounded-full ring-1 ring-border"
-              />
-              <span className="text-xs text-muted-foreground transition-colors group-hover:text-foreground">
-                @delicious233
-              </span>
-            </Link>
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button asChild variant="ghost" size="icon-sm" aria-label="Linux DO 官方帖（Arena Hero 介绍）">
+                <Link
+                  href="https://linux.do/t/topic/2703804"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <img
+                    src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/linuxdo-mark.png`}
+                    alt=""
+                    className="h-5 w-5 rounded-full ring-1 ring-border"
+                  />
+                </Link>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Linux DO 官方帖</TooltipContent>
+          </Tooltip>
           <ThemeToggle />
         </div>
       </div>

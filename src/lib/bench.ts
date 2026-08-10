@@ -13,6 +13,8 @@ export interface Contestant {
   repoUrl?: string;
   /** Linux DO 社区帖子（讨论来源；v3.1，convert 侧映射）。 */
   linuxdoUrl?: string;
+  /** Linux DO 帖子标题（v3.3；convert 侧实抓存档，与 linuxdoUrl 一一对应）。 */
+  linuxdoTitle?: string;
 }
 
 export interface LeaderboardRow {
@@ -124,6 +126,8 @@ export interface BenchmarkData {
   };
   contestants: Contestant[];
   leaderboard: LeaderboardRow[];
+  /** v3.3 对照组榜（kind=builtin 条目；旧产物缺失时 undefined）。 */
+  leaderboardControl?: LeaderboardRow[];
   scenarios: BenchmarkScenario[];
   entryScenarioStats: Record<string, Record<string, EntryScenarioStat>>;
   scenarioOrder: string[];
@@ -143,10 +147,35 @@ export function scenarioOf(name: string): BenchmarkScenario | undefined {
   return benchData.scenarios.find((s) => s.name === name);
 }
 
-/** v3 雷达四维：kill / rank / economy / survival（均为 0–1 分数） */
-export const SCORE_DIMENSIONS: { key: keyof LeaderboardRow; label: string; enLabel: string }[] = [
+/** LeaderboardRow 中所有数值维度键（排除 id 与场景名次映射）。 */
+export type NumericDimensionKey = Exclude<
+  keyof LeaderboardRow,
+  "contestantId" | "scenarioRanks"
+>;
+
+/** 维度分数在全体（主榜）中的排名（1-based；详情页画像参照系）。
+ *  返回 null 表示该条目不在主榜（如对照组条目）。 */
+export function dimensionRankOf(id: string, key: NumericDimensionKey): number | null {
+  const sorted = [...benchData.leaderboard].sort(
+    (a, b) => (b[key] as number) - (a[key] as number),
+  );
+  const index = sorted.findIndex((row) => row.contestantId === id);
+  return index === -1 ? null : index + 1;
+}
+
+/** v3 画像维度：kill / rank / economy 有区分度；survival 恒 1.0（评测规则所致）标记弃用。 */
+export const SCORE_DIMENSIONS: {
+  key: NumericDimensionKey;
+  label: string;
+  enLabel: string;
+  /** v3 恒 1.0（同 tick 重生），前端画像图不展示，仅详情页分项区标注弃用。 */
+  deprecated?: boolean;
+}[] = [
   { key: "killScore", label: "击杀", enLabel: "Kill" },
   { key: "rankScore", label: "名次", enLabel: "Rank" },
   { key: "economyScore", label: "经济", enLabel: "Economy" },
-  { key: "survivalScore", label: "生存", enLabel: "Survival" },
+  { key: "survivalScore", label: "生存", enLabel: "Survival", deprecated: true },
 ] as const;
+
+/** 有区分度的画像维度（过滤弃用项，供雷达/分组条/首页画像使用）。 */
+export const ACTIVE_SCORE_DIMENSIONS = SCORE_DIMENSIONS.filter((d) => !d.deprecated);

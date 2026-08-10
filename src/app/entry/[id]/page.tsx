@@ -4,10 +4,10 @@ import { notFound } from "next/navigation";
 import { ContestantLinks } from "@/components/contestant-links";
 import { KillStats } from "@/components/kill-stats";
 import { KillTimelinePanel } from "@/components/kill-timeline-panel";
-import { MiniBars } from "@/components/mini-bars";
 import { RadarChart } from "@/components/radar-chart";
 import { RankBadge } from "@/components/rank-badge";
 import { ResourceTimelinePanel } from "@/components/resource-timeline";
+import { ScenarioRankStrip } from "@/components/scenario-rank-strip";
 import { SectionHeader } from "@/components/section-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,22 +22,27 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  ACTIVE_SCORE_DIMENSIONS,
   benchData,
   contestantOf,
-  SCORE_DIMENSIONS,
+  dimensionRankOf,
   type BenchmarkMatch,
   type BenchmarkScenario,
   type ScenarioEntryStat,
 } from "@/lib/bench";
-import { SCENARIO_METRICS, metricValueOf } from "@/lib/metrics";
 
-/** 静态导出：预渲染所有条目页 */
+/** 静态导出：预渲染所有条目页（主榜 + 对照组）。 */
 export function generateStaticParams() {
-  return benchData.leaderboard.map((row) => ({ id: row.contestantId }));
+  const main = benchData.leaderboard.map((row) => ({ id: row.contestantId }));
+  const control = (benchData.leaderboardControl ?? []).map((row) => ({
+    id: row.contestantId,
+  }));
+  return [...main, ...control];
 }
 
 export const dynamicParams = false;
 
+/** 单场明细列（15 → 10 精简：终局人口/兵损/信标刻/首杀刻/终局资源移入分场景聚合视角）。 */
 const MATCH_COLUMNS: { key: string; label: string; align?: "right" }[] = [
   { key: "scenario", label: "场景" },
   { key: "seed", label: "种子", align: "right" },
@@ -48,31 +53,29 @@ const MATCH_COLUMNS: { key: string; label: string; align?: "right" }[] = [
   { key: "harvested", label: "采集", align: "right" },
   { key: "deposited", label: "上交", align: "right" },
   { key: "populationPeak", label: "人口峰值", align: "right" },
-  { key: "finalPopulation", label: "终局人口", align: "right" },
-  { key: "unitsLost", label: "兵损", align: "right" },
   { key: "aliveTicks", label: "存活刻", align: "right" },
-  { key: "beaconTicks", label: "信标刻", align: "right" },
-  { key: "firstKillTick", label: "首杀刻", align: "right" },
-  { key: "finalResources", label: "终局资源", align: "right" },
 ];
 
 const fmt = (v: number | null | undefined, digits = 2): string =>
   v == null ? "—" : Number(v.toFixed(digits)).toLocaleString("zh-CN");
 
-/** 条目详情页：头部 + 雷达 + 条形 + 场景小图 + 分场景表 + 单场明细 + 击杀时序 */
+/** 条目详情页动线：身份 → 画像（雷达+分项+排名） → 效率时序 → 击杀时序 → 分场景 → 单场明细。 */
 export default async function EntryPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const entry = benchData.leaderboard.find((e) => e.contestantId === id);
+  const entry =
+    benchData.leaderboard.find((e) => e.contestantId === id) ??
+    benchData.leaderboardControl?.find((e) => e.contestantId === id);
   const contestant = contestantOf(id);
   if (!entry || !contestant) {
     notFound();
   }
+  const inMainBoard = benchData.leaderboard.some((e) => e.contestantId === id);
 
-  const radarValues = SCORE_DIMENSIONS.map((dim) => ({
+  const radarValues = ACTIVE_SCORE_DIMENSIONS.map((dim) => ({
     key: dim.key as string,
     label: dim.label,
     value: entry[dim.key] as number,
@@ -87,12 +90,9 @@ export default async function EntryPage({
     }));
 
   const stats: [string, string][] = [
-    ["综合分", pct(entry.composite)],
+    [inMainBoard ? "综合分" : "外推综合分", pct(entry.composite)],
     ["平均名次", entry.avgRank.toFixed(2)],
     ["击杀/场", entry.killRate.toFixed(2)],
-    ["rankScore", pct(entry.rankScore)],
-    ["killScore", pct(entry.killScore)],
-    ["economyScore", pct(entry.economyScore)],
     ["场景名次波动", `±${entry.rankStddev.toFixed(2)}`],
   ];
 
@@ -122,6 +122,11 @@ export default async function EntryPage({
                 <Trophy className="h-3 w-3" />
                 {contestant.kind === "builtin" ? "内置对照（校准基线）" : "社区第三方 agent"}
               </Badge>
+              {!inMainBoard && (
+                <Badge variant="outline" className="gap-1 text-muted-foreground">
+                  对照组（不参与主榜排名）
+                </Badge>
+              )}
             </div>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
               {contestant.configNote}
@@ -152,79 +157,97 @@ export default async function EntryPage({
         </div>
       </Card>
 
-      {/* ===== v3 四维雷达 + 分项条形 ===== */}
-      <section className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card className="p-6">
-          <SectionHeader title="Score Radar" enTitle="四维画像" description="kill / rank / economy / survival 四项 0–1 分数" />
-          <RadarChart values={radarValues} />
-        </Card>
-        <Card className="p-6">
-          <SectionHeader title="Score Breakdown" enTitle="排名分项" description="综合分由各分项合成，条形为该条目占满分的比例" />
-          <div className="space-y-4">
-            {SCORE_DIMENSIONS.map((dim) => {
-              const value = entry[dim.key] as number;
-              return (
-                <div key={dim.key}>
-                  <div className="mb-1 flex items-baseline justify-between text-sm">
-                    <span className="font-medium text-foreground">
-                      {dim.label}
-                      <span className="ml-1.5 text-[11px] text-muted-foreground">{dim.enLabel}</span>
-                    </span>
-                    <span className="tnum text-muted-foreground">{pct(value)}</span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-brand-gradient transition-all"
-                      style={{ width: `${Math.max(2, value * 100)}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-            <p className="pt-1 text-[11px] leading-relaxed text-muted-foreground">
-              survivalScore 为 v2 兼容字段（v3 恒 1.0），已弃用，仅供对照。
-            </p>
-          </div>
-        </Card>
-      </section>
-
-      {/* ===== 场景 × 指标小图 ===== */}
+      {/* ===== 画像：雷达 + 分项（带全体排名参照） ===== */}
       <section className="mt-6">
         <SectionHeader
-          title="Scenario Mini Charts"
-          enTitle="场景指标小图"
-          description="该条目在各场景下的关键指标分布（柱高按该条目所有场景中的最大值归一化，悬浮查看数值）。"
+          title="Score Profile"
+          enTitle="三维画像"
+          description={`kill / rank / economy 三项 0–1 分数（survival 恒 1.0 已弃用），右列为该条目在全体 ${benchData.leaderboard.length} 条目中的维度排名。`}
         />
         <Card className="p-6">
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
-            {SCENARIO_METRICS.map((metric) => (
-              <div key={metric.key}>
-                <div className="mb-1 text-sm font-medium text-foreground">
-                  {metric.label}
-                  <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">{metric.note}</span>
-                </div>
-                <MiniBars
-                  items={scenarioStats.map(({ scenario, stat }) => ({
-                    key: scenario.name,
-                    label: scenario.label,
-                    value: metricValueOf(stat, metric.key),
-                  }))}
-                  unit={metric.unit}
-                  digits={metric.digits}
-                />
-              </div>
-            ))}
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+            <div className="mx-auto flex w-full max-w-[320px] items-center">
+              <RadarChart values={radarValues} size={280} />
+            </div>
+            <div className="space-y-4">
+              {ACTIVE_SCORE_DIMENSIONS.map((dim) => {
+                const value = entry[dim.key] as number;
+                const dimRank = inMainBoard ? dimensionRankOf(id, dim.key) : null;
+                return (
+                  <div key={dim.key}>
+                    <div className="mb-1 flex items-baseline justify-between text-sm">
+                      <span className="font-medium text-foreground">
+                        {dim.label}
+                        <span className="ml-1.5 text-[11px] text-muted-foreground">{dim.enLabel}</span>
+                        {dimRank !== null && (
+                          <span className="ml-2 rounded bg-brand/10 px-1.5 py-0.5 text-[11px] font-semibold text-brand tnum">
+                            全体第 {dimRank} 名
+                          </span>
+                        )}
+                      </span>
+                      <span className="tnum text-muted-foreground">{pct(value)}</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-brand-gradient transition-all"
+                        style={{ width: `${Math.max(2, value * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+              <p className="pt-1 text-[11px] leading-relaxed text-muted-foreground">
+                综合分 = rank 60% + kill 30% + economy 10%（v3 公式）。维度排名由各分项在全体主榜中的降序位置得出。
+              </p>
+            </div>
           </div>
         </Card>
       </section>
 
-      {/* ===== 分场景表现 ===== */}
+      {/* ===== 效率时序（资源/人口曲线，前置抓眼球） ===== */}
+      <section className="mt-6">
+        <SectionHeader
+          title="Efficiency Timeline"
+          enTitle="效率时序"
+          description={`每 50 tick 采样的 per-player 资源/人口曲线（v3.1 可观测性；同场 ${benchData.params.players} 玩家对比，可切换场景 × 种子）。`}
+        />
+        <Card className="p-6">
+          <ResourceTimelinePanel
+            scenarios={benchData.scenarios}
+            roster={benchData.contestants.map((c) => ({ id: c.id, label: c.label }))}
+            ticks={benchData.params.ticks}
+          />
+        </Card>
+      </section>
+
+      {/* ===== 击杀时序 ===== */}
+      <section className="mt-6">
+        <SectionHeader
+          title="Kill Timeline"
+          enTitle="击杀时序"
+          description="核心摧毁事件沿 tick 轴展开：每行一个玩家，标记位置 = 摧毁时刻、颜色 = 击杀者（悬浮查看击杀者 → 被击杀者）。"
+        />
+        <Card className="p-6">
+          <KillStats contestantId={id} />
+          <Separator className="my-6" />
+          <KillTimelinePanel
+            scenarios={benchData.scenarios}
+            roster={benchData.contestants.map((c) => ({ id: c.id, label: c.label }))}
+            ticks={benchData.params.ticks}
+          />
+        </Card>
+      </section>
+
+      {/* ===== 分场景表现：名次条导览 + 指标表 ===== */}
       <section className="mt-6">
         <SectionHeader
           title="Per Scenario"
           enTitle="分场景表现"
-          description="每场景均值（场景级 perEntry 指标），最好/最差为跨种子名次极值。"
+          description={`名次条 = 该条目各场景平均名次（第 1 名满条，金/银/铜高亮）；下表为场景级指标明细。`}
         />
+        <Card className="mb-4 p-6">
+          <ScenarioRankStrip contestantId={id} data={benchData} />
+        </Card>
         <Card>
           <div className="thin-scroll overflow-x-auto">
             <Table className="min-w-[720px]">
@@ -322,7 +345,7 @@ export default async function EntryPage({
           description={`每场对局 ${benchData.params.players} 条目同场对抗，胜方为资源结算最高者。`}        />
         <Card>
           <div className="thin-scroll overflow-x-auto">
-            <Table className="min-w-[900px] text-xs">
+            <Table className="min-w-[760px] text-xs">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   {MATCH_COLUMNS.map((col) => (
@@ -353,12 +376,7 @@ export default async function EntryPage({
                       harvested: String(player.harvested),
                       deposited: String(player.deposited),
                       populationPeak: String(player.populationPeak),
-                      finalPopulation: String(player.finalPopulation),
-                      unitsLost: String(player.unitsLost),
                       aliveTicks: String(player.aliveTicks),
-                      beaconTicks: String(player.beaconTicks),
-                      firstKillTick: player.firstKillTick == null ? "—" : String(player.firstKillTick),
-                      finalResources: String(player.finalResources),
                     };
                     return (
                       <TableRow
@@ -388,40 +406,6 @@ export default async function EntryPage({
               </TableBody>
             </Table>
           </div>
-        </Card>
-      </section>
-
-      {/* ===== 效率时序 ===== */}
-      <section className="mt-6">
-        <SectionHeader
-          title="Efficiency Timeline"
-          enTitle="效率时序"
-          description={`每 50 tick 采样的 per-player 资源/人口曲线（v3.1 可观测性；同场 ${benchData.params.players} 玩家对比，可切换场景 × 种子）。`}
-        />
-        <Card className="p-6">
-          <ResourceTimelinePanel
-            scenarios={benchData.scenarios}
-            roster={benchData.contestants.map((c) => ({ id: c.id, label: c.label }))}
-            ticks={benchData.params.ticks}
-          />
-        </Card>
-      </section>
-
-      {/* ===== 击杀时序 ===== */}
-      <section className="mt-6">
-        <SectionHeader
-          title="Kill Timeline"
-          enTitle="击杀时序"
-          description="核心摧毁事件沿 tick 轴展开：每行一个玩家，标记位置 = 摧毁时刻、颜色 = 击杀者（悬浮查看击杀者 → 被击杀者）。"
-        />
-        <Card className="p-6">
-          <KillStats contestantId={id} />
-          <Separator className="my-6" />
-          <KillTimelinePanel
-            scenarios={benchData.scenarios}
-            roster={benchData.contestants.map((c) => ({ id: c.id, label: c.label }))}
-            ticks={benchData.params.ticks}
-          />
         </Card>
       </section>
     </div>

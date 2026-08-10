@@ -1,10 +1,15 @@
-import { Users } from "lucide-react";
+import { Users, Timer } from "lucide-react";
 import Link from "next/link";
-import { benchData, contestantOf } from "@/lib/bench";
+import { benchData, contestantOf, type BenchmarkMatch } from "@/lib/bench";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RankBadge } from "./rank-badge";
 import { KindBadge } from "./kind-badge";
+
+/** 每场对局的实际结束 tick（最后存活的玩家存活刻）。 */
+function matchEndTick(match: BenchmarkMatch): number {
+  return Math.max(0, ...Object.values(match.players).map((p) => p.aliveTicks));
+}
 
 /**
  * 场景对比图：每场景一张 Card，展示该场景内条目排名与指标条。
@@ -24,6 +29,14 @@ export function ScenarioComparison() {
         const maxResources = Math.max(1e-9, ...entries.map((e) => e.stat.resourcesPerTick));
         const maxPeak = Math.max(1e-9, ...entries.map((e) => e.stat.populationPeak));
 
+        const avgMatchTicks =
+          scenario.matches.length > 0
+            ? Math.round(
+                scenario.matches.reduce((sum, m) => sum + matchEndTick(m), 0) /
+                  scenario.matches.length,
+              )
+            : 0;
+
         return (
           <Card key={scenario.name}>
             <CardHeader className="flex-row items-start justify-between gap-3 space-y-0">
@@ -38,13 +51,19 @@ export function ScenarioComparison() {
                   {scenario.template.configNote}
                 </p>
               </div>
-              <Badge variant="outline" className="shrink-0 gap-1">
-                <Users className="h-3 w-3" />
-                {scenario.matches.length} 场
-              </Badge>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <Badge variant="outline" className="gap-1">
+                  <Timer className="h-3 w-3" />
+                  均 {avgMatchTicks} ticks
+                </Badge>
+                <Badge variant="outline" className="gap-1">
+                  <Users className="h-3 w-3" />
+                  {scenario.matches.length} 场
+                </Badge>
+              </div>
             </CardHeader>
             <CardContent className="space-y-1.5">
-              {entries.map(({ row, stat }) => {
+              {entries.map(({ row, stat }, index) => {
                 const contestant = contestantOf(row.contestantId);
                 const resourcesBar = (stat.resourcesPerTick / maxResources) * 100;
                 const peakBar = (stat.populationPeak / maxPeak) * 100;
@@ -56,7 +75,7 @@ export function ScenarioComparison() {
                   >
                     <div className="flex items-center gap-3">
                       <span className="w-10 shrink-0">
-                        <RankBadge rank={Math.round(stat.avgRank)} size="sm" />
+                        <RankBadge rank={index + 1} size="sm" />
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">

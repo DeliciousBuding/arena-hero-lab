@@ -70,6 +70,20 @@ const CONTESTANT_LINUXDO_URL: Record<string, string> = {
   "arena-evolve": "https://linux.do/t/topic/2723397",
 };
 
+/** 条目 id → Linux DO 帖子标题（与 CONTESTANT_LINUXDO_URL 一一对应，实抓标题存档）。
+ *  抓取时间 2026-08-10（linux.do Cloudflare 防护下浏览器实测；标题为发帖人原文，
+ *  不改写、不翻译，仅截断到 UI 可容纳长度由前端处理）。 */
+const CONTESTANT_LINUXDO_TITLE: Record<string, string> = {
+  farmer: "【开源】Arena Hero 无人值守 Agent：资源优先策略，支持本地、Docker 和 systemd",
+  "farmer-eco": "【开源】Arena Hero 无人值守 Agent：资源优先策略，支持本地、Docker 和 systemd",
+  core: "近乎完美的双策略 for Arena-Hero (可满足自己扫荡和龟着换邀请码奖励两种需求)",
+  "core-mil": "近乎完美的双策略 for Arena-Hero (可满足自己扫荡和龟着换邀请码奖励两种需求)",
+  waaiging: "Arena Hero 游戏体验分享",
+  "waaiging-agg": "Arena Hero 游戏体验分享",
+  tactic: "【开源推广】Arena Hero的agent",
+  "arena-evolve": "Arena Hero 的一套进化框架(含可直接部署 agent)",
+};
+
 /** 条目 id → 展示名（覆盖评测产物 label 的错误措辞——core 为 VelvetEvening
  *  社区指南 agent，非官方参考；其余标签经核对准确，仅纠正错误项）。 */
 const CONTESTANT_LABEL: Record<string, string> = {
@@ -370,6 +384,7 @@ function main(): void {
       configNote: CONTESTANT_CONFIG_NOTE[c.id] ?? c.configNote,
       ...(CONTESTANT_REPO_URL[c.id] !== undefined ? { repoUrl: CONTESTANT_REPO_URL[c.id] } : {}),
       ...(CONTESTANT_LINUXDO_URL[c.id] !== undefined ? { linuxdoUrl: CONTESTANT_LINUXDO_URL[c.id] } : {}),
+      ...(CONTESTANT_LINUXDO_TITLE[c.id] !== undefined ? { linuxdoTitle: CONTESTANT_LINUXDO_TITLE[c.id] } : {}),
     })),
     leaderboard,
     /** v3.3 对照组榜（kind=builtin 条目；旧产物缺失时为 undefined，前端按无对照组处理）。 */

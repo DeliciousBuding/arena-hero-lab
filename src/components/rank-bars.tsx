@@ -66,18 +66,18 @@ export function RankBars({
           <div
             key={row.id}
             role="listitem"
-            className="group border-b border-border-faint py-2.5 transition-colors first:pt-0 last:border-0"
+            className="group border-b border-border-faint py-1.5 transition-colors first:pt-0 last:border-0"
           >
             {row.href !== undefined ? (
               <Link
                 href={row.href}
-                className="grid grid-cols-1 items-center gap-x-4 gap-y-2 rounded-md px-1 py-1 transition-colors hover:bg-secondary/40 @md:grid-cols-[minmax(0,280px)_minmax(0,1fr)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                className="grid grid-cols-1 items-center gap-x-4 gap-y-2 rounded-md px-1 py-0.5 transition-colors hover:bg-secondary/40 @md:grid-cols-[minmax(0,280px)_minmax(0,1fr)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
                 <RankRowLeft row={row} />
                 <RankRowBar row={row} widthPct={widthPctOf(row)} />
               </Link>
             ) : (
-              <div className="grid grid-cols-1 items-center gap-x-4 gap-y-2 rounded-md px-1 py-1 @md:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
+              <div className="grid grid-cols-1 items-center gap-x-4 gap-y-2 rounded-md px-1 py-0.5 @md:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
                 <RankRowLeft row={row} />
                 <RankRowBar row={row} widthPct={widthPctOf(row)} />
               </div>

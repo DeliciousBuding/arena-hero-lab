@@ -1,8 +1,8 @@
 {
   "schema": "arena.bench.report.v3",
   "generatedAt": "2026-08-10T10:01:06.464Z",
-  "convertedAt": "2026-08-10T10:06:15.014Z",
-  "source": "D:/Code/Projects/arena/data/runs/sim/arena-bench-v3.3-control10-94bd93e4d5bf",
+  "convertedAt": "2026-08-10T10:38:40.593Z",
+  "source": "D:/Code/Projects/arena/arena-hero-leaderboard/scripts/input",
   "params": {
     "players": 10,
     "rulesVersion": "v0.14",
@@ -31,7 +31,8 @@
       "kind": "python",
       "configNote": "Drew-Z 社区实现：资源优先（resource-first），12W+4V+4R 基础舰队，v0.14 动态价格适配",
       "repoUrl": "https://github.com/Drew-Z/arena-hero-agent",
-      "linuxdoUrl": "https://linux.do/t/topic/2703873"
+      "linuxdoUrl": "https://linux.do/t/topic/2703873",
+      "linuxdoTitle": "【开源】Arena Hero 无人值守 Agent：资源优先策略，支持本地、Docker 和 systemd"
     },
     {
       "id": "core",
@@ -39,7 +40,8 @@
       "kind": "python",
       "configNote": "VelvetEvening 社区进攻向指南（双策略 v3.3，arena_core_agent，mode=harvest/target=30）",
       "repoUrl": "https://github.com/VelvetEvening/ArenaHero-nearly-perfect-guide",
-      "linuxdoUrl": "https://linux.do/t/topic/2715054"
+      "linuxdoUrl": "https://linux.do/t/topic/2715054",
+      "linuxdoTitle": "近乎完美的双策略 for Arena-Hero (可满足自己扫荡和龟着换邀请码奖励两种需求)"
     },
     {
       "id": "waaiging",
@@ -47,7 +49,8 @@
       "kind": "python",
       "configNote": "Waaiging 社区战术 agent（SmartTactic，4 模式自适应经济/动态产兵/编队推进/Core 斩首/信标控制）",
       "repoUrl": "https://github.com/Waaiging/ArenaHero",
-      "linuxdoUrl": "https://linux.do/t/topic/2721042"
+      "linuxdoUrl": "https://linux.do/t/topic/2721042",
+      "linuxdoTitle": "Arena Hero 游戏体验分享"
     },
     {
       "id": "tactic",
@@ -55,7 +58,8 @@
       "kind": "python",
       "configNote": "feixingwawa 社区战术客户端（资源优先 + 均衡防守，12W/4V/4R 爬坡、矿点智能调度、Beacon 导向探索）",
       "repoUrl": "https://github.com/feixingwawa/arena-hero-tactic",
-      "linuxdoUrl": "https://linux.do/t/topic/2726683"
+      "linuxdoUrl": "https://linux.do/t/topic/2726683",
+      "linuxdoTitle": "【开源推广】Arena Hero的agent"
     },
     {
       "id": "arena-evolve",
@@ -63,7 +67,8 @@
       "kind": "python",
       "configNote": "Torther 基因启发式策略 + GA 进化研究（evolve_v7_best 冠军快照）",
       "repoUrl": "https://github.com/Torther/arena-evolve",
-      "linuxdoUrl": "https://linux.do/t/topic/2723397"
+      "linuxdoUrl": "https://linux.do/t/topic/2723397",
+      "linuxdoTitle": "Arena Hero 的一套进化框架(含可直接部署 agent)"
     },
     {
       "id": "waaiging-agg",
@@ -71,7 +76,8 @@
       "kind": "python",
       "configNote": "Waaiging 社区战术变体（进攻倾向：mode=aggress，6 先锋 + 9 游侠前压）",
       "repoUrl": "https://github.com/Waaiging/ArenaHero",
-      "linuxdoUrl": "https://linux.do/t/topic/2721042"
+      "linuxdoUrl": "https://linux.do/t/topic/2721042",
+      "linuxdoTitle": "Arena Hero 游戏体验分享"
     },
     {
       "id": "core-mil",
@@ -79,7 +85,8 @@
       "kind": "python",
       "configNote": "VelvetEvening 社区指南变体（军事倾向：mode=control/target=8）",
       "repoUrl": "https://github.com/VelvetEvening/ArenaHero-nearly-perfect-guide",
-      "linuxdoUrl": "https://linux.do/t/topic/2715054"
+      "linuxdoUrl": "https://linux.do/t/topic/2715054",
+      "linuxdoTitle": "近乎完美的双策略 for Arena-Hero (可满足自己扫荡和龟着换邀请码奖励两种需求)"
     },
     {
       "id": "farmer-eco",
@@ -87,7 +94,8 @@
       "kind": "python",
       "configNote": "Drew-Z 社区实现变体（经济倾向：worker_target=16/beacon_policy=retreat）",
       "repoUrl": "https://github.com/Drew-Z/arena-hero-agent",
-      "linuxdoUrl": "https://linux.do/t/topic/2703873"
+      "linuxdoUrl": "https://linux.do/t/topic/2703873",
+      "linuxdoTitle": "【开源】Arena Hero 无人值守 Agent：资源优先策略，支持本地、Docker 和 systemd"
     },
     {
       "id": "ts-aggressive",
