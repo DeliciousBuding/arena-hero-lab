@@ -113,6 +113,56 @@ Multiple confirmatory outcomes require a declared multiplicity policy. The orche
 analysis requires every confirmatory outcome and rejects undeclared outcomes. It never
 searches for or publishes only the most favorable result.
 
+## Hierarchical clustered outcomes
+
+A second, independent surface fits a two-level random-intercept model for clustered or
+repeated-measure outcomes:
+
+```text
+Y_ij = mu + beta * T_ij + u_i + e_ij
+```
+
+with independent random intercepts ``u_i ~ N(0, sigma2_u)`` per cluster and errors
+``e_ij ~ N(0, sigma2_e)``. The data grain is
+(outcome, cluster, observation, treatment, value) via the frozen ``ClusterObservation``
+record, and the estimand is the **within-cluster (conditional) average treatment
+contrast** ``beta = E[Y | T=1, u] - E[Y | T=0, u]``, constant over every cluster.
+
+- estimator: profile REML over ``lambda = sigma2_u / sigma2_e`` with a closed-form
+  fixed-``lambda`` GLS (stdlib only, no NumPy/SciPy/Pandas/Statsmodels);
+- independent cross-validation path: within-cluster OLS + between-cluster method-of-moments
+  (MoM/ANOVA), compared against the REML result with declared tolerances;
+- balanced fixtures must agree within ``1e-8`` (effect) and ``1e-7`` (variance); mildly
+  unbalanced fixtures use a looser effect tolerance (``1e-3``) and record variance
+  agreement without gating on it;
+- confidence interval: conservative between-cluster t with ``df = cluster_count - 1``;
+  this is **not** Satterthwaite or Kenward-Roger;
+- effect size: ``hierarchical-d-v1 = beta / sqrt(sigma2_u + sigma2_e)``; this is **not**
+  Cohen's d or Cohen's dz;
+- canonical identity: schema ``arena.research.random-intercept-fit.v1`` with a
+  content-addressed SHA-256 over the frozen payload; tampering breaks verification.
+
+Fail-closed gates (no silent fallback):
+
+- fewer than two complete clusters, non-finite values, or clusters missing a treatment
+  level are rejected;
+- cluster-randomized designs (no within-cluster treatment variation anywhere) are
+  rejected as unidentifiable for the within-cluster estimand;
+- a missing-level policy is declared up front: ``fail`` rejects the incomplete cluster,
+  ``drop-cluster`` drops it and records the count and a warning;
+- a singular or boundary between-cluster variance produces no confidence interval, no
+  standard error, and no effect-size claim, and is reported explicitly;
+- the paired design (one control and one treatment per cluster) is the balanced degenerate
+  case: ``paired_to_cluster_observations`` bridges pairs and the REML treatment effect
+  reproduces the existing paired mean difference.
+
+Non-claims: this surface is a minimal real random-intercept model, not an lme4/nlme
+replacement. It does not implement random slopes, nested/multilevel structures, GLMMs,
+Kenward-Roger or Satterthwaite degrees of freedom, cluster-robust sandwich errors, or
+inference for cluster-randomized (whole-cluster assignment) designs. Cluster-level power
+for hierarchical designs is deliberately deferred to a later slice rather than shipped
+half-baked.
+
 ## Power and sample size
 
 `normal_approx_paired_sample_size` provides a dependency-light planning approximation from
@@ -182,8 +232,13 @@ specified numerical tolerance.
 - benchmark local/process executors and future distributed execution for replications;
 - benchmark artifact stores for observation/result persistence;
 - alternative environment/SBOM exporters and external attestations;
-- sensitivity, hierarchical, mixed-effects, survival, and sequential designs;
-- independent numerical implementations with declared tolerances;
+- sensitivity, survival, and sequential designs;
+- hierarchical depth beyond random intercepts: random slopes, nested/multilevel models,
+  GLMMs, and Kenward-Roger/Satterthwaite degrees of freedom;
+- cluster-level power for hierarchical designs (deferred to a later slice);
+- independent numerical implementations with declared tolerances (random-intercept REML
+  and MoM/ANOVA cross-validation are implemented; further backends must preserve the same
+  contracts within a specified tolerance);
 - reproducible figure generation, signed publication, and reproduction services.
 
 ## Implementation status
@@ -200,7 +255,8 @@ specified numerical tolerance.
 | Monte Carlo power and replication-aware conclusions | Implemented reference methods |
 | Durable lifecycle chronology and immutable evidence ledger | Implemented filesystem reference |
 | Public environment snapshot and minimal explicit SBOM | Implemented reference generators |
-| Hierarchical/mixed-effects and independent numerical backends | Planned extension |
+| Random-intercept REML + independent MoM/ANOVA cross-validation | Implemented (stdlib-only, fail-closed) |
+| Cluster-level power for hierarchical designs | Deferred to a later slice |
 | Distributed verification, signed attestation, publication service | Planned extension |
 
 ## M3-M7 evolution
@@ -210,8 +266,9 @@ specified numerical tolerance.
 - **M4 — Reproduction evidence:** assignment, strict replication merge, Monte Carlo power,
   public environment/SBOM provenance, and a durable filesystem ledger with enforced pilot →
   exploratory → confirmatory → replication → complete chronology are implemented.
-- **M5 — Scientific depth:** sensitivity analysis, hierarchical designs, and independent
-  numerical-backend conformance remain planned.
+- **M5 — Scientific depth:** sensitivity analysis remains planned; the random-intercept
+  hierarchical slice (REML + independent MoM/ANOVA cross-validation) is implemented;
+  deeper hierarchical designs and further numerical-backend conformance remain planned.
 - **M6 — Parallel research:** benchmark process execution is available; richer research-level
   scheduling, resumable analysis artifacts, and resource isolation remain planned.
 - **M7 — Distributed verification:** distributed executor integration, remote artifact store,

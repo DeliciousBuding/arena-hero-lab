@@ -41,6 +41,10 @@ outcomes after they are observed.
 - deterministic Monte Carlo power simulation using a disclosed Cornish-Fisher
   approximation to Student-t critical values;
 - data-quality reports and content-addressed `ResearchRun` / `ResultBundle` artifacts;
+- a random-intercept hierarchical surface (`fit_random_intercept`,
+  `cross_validate_random_intercept`, `paired_to_cluster_observations`) for clustered or
+  repeated-measure outcomes: within-cluster treatment contrast, conservative
+  between-cluster t intervals, and an independent MoM/ANOVA cross-validation path;
 - replication-aware `ResearchConclusion` artifacts that retain every confirmatory result
   and every replication, including null and adverse evidence;
 - qualification requires effect magnitude, confidence interval, multiplicity-adjusted
@@ -55,12 +59,33 @@ uses a Cornish-Fisher approximation to Student-t critical values. Its artifact r
 method, seed, assumptions, Monte Carlo standard error, and limitations. Planning is allowed
 only in pilot or exploratory phases and is rejected after the confirmatory freeze.
 
-The initial confirmatory analysis remains a paired-comparison workflow. It does not claim
-hierarchical inference, cluster-robust errors, sequential testing, adaptive randomization,
-or causal identification outside the registered design. The package includes a local
-filesystem reference ledger adapter; distributed executors, remote or replicated ledger
-adapters, signed provenance, and independent publication services remain future adapters
-behind the implemented ports.
+The initial confirmatory analysis remains a paired-comparison workflow. The hierarchical
+surface (random-intercept REML) is a separate, explicitly bounded capability: it does not
+claim cluster-robust errors, Kenward-Roger or Satterthwaite degrees of freedom, random
+slopes, nested or multilevel structures, GLMMs, or inference for cluster-randomized
+(whole-cluster assignment) designs, and cluster-level hierarchical power is deferred. The
+package does not claim sequential testing, adaptive randomization, or causal identification
+outside the registered design. The package includes a local filesystem reference ledger
+adapter; distributed executors, remote or replicated ledger adapters, signed provenance,
+and independent publication services remain future adapters behind the implemented ports.
+
+## Random-intercept hierarchical surface
+
+For clustered or repeated-measure outcomes the package provides a minimal but real
+two-level random-intercept model over the frozen `ClusterObservation` grain
+(outcome, cluster, observation, treatment, value). The estimand is the within-cluster
+(conditional) average treatment contrast. The authoritative estimator is profile REML
+(stdlib only); `cross_validate_random_intercept` compares it against an independent
+within-OLS + between method-of-moments path with declared tolerances. The paired design is
+the balanced degenerate case and `paired_to_cluster_observations` bridges pairs so the REML
+effect reproduces the existing paired mean difference.
+
+Design gates fail closed: fewer than two clusters, non-finite values, missing levels (under
+a declared `fail` / `drop-cluster` policy), and cluster-randomized designs are rejected;
+singular or boundary variance disables interval and effect-size claims. The confidence
+interval is a conservative between-cluster t with `df = cluster_count - 1` (not
+Satterthwaite or Kenward-Roger), and the effect label is `hierarchical-d-v1` (not Cohen's
+d or dz). See `docs/research-platform.md` for the full capability matrix and non-claims.
 
 ## Minimal offline flow
 
