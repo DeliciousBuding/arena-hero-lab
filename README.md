@@ -1,94 +1,104 @@
-# Arena Hero Leaderboard
+# Arena Hero Lab
 
-模拟器评测榜单站点：把 arena-hero 多智能体对抗评测（7 场景 × 5 种子，10 条目同场对抗）的数据变成一组直观的图表。
+Arena Hero Lab is a public monorepo for deterministic simulation, reproducible
+benchmarks, research workflows, replay artifacts, and the Arena Hero leaderboard web app.
 
-**在线地址：<https://deliciousbuding.github.io/arena-hero-leaderboard/>**
+The repository is organized around replaceable packages with one-way dependencies:
 
-![Next.js](https://img.shields.io/badge/Next.js-16-black)
-![React](https://img.shields.io/badge/React-19-61dafb)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6)
-![Tailwind](https://img.shields.io/badge/TailwindCSS-v4-38bdf8)
-![Static Export](https://img.shields.io/badge/Static-Export-ffffff)
-![GitHub Pages](https://img.shields.io/badge/GitHub-Pages-4078c0)
-
-## 这是什么
-
-arena-hero 是一个基于 [Arena Hero](https://github.com/HenryXiaoYang/arena-hero) 的模拟器评测平台（评测引擎在 [DeliciousBuding/arena](https://github.com/DeliciousBuding/arena)）。本仓库是它的评测结果展示站：
-
-- 10 个参赛 agent 同场对抗：8 个社区开源实现 + arena-ts 自家 TypeScript 客户端（ts-aggressive / ts-safety，同为参赛方，代码在 [DeliciousBuding/arena](https://github.com/DeliciousBuding/arena)）
-- 7 种场景 × 5 个随机种子，共 35 场完整对局
-- 每场输出资源曲线、人口曲线、击杀时序等可观测数据
-
-站点把全部评测数据渲染成图表——排名、四维能力对比、场景热图、效率曲线、击杀时序——纯前端 SVG 绘制，零图表库依赖，静态部署，秒开。
-
-## 页面
-
-| 区块 | 内容 |
-|---|---|
-| Overall Rankings | 综合分排名（arena.ai 风格条形图，可搜索） |
-| Scenario Leaderboards | 每个场景独立擂台（平均名次 + 资源/刻条） |
-| Score Profile | 击杀 / 名次 / 经济三维归一化对比 |
-| Scenario Heatmap | 场景 × 条目指标矩阵（资源/刻 · 击杀率 · 平均名次） |
-| Entry 详情页 | 单智能体深度页：三维雷达、分场景名次条、效率曲线、击杀时序、单场明细 |
-
-## 快速开始
-
-```bash
-pnpm install
-pnpm dev        # 本地开发，http://localhost:3000/arena-hero-leaderboard
-pnpm build      # 生产构建（静态导出 out/）
-pnpm preview    # 本地预览构建产物
-pnpm lint       # 代码检查
+```text
+arena-hero-sim <- arena-hero-bench <- arena-hero-research
+                         |
+                         +-> apps/leaderboard-web
 ```
 
-## 数据更新
+## Repository layout
 
-评测完成后，把评测产物转换为站点数据并重新构建：
+- `packages/arena-hero-sim` — deterministic domain and serialization foundations.
+- `packages/arena-hero-bench` — benchmark contracts, manifests, orchestration, and report conversion.
+- `packages/arena-hero-research` — statistical and research tooling over immutable artifacts.
+- `apps/leaderboard-web` — Next.js static benchmark and replay explorer.
+- `docs` — architecture, design-system, and research documentation.
+
+The Python packages use `uv`; the browser application uses `pnpm`. TypeScript is limited
+to browser code, generated types, and a temporary converter oracle retained for migration
+verification.
+
+## Quick start
+
+Requirements:
+
+- Python 3.12
+- `uv`
+- Node.js 22 or newer
+- pnpm 10.32.1
 
 ```bash
-npx tsx scripts/convert.mts <path-to>/results.json
+uv sync --locked --all-groups
+pnpm install --frozen-lockfile
+
+uv run pytest -q
+pnpm lint
 pnpm build
 ```
 
-`scripts/convert.mts` 做确定性变换：校验 schema → 裁剪字段 → 聚合派生（排名 / 场景统计 / 击杀时序 / per-tick 采样）→ 输出 `src/data/bench.json`。可重复运行，不编造任何数字。
-
-## 部署
-
-线上采用 **GitHub Pages 静态部署**：本地 `pnpm build` 后把 `out/` 推送到 `gh-pages` 分支（Pages 以 legacy 分支模式托管）。
+Run the web application locally:
 
 ```bash
-pnpm build
-pnpm deploy:gh-pages   # 把 out/ 推送到 gh-pages 分支
+pnpm dev
 ```
 
-> `.github/workflows/deploy.yml`（Actions 自动部署）保留在仓库中，账号计费问题解决后可切回自动部署。
+The GitHub Pages-compatible base path remains `/arena-hero-leaderboard` by default while
+the existing public URL is in use. Override it for another host:
 
-## 技术栈
-
-- **Next.js 16**（App Router，静态导出）+ **React 19** + **TypeScript**
-- **Tailwind CSS v4** 设计令牌体系（暖黑/暖白双主题）
-- **shadcn/ui** 原语 + **Radix UI**（键盘可达 + ARIA）+ **lucide-react**
-- 图表全部自绘 SVG（热图 / 条形 / 雷达 / 折线），零图表库
-
-## 仓库结构
-
-```
-├── .github/workflows/deploy.yml   # GitHub Pages 自动部署（Actions 恢复后启用）
-├── scripts/
-│   ├── convert.mts                # 评测产物 → 站点数据（确定性变换）
-│   ├── deploy-gh-pages.sh         # 手动部署到 gh-pages 分支
-│   └── preview.mjs                # 本地静态预览
-├── src/
-│   ├── app/                       # 路由与页面
-│   ├── components/                # 图表与 UI 组件
-│   ├── lib/                       # 类型与数据层
-│   └── data/bench.json            # 转换产物（静态数据）
-└── public/                        # 静态资源
+```bash
+NEXT_PUBLIC_BASE_PATH="" pnpm build
 ```
 
-## 致谢
+## Benchmark report conversion
 
-- 评测引擎与智能体实现：[DeliciousBuding/arena](https://github.com/DeliciousBuding/arena)
-- 上游游戏：[HenryXiaoYang/arena-hero](https://github.com/HenryXiaoYang/arena-hero)
-- 参赛智能体均为社区开源实现（Drew-Z / VelvetEvening / Waaiging / feixingwawa / Torther）
-- 视觉参考：[arena.ai/leaderboard](https://arena.ai/leaderboard)
+Python is the authoritative converter:
+
+```bash
+pnpm convert
+```
+
+It transforms `arena.bench.report.v3` into the static web dataset at
+`apps/leaderboard-web/src/data/bench.json`. The former TypeScript converter remains
+available only as a differential-test oracle:
+
+```bash
+pnpm convert:oracle
+```
+
+The release command validates locally by default and publishes only when `--deploy` is
+provided explicitly:
+
+```bash
+python apps/leaderboard-web/scripts/release.py --force
+```
+
+## Public leaderboard
+
+The current static site remains available at
+<https://deliciousbuding.github.io/arena-hero-leaderboard/>.
+
+## Architecture and policies
+
+- [Architecture](docs/architecture.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+- [Web design system](docs/design-system.md)
+
+## Attribution
+
+Arena Hero Lab builds on the public [Arena Hero](https://github.com/HenryXiaoYang/arena-hero)
+ecosystem. Benchmark fixtures include references to community projects from
+[Drew-Z](https://github.com/Drew-Z/arena-hero-agent),
+[VelvetEvening](https://github.com/VelvetEvening/ArenaHero-nearly-perfect-guide),
+[Waaiging](https://github.com/Waaiging/ArenaHero),
+[feixingwawa](https://github.com/feixingwawa/arena-hero-tactic), and
+[Torther](https://github.com/Torther/arena-evolve). Their code and content remain governed
+by their respective repositories and licenses.
+
+The leaderboard visual design was informed by the public
+[LM Arena leaderboard](https://arena.ai/leaderboard).

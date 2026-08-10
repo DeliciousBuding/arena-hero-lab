@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Never
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 APP_ROOT = SCRIPT_DIR.parent
@@ -22,14 +24,18 @@ def log(message: str) -> None:
     print(message, flush=True)
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> Never:
     print(f"error: {message}", file=sys.stderr)
     raise SystemExit(1)
 
 
 def run(command: list[str], *, cwd: Path = WORKSPACE_ROOT) -> None:
+    executable = shutil.which(command[0])
+    if executable is None:
+        fail(f"required executable is not available: {command[0]}")
+    resolved = [executable, *command[1:]]
     log(f"==> {' '.join(command)}")
-    completed = subprocess.run(command, cwd=cwd, check=False)
+    completed = subprocess.run(resolved, cwd=cwd, check=False)
     if completed.returncode != 0:
         fail(f"command failed with exit code {completed.returncode}: {' '.join(command)}")
 
@@ -92,10 +98,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if BENCH_PATH.exists() and not args.force:
         current = read_json(BENCH_PATH)
-        if (
-            current.get("schema") == report.get("schema")
-            and current.get("generatedAt") == report.get("generatedAt")
-        ):
+        if current.get("schema") == report.get("schema") and current.get(
+            "generatedAt"
+        ) == report.get("generatedAt"):
             log("==> source already converted; use --force to rebuild")
             return 0
 

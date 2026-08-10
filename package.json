@@ -11,7 +11,10 @@
     "deploy:gh-pages": "pnpm --filter @arena-hero/leaderboard-web deploy:gh-pages",
     "convert:oracle": "pnpm --filter @arena-hero/leaderboard-web convert:oracle",
     "convert": "uv run arena-hero-bench convert apps/leaderboard-web/scripts/input/results.json --output apps/leaderboard-web/src/data/bench.json --source-root apps/leaderboard-web",
-    "test": "uv run pytest -q"
+    "test": "uv run pytest -q",
+    "check:python": "uv run ruff format --check . && uv run ruff check . && uv run ty check packages scripts apps/leaderboard-web/scripts/release.py && uv run pytest -q",
+    "check:privacy": "uv run python scripts/check_public_surface.py",
+    "check": "pnpm run check:python && pnpm lint && pnpm build && pnpm run check:privacy"
   },
   "packageManager": "pnpm@10.32.1"
 }

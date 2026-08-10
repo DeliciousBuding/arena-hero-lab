@@ -1,7 +1,7 @@
 # arena-hero v3.1 策略实测分析（35 场全量）
 
 > 评测日期：2026-08-10 · 数据源：`arena.bench.report.v3` · 35 场 = 7 场景 × 5 种子 × 8 玩家
-> ticks=2000 · workers=4 · 基于干净 main c58ad51（worktree eval-bench）
+> ticks=2000 · workers=4 · 基于可复现的干净提交 `c58ad51`
 > 本文仅基于实测数据，不含推测；killEvents 并发落盘 bug 已修复（2026-08-10 续3，详见 §7），30/35 场 87 事件。
 
 ## 1. 榜单排名（综合分降序）
@@ -186,7 +186,7 @@ ffa-defense-pressure（资源枯竭）击杀最多——压力逼出 Core 斩首
 
 基于本轮评测数据缺失，建议 arena-ts 评测层增强：
 1. **killEvents 并发落盘 bug 已修复**（2026-08-10 续3）：
-   - 根因：`WorkerMatchFile` 序列化三重缺失——接口无 killEvents 字段定义 + `runWorkerProcess` 写文件漏 + 主进程 `resolvePromise` 读回漏。**非并发竞态**，是 worker 序列化漏字段（之前会话"并发隔离"修复保留了价值但非此 bug 根因）
+   - 根因：`WorkerMatchFile` 序列化三重缺失——接口无 killEvents 字段定义 + `runWorkerProcess` 写文件漏 + 主进程 `resolvePromise` 读回漏。**非并发竞态**，是 worker 序列化漏字段（并发隔离改进仍有价值，但不是此缺陷的根因）
    - 修复三处后 workers=4 全量 35 场验证：30/35 场有 killEvents 共 87 事件（85 有 victim）。5 场无事件为平局或时间到未摧毁核心
    - 击杀时序图数据源就绪，网站 `KillTimeline` 组件可正常渲染（entry 详情页击杀时序 section）
 2. **per-tick 时序数据已实现**（2026-08-10 续6）：`runFreeForAll` 注入 `onTickSettled` 回调每 50 tick 采样 per-player 资源/人口，全链路序列化（MatchResult → WorkerMatchFile → results.json → bench.json），网站 entry 详情页新增 Efficiency Timeline 资源/人口曲线面板。arena-ts `5cde993`

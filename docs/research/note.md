@@ -8,7 +8,7 @@
 - 布局：左侧固定 sidebar（New Chat / Leaderboard / Search 导航 + Log In + Terms/Privacy/Cookies 底部），右侧主区垂直滚动
 - 主区顶部：页头（"Leaderboard Overview" + 说明文字 + "Edit View" 按钮）
 - 分类卡片：Agent / Text / WebDev / Vision / Document / Text-to-Image / Image Edit / Image-to-WebDev / Search / Text-to-Video / Image-to-Video / Video Edit
-- 卡片结构：左侧 🏆 Overall 标题，右侧 top10 表（名次 | 模型名 | Elo 分数 ± 置信区间；Agent 类为 win rate 百分比 ± 误差，如 "Claude Opus 5 (High) 11.99% ±1.37%"）+ "View all" 链接
+- 卡片结构：左侧 🏆 Overall 标题，右侧 top10 表（名次 | 条目名 | 分数 ± 置信区间；Agent 类可展示胜率百分比与误差）+ "View all" 链接
 - 底部 footer 五列：USE CASES / LEADERBOARD RANKINGS / COMPANY / LEGAL / FOLLOW
 - 深色主题倾向，图标密度高，排名徽章金/银/铜
 

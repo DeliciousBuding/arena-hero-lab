@@ -1,17 +1,17 @@
-# 设计系统 · arena-hero-leaderboard
+# Design system · Arena Hero Lab leaderboard
 
 最后更新：2026-08-10
 
 > 本文档约束本站视觉与交互的"组件 / 视觉变量 / 交互状态 / 验收标准"。
-> 改动任何 ui 原语或 token 前先读本文。token 定义在 `src/app/globals.css`。
+> 改动任何 ui 原语或 token 前先读本文。token 定义在 `apps/leaderboard-web/src/app/globals.css`。
 
 ## 一、四层栈哲学
 
-真正有效的 vibe coding 不是堆砌"高级、现代、有科技感"形容词，而是明确组件、视觉变量、交互状态和验收标准。本站采用四层现代 UI 栈：
+有效的产品设计需要明确组件、视觉变量、交互状态和验收标准，而不是依赖抽象风格标签。本站采用四层 UI 栈：
 
 | 层 | 职责 | 本站实现 |
 |---|---|---|
-| **shadcn 语法** | 组件代码与组合方式 | `src/components/ui/` 原语 + `class-variance-authority` 变体约束 |
+| **shadcn 语法** | 组件代码与组合方式 | `apps/leaderboard-web/src/components/ui/` 原语 + `class-variance-authority` 变体约束 |
 | **Radix / Base UI 行为** | 交互行为与可访问性 | `@radix-ui/react-*`（separator/tabs/tooltip/scroll-area/slot/switch） |
 | **Tailwind token** | 布局、样式、设计令牌 | Tailwind v4 CSS-first `@theme inline` + `:root`/`.dark` 变量 |
 | **Lucide 图标** | 统一图标语言 | `lucide-react`（v1 移除品牌图标，GitHub 用 `GitBranch` 语义图标） |
@@ -54,7 +54,7 @@ arena.ai 实测 card **无阴影**（扁平）。`--shadow-xs: transparent`。ho
 
 `h1`/`h2` 用 serif + **weight 300**（细体，arena.ai 实测 h1 weight 300，编辑性质感）。
 
-## 三、UI 原语清单（`src/components/ui/`）
+## 三、UI 原语清单（`apps/leaderboard-web/src/components/ui/`）
 
 | 原语 | 文件 | cva 变体 | 基于 |
 |---|---|---|---|

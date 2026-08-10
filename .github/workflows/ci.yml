@@ -1,0 +1,65 @@
+name: Continuous integration
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Python workspace
+        run: uv sync --locked --all-groups
+
+      - name: Install web workspace
+        run: pnpm install --frozen-lockfile
+
+      - name: Python formatting
+        run: uv run ruff format --check .
+
+      - name: Python lint
+        run: uv run ruff check .
+
+      - name: Python types
+        run: uv run ty check packages scripts apps/leaderboard-web/scripts/release.py
+
+      - name: Python tests and converter differential
+        run: uv run pytest -q
+
+      - name: Web lint
+        run: pnpm lint
+
+      - name: Web build
+        run: pnpm build
+
+      - name: Public-surface scan
+        run: uv run python scripts/check_public_surface.py
+
+      - name: Whitespace check
+        run: git diff --check
