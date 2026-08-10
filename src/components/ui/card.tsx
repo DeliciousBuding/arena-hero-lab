@@ -2,8 +2,8 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Card 原语：表面容器，统一圆角/边线/阴影。
- * Anthropic 风格：克制阴影，细线分隔，暖色表面。
+ * Card 原语：表面容器，统一圆角/边线。
+ * arena.ai 实测：card 无阴影（扁平），hover 用 border 变化而非 shadow。
  */
 const Card = React.forwardRef<
   HTMLDivElement,
@@ -12,8 +12,8 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "rounded-lg border border-border bg-card text-card-foreground shadow-xs",
-      "transition-shadow duration-200 hover:shadow-sm",
+      "rounded-lg border border-border bg-card text-card-foreground",
+      "transition-colors duration-200 hover:border-foreground/25",
       className,
     )}
     {...props}

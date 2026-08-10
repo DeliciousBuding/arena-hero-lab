@@ -147,45 +147,46 @@
   --shadow-lg: 0 4px 8px rgb(26 26 24 / 0.06), 0 12px 32px rgb(26 26 24 / 0.08);
   --shadow-glow: 0 0 0 1px rgb(184 136 26 / 0.2), 0 8px 32px rgb(184 136 26 / 0.16);
 
-  --font-sans-stack: var(--font-sans-loaded), "baselGrotesk", "Inter", ui-sans-serif, system-ui, -apple-system,
+  --font-sans-stack: "baselGrotesk", "Inter", ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  --font-serif-stack: var(--font-serif-loaded), "Iowan Old Style", "Charter", "Georgia", "Source Han Serif SC",
-    "Noto Serif SC", "Songti SC", ui-serif, serif;
+  --font-serif-stack: "martinaPlantijn", "Iowan Old Style", "Charter", "Georgia",
+    "Source Han Serif SC", "Noto Serif SC", "Songti SC", ui-serif, serif;
   --font-mono-stack: "JetBrains Mono", "SF Mono", "Fira Code", ui-monospace,
     "Cascadia Code", "Menlo", monospace;
 }
 
-/* ========== 深色（暖黑，Anthropic dark） ========== */
+/* ========== 深色（暖黑，arena.ai 实测） ========== */
 .dark {
-  --background: #1a1a18;
+  /* arena.ai 实测：body bg #252523 / fg #f4f0eb / card #33302e / border #413d39 */
+  --background: #252523;
   --foreground: #f4f0eb;
-  --card: #232321;
+  --card: #33302e;
   --card-foreground: #f4f0eb;
-  --popover: #232321;
+  --popover: #33302e;
   --popover-foreground: #f4f0eb;
 
   --primary: #f4f0eb;
-  --primary-foreground: #1a1a18;
-  --secondary: #2d2c29;
+  --primary-foreground: #252523;
+  --secondary: #3a3733;
   --secondary-foreground: #f4f0eb;
   --muted: #2d2c29;
   --muted-foreground: #a8a29a;
-  --accent: #34322e;
+  --accent: #3f3b37;
   --accent-foreground: #f4f0eb;
   --destructive: #f87171;
-  --destructive-foreground: #1a1a18;
+  --destructive-foreground: #252523;
   --success: #4ade80;
-  --success-foreground: #1a1a18;
+  --success-foreground: #252523;
   --warning: #fbbf24;
-  --warning-foreground: #1a1a18;
+  --warning-foreground: #252523;
 
-  --border: #34322e;
+  --border: #413d39;
   --input: #413d39;
   --ring: #f4f0eb;
-  --border-faint: #2a2926;
+  --border-faint: #2f2c28;
 
   --brand: #e8b941;
-  --brand-foreground: #1a1a18;
+  --brand-foreground: #252523;
   --brand-soft: rgba(232, 185, 65, 0.1);
 
   --rank-gold: #e8b941;
@@ -204,13 +205,14 @@
   --heat-text-2: #e8c97a;
   --heat-text-3: #f5e6c8;
   --heat-text-4: #f4f0eb;
-  --heat-text-5: #1a1a18;
-  --heat-text-6: #1a1a18;
+  --heat-text-5: #252523;
+  --heat-text-6: #252523;
 
-  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.3);
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 8px rgb(0 0 0 / 0.2);
-  --shadow-md: 0 2px 4px rgb(0 0 0 / 0.35), 0 6px 20px rgb(0 0 0 / 0.25);
-  --shadow-lg: 0 4px 8px rgb(0 0 0 / 0.4), 0 12px 32px rgb(0 0 0 / 0.3);
+  /* arena.ai 实测：card 无阴影（扁平）；保留极轻 hover 提示 */
+  --shadow-xs: 0 0 0 0 transparent;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.2);
+  --shadow-md: 0 2px 4px rgb(0 0 0 / 0.25), 0 6px 20px rgb(0 0 0 / 0.2);
+  --shadow-lg: 0 4px 8px rgb(0 0 0 / 0.3), 0 12px 32px rgb(0 0 0 / 0.25);
   --shadow-glow: 0 0 0 1px rgb(232 185 65 / 0.25), 0 8px 36px rgb(232 185 65 / 0.22);
 }
 
@@ -240,10 +242,10 @@
     letter-spacing: -0.02em;
     font-feature-settings: "ss01";
   }
-  /* Anthropic 标题用 serif + 细体，体现编辑性质感 */
+  /* arena.ai 实测：h1 weight 300（细体 serif），体现编辑性质感 */
   h1, h2 {
     font-family: var(--font-serif-stack);
-    font-weight: 400;
+    font-weight: 300;
   }
   /* 表单元素继承字体 */
   input, button, select, textarea {

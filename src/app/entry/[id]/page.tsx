@@ -7,7 +7,6 @@ import { MiniBars } from "@/components/mini-bars";
 import { RadarChart } from "@/components/radar-chart";
 import { RankBadge } from "@/components/rank-badge";
 import { SectionHeader } from "@/components/section-header";
-import { StrategyProfile } from "@/components/strategy-profile";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -155,16 +154,6 @@ export default async function EntryPage({
           </div>
         </div>
       </Card>
-
-      {/* ===== 策略画像（可观测性：数字 → 洞察） ===== */}
-      <section className="mt-6">
-        <SectionHeader
-          title="Strategy Profile"
-          enTitle="策略画像"
-          description="从评测数据派生的可读洞察：强项维度 / 战术风格 / 最佳最弱场景 / 跨场景稳定性。"
-        />
-        <StrategyProfile entry={entry} scenarioStats={scenarioStats} />
-      </section>
 
       {/* ===== v3 四维雷达 + 分项条形 ===== */}
       <section className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">

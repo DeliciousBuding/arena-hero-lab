@@ -1,18 +1,14 @@
 import type { KillEvent } from "@/lib/bench";
 
-/**
- * 击杀时序图调色板：8 色玩家区分色（数据可视化调色板，非 UI 语义色）。
- * 暖色系对齐 Anthropic 风格——琥珀/暖白/暖灰渐变，深浅交错保证可读性。
- */
 const ENTRY_COLORS = [
-  "#e8b941", // brand 琥珀
-  "#f4f0eb", // 暖白
-  "#9c9a94", // 中灰
-  "#c9c4ba", // 浅暖灰
-  "#7f7d76", // 深灰
-  "#e0b56e", // 浅琥珀
-  "#b9b4a8", // 灰白
-  "#8f8b82", // 暖深灰
+  "#e8b941",
+  "#f4f0eb",
+  "#9c9a94",
+  "#c9c4ba",
+  "#7f7d76",
+  "#e0b56e",
+  "#b9b4a8",
+  "#8f8b82",
 ];
 
 function colorOf(id: string, roster: string[]): string {

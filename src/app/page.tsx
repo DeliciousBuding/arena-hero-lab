@@ -1,7 +1,6 @@
 import { ArrowRight, GitBranch, Layers } from "lucide-react";
 import Link from "next/link";
 import { Heatmap } from "@/components/heatmap";
-import { MethodologySection } from "@/components/methodology-section";
 import { OverallTable } from "@/components/overall-table";
 import { ScenarioComparison } from "@/components/scenario-comparison";
 import { SectionHeader } from "@/components/section-header";
@@ -153,9 +152,6 @@ export default function HomePage() {
           </CardContent>
         </Card>
       </section>
-
-      {/* ===== 评测方法 ===== */}
-      <MethodologySection />
 
       {/* ===== 热图 ===== */}
       <section className="mb-16">

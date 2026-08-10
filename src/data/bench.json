@@ -1,8 +1,8 @@
 {
   "schema": "arena.bench.report.v3",
-  "generatedAt": "2026-08-09T19:14:50.910Z",
-  "convertedAt": "2026-08-09T19:42:49.745Z",
-  "source": "D:/Code/Projects/arena/arena-hero-leaderboard/scripts/input",
+  "generatedAt": "2026-08-10T04:11:40.500Z",
+  "convertedAt": "2026-08-10T04:30:07.359Z",
+  "source": "D:/Code/Projects/arena/data/runs/sim/arena-bench-v3-full-killevents-20260810-9eff46646716",
   "params": {
     "players": 8,
     "rulesVersion": "v0.14",
@@ -508,7 +508,29 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 929,
+              "destroyedBy": [
+                "core-mil"
+              ],
+              "victim": "waaiging-agg"
+            },
+            {
+              "tick": 969,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "tactic"
+            },
+            {
+              "tick": 1913,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "waaiging"
+            }
+          ]
         },
         {
           "seed": 2,
@@ -637,7 +659,22 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 1233,
+              "destroyedBy": [
+                "core-mil"
+              ],
+              "victim": "waaiging-agg"
+            },
+            {
+              "tick": 1795,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "tactic"
+            }
+          ]
         },
         {
           "seed": 3,
@@ -766,7 +803,29 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 912,
+              "destroyedBy": [
+                "core-mil"
+              ],
+              "victim": "waaiging-agg"
+            },
+            {
+              "tick": 990,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "tactic"
+            },
+            {
+              "tick": 1126,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "waaiging"
+            }
+          ]
         },
         {
           "seed": 4,
@@ -895,7 +954,29 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 749,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "tactic"
+            },
+            {
+              "tick": 890,
+              "destroyedBy": [
+                "core-mil"
+              ],
+              "victim": "waaiging-agg"
+            },
+            {
+              "tick": 1228,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "waaiging"
+            }
+          ]
         },
         {
           "seed": 5,
@@ -1024,7 +1105,29 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 1304,
+              "destroyedBy": [
+                "core-mil"
+              ],
+              "victim": "farmer-eco"
+            },
+            {
+              "tick": 1713,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "tactic"
+            },
+            {
+              "tick": 1783,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "waaiging-agg"
+            }
+          ]
         }
       ]
     },
@@ -1255,7 +1358,29 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 1011,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "tactic"
+            },
+            {
+              "tick": 1063,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "waaiging-agg"
+            },
+            {
+              "tick": 1794,
+              "destroyedBy": [
+                "core"
+              ],
+              "victim": "waaiging"
+            }
+          ]
         },
         {
           "seed": 2,
@@ -1384,7 +1509,22 @@
               "isWinner": true
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 1095,
+              "destroyedBy": [
+                "waaiging"
+              ],
+              "victim": "tactic"
+            },
+            {
+              "tick": 1744,
+              "destroyedBy": [
+                "waaiging"
+              ],
+              "victim": "core"
+            }
+          ]
         },
         {
           "seed": 3,
@@ -1513,7 +1653,35 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 856,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "tactic"
+            },
+            {
+              "tick": 872,
+              "destroyedBy": [
+                "core-mil"
+              ],
+              "victim": "farmer-eco"
+            },
+            {
+              "tick": 1245,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "waaiging-agg"
+            },
+            {
+              "tick": 1778,
+              "destroyedBy": [
+                "core-mil"
+              ]
+            }
+          ]
         },
         {
           "seed": 4,
@@ -1642,7 +1810,22 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 669,
+              "destroyedBy": [
+                "core"
+              ],
+              "victim": "farmer"
+            },
+            {
+              "tick": 1505,
+              "destroyedBy": [
+                "waaiging"
+              ],
+              "victim": "tactic"
+            }
+          ]
         },
         {
           "seed": 5,
@@ -1771,7 +1954,36 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 1183,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "waaiging-agg"
+            },
+            {
+              "tick": 1203,
+              "destroyedBy": [
+                "core-mil"
+              ],
+              "victim": "farmer-eco"
+            },
+            {
+              "tick": 1226,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "tactic"
+            },
+            {
+              "tick": 1717,
+              "destroyedBy": [
+                "waaiging"
+              ],
+              "victim": "core"
+            }
+          ]
         }
       ]
     },
@@ -2131,7 +2343,15 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 1823,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "waaiging-agg"
+            }
+          ]
         },
         {
           "seed": 3,
@@ -2389,7 +2609,15 @@
               "isWinner": true
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 1415,
+              "destroyedBy": [
+                "waaiging"
+              ],
+              "victim": "tactic"
+            }
+          ]
         },
         {
           "seed": 5,
@@ -2749,7 +2977,22 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 870,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "waaiging-agg"
+            },
+            {
+              "tick": 938,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "tactic"
+            }
+          ]
         },
         {
           "seed": 2,
@@ -3007,7 +3250,36 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 691,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "tactic"
+            },
+            {
+              "tick": 1050,
+              "destroyedBy": [
+                "core-mil"
+              ],
+              "victim": "farmer-eco"
+            },
+            {
+              "tick": 1257,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "waaiging-agg"
+            },
+            {
+              "tick": 1700,
+              "destroyedBy": [
+                "core"
+              ],
+              "victim": "farmer"
+            }
+          ]
         },
         {
           "seed": 4,
@@ -3136,7 +3408,15 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 813,
+              "destroyedBy": [
+                "core"
+              ],
+              "victim": "farmer"
+            }
+          ]
         },
         {
           "seed": 5,
@@ -3265,7 +3545,36 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 791,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "waaiging-agg"
+            },
+            {
+              "tick": 902,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "tactic"
+            },
+            {
+              "tick": 1208,
+              "destroyedBy": [
+                "core-mil"
+              ],
+              "victim": "farmer-eco"
+            },
+            {
+              "tick": 1689,
+              "destroyedBy": [
+                "waaiging"
+              ],
+              "victim": "core"
+            }
+          ]
         }
       ]
     },
@@ -3496,7 +3805,35 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 629,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "waaiging-agg"
+            },
+            {
+              "tick": 869,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "core"
+            },
+            {
+              "tick": 948,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "tactic"
+            },
+            {
+              "tick": 1062,
+              "destroyedBy": [
+                "waaiging"
+              ]
+            }
+          ]
         },
         {
           "seed": 2,
@@ -3625,7 +3962,29 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 1107,
+              "destroyedBy": [
+                "waaiging-agg"
+              ],
+              "victim": "core-mil"
+            },
+            {
+              "tick": 1290,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "tactic"
+            },
+            {
+              "tick": 1676,
+              "destroyedBy": [
+                "waaiging"
+              ],
+              "victim": "core"
+            }
+          ]
         },
         {
           "seed": 3,
@@ -3754,7 +4113,36 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 778,
+              "destroyedBy": [
+                "core-mil"
+              ],
+              "victim": "farmer-eco"
+            },
+            {
+              "tick": 815,
+              "destroyedBy": [
+                "core-mil"
+              ],
+              "victim": "tactic"
+            },
+            {
+              "tick": 1389,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "core"
+            },
+            {
+              "tick": 1502,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "waaiging-agg"
+            }
+          ]
         },
         {
           "seed": 4,
@@ -3883,7 +4271,36 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 793,
+              "destroyedBy": [
+                "core-mil"
+              ],
+              "victim": "farmer"
+            },
+            {
+              "tick": 834,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "tactic"
+            },
+            {
+              "tick": 897,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "waaiging-agg"
+            },
+            {
+              "tick": 1303,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "waaiging"
+            }
+          ]
         },
         {
           "seed": 5,
@@ -4243,7 +4660,29 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 966,
+              "destroyedBy": [
+                "core-mil"
+              ],
+              "victim": "farmer-eco"
+            },
+            {
+              "tick": 1061,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "waaiging-agg"
+            },
+            {
+              "tick": 1120,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "tactic"
+            }
+          ]
         },
         {
           "seed": 2,
@@ -4372,7 +4811,29 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 1161,
+              "destroyedBy": [
+                "core-mil"
+              ],
+              "victim": "farmer-eco"
+            },
+            {
+              "tick": 1219,
+              "destroyedBy": [
+                "waaiging"
+              ],
+              "victim": "tactic"
+            },
+            {
+              "tick": 1346,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "waaiging-agg"
+            }
+          ]
         },
         {
           "seed": 3,
@@ -4501,7 +4962,22 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 773,
+              "destroyedBy": [
+                "core"
+              ],
+              "victim": "farmer"
+            },
+            {
+              "tick": 955,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "tactic"
+            }
+          ]
         },
         {
           "seed": 4,
@@ -4630,7 +5106,22 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 908,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "tactic"
+            },
+            {
+              "tick": 1122,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "waaiging-agg"
+            }
+          ]
         },
         {
           "seed": 5,
@@ -4759,7 +5250,29 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 642,
+              "destroyedBy": [
+                "core"
+              ],
+              "victim": "farmer"
+            },
+            {
+              "tick": 1058,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "waaiging-agg"
+            },
+            {
+              "tick": 1107,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "tactic"
+            }
+          ]
         }
       ]
     },
@@ -4990,7 +5503,43 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 580,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "tactic"
+            },
+            {
+              "tick": 896,
+              "destroyedBy": [
+                "core-mil"
+              ],
+              "victim": "farmer-eco"
+            },
+            {
+              "tick": 1024,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "waaiging-agg"
+            },
+            {
+              "tick": 1122,
+              "destroyedBy": [
+                "core"
+              ],
+              "victim": "farmer"
+            },
+            {
+              "tick": 1669,
+              "destroyedBy": [
+                "waaiging"
+              ],
+              "victim": "core"
+            }
+          ]
         },
         {
           "seed": 2,
@@ -5119,7 +5668,29 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 920,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "tactic"
+            },
+            {
+              "tick": 977,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "waaiging-agg"
+            },
+            {
+              "tick": 1000,
+              "destroyedBy": [
+                "core-mil"
+              ],
+              "victim": "farmer-eco"
+            }
+          ]
         },
         {
           "seed": 3,
@@ -5248,7 +5819,29 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 1070,
+              "destroyedBy": [
+                "core-mil"
+              ],
+              "victim": "farmer-eco"
+            },
+            {
+              "tick": 1636,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "waaiging-agg"
+            },
+            {
+              "tick": 1867,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "tactic"
+            }
+          ]
         },
         {
           "seed": 4,
@@ -5377,7 +5970,36 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 683,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "tactic"
+            },
+            {
+              "tick": 797,
+              "destroyedBy": [
+                "core"
+              ],
+              "victim": "farmer-eco"
+            },
+            {
+              "tick": 846,
+              "destroyedBy": [
+                "core"
+              ],
+              "victim": "farmer"
+            },
+            {
+              "tick": 999,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "waaiging-agg"
+            }
+          ]
         },
         {
           "seed": 5,
@@ -5506,7 +6128,22 @@
               "isWinner": false
             }
           },
-          "killEvents": []
+          "killEvents": [
+            {
+              "tick": 989,
+              "destroyedBy": [
+                "core"
+              ],
+              "victim": "farmer"
+            },
+            {
+              "tick": 1084,
+              "destroyedBy": [
+                "arena-evolve"
+              ],
+              "victim": "tactic"
+            }
+          ]
         }
       ]
     }

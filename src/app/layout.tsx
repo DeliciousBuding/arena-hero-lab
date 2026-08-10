@@ -1,22 +1,8 @@
 import type { Metadata } from "next";
-import { Inter, Noto_Serif_SC } from "next/font/google";
 import { AppChrome } from "@/components/app-chrome";
 import { Footer } from "@/components/footer";
 import { Providers } from "@/components/providers";
 import "./globals.css";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-sans-loaded",
-  display: "swap",
-});
-
-const notoSerifSC = Noto_Serif_SC({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-serif-loaded",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "Arena Hero · 模拟器评测榜单",
@@ -35,11 +21,7 @@ const THEME_INIT_SCRIPT = `try{var s=localStorage.getItem('arena-leaderboard-the
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="zh-CN"
-      className={`dark ${inter.variable} ${notoSerifSC.variable}`}
-      suppressHydrationWarning
-    >
+    <html lang="zh-CN" className="dark" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
