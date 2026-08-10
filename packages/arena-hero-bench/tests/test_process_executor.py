@@ -6,9 +6,10 @@ import json
 import sys
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -27,19 +28,21 @@ from arena_hero_bench.orchestration import (
     ShardResult,
 )
 from arena_hero_bench.process_executor import (
+    WORK_ENVELOPE_VERSION,
     BackendProcessSpec,
     ProcessCapabilityError,
     ProcessExecutor,
     ProcessExecutorClosedError,
     ProcessExecutorError,
     UnknownProcessBackendError,
+    _work_envelope,
     reference_engine_process_executor,
     request_from_json,
     request_to_json,
     result_from_json,
     result_to_json,
 )
-from arena_hero_bench.process_worker import scenario_from_dict
+from arena_hero_bench.process_worker import _work_from_json, scenario_from_dict
 from arena_hero_bench.storage import FilesystemArtifactStore
 from arena_hero_sim import (
     REFERENCE_BACKEND_ID,
@@ -613,3 +616,60 @@ def test_oversized_output_fails_closed(tmp_path: Path) -> None:
     assert result.status is RunStatus.FAILED
     assert result.publishable is False
     assert any("output exceeded" in error for error in result.errors)
+
+
+def test_envelope_dedup_scenarios() -> None:
+    scenarios = make_scenarios(2)
+    requests = [
+        request_for(scenarios[0], request_id="request-1"),
+        request_for(scenarios[0], request_id="request-2"),
+        request_for(scenarios[1], request_id="request-3"),
+    ]
+    plan = plan_for(requests)
+    spec = reference_spec()
+    envelope = _work_envelope(spec, plan, requests, scenario_provider(scenarios))
+    scenarios_map = cast(Mapping[str, object], envelope["scenarios"])
+    request_entries = cast(Sequence[Mapping[str, object]], envelope["requests"])
+    assert set(scenarios_map) == {scenarios[0].sha256, scenarios[1].sha256}
+    refs = [cast(str, entry["scenario_sha256"]) for entry in request_entries]
+    assert refs == [scenarios[0].sha256, scenarios[0].sha256, scenarios[1].sha256]
+    assert all("scenario" not in entry for entry in request_entries)
+    assert envelope["schema_version"] == WORK_ENVELOPE_VERSION
+
+
+def test_worker_rejects_missing_scenario_ref() -> None:
+    scenario = make_scenarios(1)[0]
+    entry = request_to_json(request_for(scenario))
+    entry["scenario_sha256"] = "f" * 64
+    payload: dict[str, object] = {
+        "schema_version": WORK_ENVELOPE_VERSION,
+        "operation_id": "operation-1",
+        "shard_id": "shard-a",
+        "plan_sha256": "a" * 64,
+        "backend_id": REFERENCE_BACKEND_ID,
+        "engine_version": REFERENCE_ENGINE_VERSION,
+        "protocol_version": REFERENCE_PROTOCOL_VERSION,
+        "scenarios": {},
+        "requests": [entry],
+    }
+    with pytest.raises(ProcessExecutorError, match="missing"):
+        _work_from_json(payload)
+
+
+def test_worker_rejects_scenario_digest_mismatch() -> None:
+    scenario = make_scenarios(1)[0]
+    entry = request_to_json(request_for(scenario))
+    entry["scenario_sha256"] = "f" * 64
+    payload: dict[str, object] = {
+        "schema_version": WORK_ENVELOPE_VERSION,
+        "operation_id": "operation-1",
+        "shard_id": "shard-a",
+        "plan_sha256": "a" * 64,
+        "backend_id": REFERENCE_BACKEND_ID,
+        "engine_version": REFERENCE_ENGINE_VERSION,
+        "protocol_version": REFERENCE_PROTOCOL_VERSION,
+        "scenarios": {"f" * 64: scenario.to_dict()},
+        "requests": [entry],
+    }
+    with pytest.raises(ProcessExecutorError, match="digest"):
+        _work_from_json(payload)

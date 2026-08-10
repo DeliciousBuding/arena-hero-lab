@@ -3,8 +3,11 @@
 Run as ``python -m arena_hero_bench.process_worker``. Reads one versioned
 ``arena.process.work.v1`` envelope line from stdin, executes every request with
 the declared backend, and writes one ``arena.process.result.v1`` envelope line
-to stdout. Hard failures (invalid envelope, unknown backend, reconstruction
-errors) are reported on stderr with a non-zero exit so the parent fails closed.
+to stdout. Scenarios arrive once in a top-level map keyed by their content
+SHA-256; each request entry only references the digest it needs. Hard failures
+(invalid envelope, unknown backend, reconstruction errors, missing scenario
+references) are reported on stderr with a non-zero exit so the parent fails
+closed.
 
 The worker is not a security sandbox: it never touches the network, shells,
 secrets, or arbitrary imports, and it only reconstructs data carried inside the
@@ -205,6 +208,18 @@ def _work_from_json(
 ]:
     if payload.get("schema_version") != WORK_ENVELOPE_VERSION:
         raise ProcessExecutorError("unsupported work envelope schema")
+    scenarios_payload = payload.get("scenarios", {})
+    if not isinstance(scenarios_payload, Mapping):
+        raise ProcessExecutorError("work scenarios must be an object")
+    scenario_by_digest: dict[str, ReferenceScenario] = {}
+    for digest, item in scenarios_payload.items():
+        digest_text = _text(digest, "scenario digest")
+        if not isinstance(item, Mapping):
+            raise ProcessExecutorError("work scenario must be an object")
+        scenario = scenario_from_dict(item)
+        if scenario.sha256 != digest_text:
+            raise ProcessExecutorError("work scenario digest does not match its content")
+        scenario_by_digest[digest_text] = scenario
     requests_payload = payload.get("requests")
     if not isinstance(requests_payload, Sequence) or isinstance(requests_payload, (str, bytes)):
         raise ProcessExecutorError("work requests must be an array")
@@ -216,13 +231,15 @@ def _work_from_json(
         if not isinstance(entry, Mapping):
             raise ProcessExecutorError("work request entry must be an object")
         requests.append(request_from_json(entry))
-        scenario_payload = entry.get("scenario")
-        if scenario_payload is None:
+        reference = entry.get("scenario_sha256")
+        if reference is None:
             scenarios.append(None)
-        elif isinstance(scenario_payload, Mapping):
-            scenarios.append(scenario_from_dict(scenario_payload))
         else:
-            raise ProcessExecutorError("work scenario must be an object")
+            digest = _text(reference, "scenario_sha256")
+            scenario = scenario_by_digest.get(digest)
+            if scenario is None:
+                raise ProcessExecutorError(f"work scenario is missing: {digest}")
+            scenarios.append(scenario)
     return payload, tuple(requests), tuple(scenarios)
 
 

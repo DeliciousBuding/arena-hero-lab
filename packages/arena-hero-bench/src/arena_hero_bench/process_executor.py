@@ -601,13 +601,19 @@ def _work_envelope(
     chunk: Sequence[SimulationRequest],
     scenario_provider: Callable[[str], ReferenceScenario | None] | None,
 ) -> dict[str, object]:
+    scenarios: dict[str, object] = {}
     requests: list[dict[str, object]] = []
     for request in chunk:
         entry = request_to_json(request)
-        if request.input_artifact_sha256 is not None and scenario_provider is not None:
-            scenario = scenario_provider(request.input_artifact_sha256)
-            if scenario is not None:
-                entry["scenario"] = scenario.to_dict()
+        digest = request.input_artifact_sha256
+        if digest is not None:
+            scenario = None if scenario_provider is None else scenario_provider(digest)
+            if scenario is None:
+                raise ProcessExecutorError(
+                    f"request input scenario is not registered with the process executor: {digest}"
+                )
+            scenarios.setdefault(digest, scenario.to_dict())
+            entry["scenario_sha256"] = digest
         requests.append(entry)
     return {
         "schema_version": WORK_ENVELOPE_VERSION,
@@ -617,6 +623,7 @@ def _work_envelope(
         "backend_id": spec.backend_id,
         "engine_version": spec.engine_version,
         "protocol_version": next(iter(spec.protocol_versions)),
+        "scenarios": scenarios,
         "requests": requests,
     }
 
