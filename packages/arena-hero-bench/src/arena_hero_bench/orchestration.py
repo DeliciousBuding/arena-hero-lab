@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Protocol
 
-from arena_hero_sim.contracts import SimulationRequest, SimulationStatus
+from arena_hero_sim.contracts import SimulationRequest, SimulationResult, SimulationStatus
 from arena_hero_sim.registry import BackendRegistry
 from arena_hero_sim.serialization import canonical_json_bytes, content_sha256
 
@@ -230,6 +230,62 @@ class DistributedExecutor(Protocol):
     def cancel(self, handle: DistributedExecutionHandle) -> None: ...
 
 
+def build_shard_result(
+    plan: ShardPlan,
+    simulation_results: Sequence[SimulationResult],
+    artifact_store: ArtifactStore,
+) -> ShardResult:
+    """Materialize one content-addressed shard result from engine results.
+
+    The shard payload schema is owned here so in-process and process-executed
+    shards produce byte-identical artifacts for identical engine results.
+    Results must arrive in plan request order.
+    """
+    results = tuple(simulation_results)
+    if len(results) != len(plan.requests):
+        raise OrchestrationError("simulation result count must match the shard plan")
+    if tuple(item.request_id for item in results) != tuple(
+        request.request_id for request in plan.requests
+    ):
+        raise OrchestrationError("simulation results must be in plan request order")
+    if any(item.status is SimulationStatus.FAILED for item in results):
+        status = RunStatus.FAILED
+    elif all(item.status is SimulationStatus.COMPLETE for item in results):
+        status = RunStatus.COMPLETE
+    else:
+        status = RunStatus.PARTIAL
+    publishable = status is RunStatus.COMPLETE and all(item.publishable for item in results)
+    payload = canonical_json_bytes(
+        {
+            "schema_version": "arena.bench.shard-result.v1",
+            "run_id": plan.run_id.value,
+            "shard_id": plan.shard_id.value,
+            "plan_sha256": plan.plan_sha256,
+            "results": [
+                {
+                    "request_id": item.request_id,
+                    "status": item.status.value,
+                    "publishable": item.publishable,
+                    "final_world_sha256": item.final_world_sha256,
+                    "errors": list(item.errors),
+                }
+                for item in results
+            ],
+        }
+    )
+    digest = artifact_store.put(payload)
+    return ShardResult(
+        run_id=plan.run_id,
+        shard_id=plan.shard_id,
+        status=status,
+        publishable=publishable,
+        content_sha256=digest,
+        artifact_ref=f"sha256:{digest}",
+        request_ids=tuple(item.request_id for item in results),
+        errors=tuple(error for item in results for error in item.errors),
+    )
+
+
 class LocalBatchExecutor:
     """Deterministic local executor with resume/idempotency support."""
 
@@ -248,44 +304,7 @@ class LocalBatchExecutor:
         if resumed is not None:
             return resumed
         simulation_results = self.backend_registry.simulate_batch(plan.requests)
-        if any(item.status is SimulationStatus.FAILED for item in simulation_results):
-            status = RunStatus.FAILED
-        elif all(item.status is SimulationStatus.COMPLETE for item in simulation_results):
-            status = RunStatus.COMPLETE
-        else:
-            status = RunStatus.PARTIAL
-        publishable = status is RunStatus.COMPLETE and all(
-            item.publishable for item in simulation_results
-        )
-        payload = canonical_json_bytes(
-            {
-                "schema_version": "arena.bench.shard-result.v1",
-                "run_id": plan.run_id.value,
-                "shard_id": plan.shard_id.value,
-                "plan_sha256": plan.plan_sha256,
-                "results": [
-                    {
-                        "request_id": item.request_id,
-                        "status": item.status.value,
-                        "publishable": item.publishable,
-                        "final_world_sha256": item.final_world_sha256,
-                        "errors": list(item.errors),
-                    }
-                    for item in simulation_results
-                ],
-            }
-        )
-        digest = self.artifact_store.put(payload)
-        result = ShardResult(
-            run_id=plan.run_id,
-            shard_id=plan.shard_id,
-            status=status,
-            publishable=publishable,
-            content_sha256=digest,
-            artifact_ref=f"sha256:{digest}",
-            request_ids=tuple(item.request_id for item in simulation_results),
-            errors=tuple(error for item in simulation_results for error in item.errors),
-        )
+        result = build_shard_result(plan, simulation_results, self.artifact_store)
         self.ledger.record(plan.operation_id, plan.plan_sha256, result)
         return result
 
