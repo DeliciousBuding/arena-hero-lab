@@ -67,6 +67,12 @@ def freeze_public_metadata(
     return MappingProxyType(normalized)
 
 
+def require_float(value: object, field_name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        raise TypeError(f"{field_name} must be numeric")
+    return float(value)
+
+
 def require_int(value: object, field_name: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise TypeError(f"{field_name} must be an integer")
