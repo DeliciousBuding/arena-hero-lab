@@ -60,12 +60,29 @@ pre-registers only the deterministic `reference-engine` backend.
   `arena.process.result.v1`) are exchanged as one canonical JSON line over the
   child's stdin/stdout; requests run in fixed plan order and results are
   reassembled in that order, so `max_workers` never changes shard digests.
-- Each child is bounded by `max_workers` concurrency and a per-task timeout.
-  Crashes, non-zero exits, invalid payloads, and timeouts fail closed: the
-  affected requests become failed results and the shard is never publishable.
+  Scenarios are carried once per envelope in a top-level map keyed by their
+  content SHA-256; request entries only reference the digest.
+- Each child is bounded by `max_workers` concurrency, a per-task timeout, and a
+  configurable hard output cap (`max_output_bytes`). Crashes, non-zero exits,
+  invalid payloads, oversized output, and timeouts fail closed: the affected
+  requests become failed results and the shard is never publishable.
+- On timeout the whole process tree is reaped within a finite window: POSIX
+  uses a fresh session plus `killpg`; Windows assigns each child to a Job
+  Object (stdlib `ctypes`) and terminates the job, falling back to
+  terminate/kill with a bounded drain and pipe close when job assignment is
+  unavailable. `execute` still returns FAILED when a worker spawns a grandchild
+  that inherits the output pipes.
 - The same operation id/plan resume contract as `LocalBatchExecutor` applies,
   and shard artifacts share the identical `arena.bench.shard-result.v1` schema.
-- Cancellation (`close`) terminates tracked child processes. This is a
-  reference adapter, not a security sandbox: no shell, network, secrets,
-  dynamic imports, or production data are used, and children inherit the
-  parent environment without resource isolation.
+- Cancellation (`close`) terminates active process trees; spawn bookkeeping is
+  lock-serialized, so no child can be spawned after `close`.
+- Trust boundary: the allowlist constrains request routing only. Constructing a
+  `BackendProcessSpec` grants the code-execution authority of the child
+  process, so specs are trusted configuration. This is a reference adapter,
+  not a security sandbox: no shell, network, secrets, dynamic imports, or
+  production data are used, and children inherit the parent environment
+  without resource isolation.
+- Thread-safety: spawn bookkeeping is thread-safe and `close` may be called
+  from another thread. Concurrent `execute` calls on the same executor are
+  safe for process bookkeeping, but the ledger and artifact store are
+  single-writer contracts, so callers must serialize concurrent executions.
