@@ -45,3 +45,27 @@ the rename itself. This is a reference adapter, not a database-grade durability
 layer.
 
 No database, network, or external service is used.
+
+
+## Local process executor
+
+`arena_hero_bench.process_executor.ProcessExecutor` is a reference adapter
+that runs each bounded work item in a fresh child Python process. Backends are
+declared through an explicit `BackendProcessSpec` allowlist; an unknown backend,
+engine version, protocol, or requested capability is rejected immediately and
+never silently falls back to in-process execution. `reference_engine_process_executor`
+pre-registers only the deterministic `reference-engine` backend.
+
+- Versioned work/result envelopes (`arena.process.work.v1` /
+  `arena.process.result.v1`) are exchanged as one canonical JSON line over the
+  child's stdin/stdout; requests run in fixed plan order and results are
+  reassembled in that order, so `max_workers` never changes shard digests.
+- Each child is bounded by `max_workers` concurrency and a per-task timeout.
+  Crashes, non-zero exits, invalid payloads, and timeouts fail closed: the
+  affected requests become failed results and the shard is never publishable.
+- The same operation id/plan resume contract as `LocalBatchExecutor` applies,
+  and shard artifacts share the identical `arena.bench.shard-result.v1` schema.
+- Cancellation (`close`) terminates tracked child processes. This is a
+  reference adapter, not a security sandbox: no shell, network, secrets,
+  dynamic imports, or production data are used, and children inherit the
+  parent environment without resource isolation.
