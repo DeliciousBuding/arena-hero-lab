@@ -516,6 +516,8 @@ class ReferenceReplay:
         }
         if set(payload) != required:
             raise ValueError("replay payload fields mismatch")
+        _identifier(str(payload["requestId"]), "replay requestId")
+        _identifier(str(payload["episodeId"]), "replay episodeId")
         for key in ("scenarioSha256", "rulesSha256", "initialWorldSha256", "finalWorldSha256"):
             _sha256(str(payload[key]), key)
         if str(payload["status"]) not in {status.value for status in ReferenceEpisodeStatus}:

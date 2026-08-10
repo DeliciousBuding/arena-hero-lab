@@ -506,3 +506,27 @@ def run_reference_episode(
         events=tuple(all_events),
         metrics=metrics,
     )
+
+
+def verify_reference_replay(
+    scenario: ReferenceScenario,
+    replay: ReferenceReplay,
+    rules: ReferenceRules = REFERENCE_RULES,
+) -> ReferenceEpisodeResult:
+    """Re-run a content-addressed scenario and verify the canonical replay byte-for-byte."""
+
+    if str(replay.payload["scenarioSha256"]) != scenario.sha256:
+        raise ValueError("replay scenario digest does not match the supplied scenario")
+    frames = replay.payload["frames"]
+    if not isinstance(frames, list):
+        raise ValueError("replay frames must be a list")
+    reproduced = run_reference_episode(
+        scenario,
+        request_id=str(replay.payload["requestId"]),
+        episode_id=str(replay.payload["episodeId"]),
+        max_ticks=max(1, len(frames)),
+        rules=rules,
+    )
+    if reproduced.replay.to_bytes() != replay.to_bytes():
+        raise ValueError("replay does not reproduce from its content-addressed scenario")
+    return reproduced

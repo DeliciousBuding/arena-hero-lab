@@ -34,6 +34,7 @@ from arena_hero_sim import (
     content_sha256,
     observe_world,
     run_reference_episode,
+    verify_reference_replay,
 )
 
 CORE_1 = "10000000-0000-4000-8000-000000000001"
@@ -537,3 +538,25 @@ def test_reference_rng_and_rules_reject_invalid_state() -> None:
         ReferenceRng(-1)
     with pytest.raises(ValueError, match="cell_entity_capacity"):
         replace(REFERENCE_RULES, cell_entity_capacity=0)
+
+
+def test_semantic_replay_verification_reexecutes_registered_scenario() -> None:
+    scenario = harvest_deposit_scenario()
+    result = run_reference_episode(
+        scenario,
+        request_id="semantic-replay",
+        episode_id="semantic-replay",
+        max_ticks=5,
+    )
+    reproduced = verify_reference_replay(
+        scenario,
+        ReferenceReplay.from_bytes(result.replay.to_bytes()),
+    )
+    assert reproduced.final_world.sha256 == result.final_world.sha256
+
+    tampered = json.loads(result.replay.to_bytes())
+    tampered["payload"]["frames"][0]["events"][0]["values"]["amount"] = 2
+    tampered["payloadSha256"] = content_sha256(tampered["payload"])
+    accepted_envelope = ReferenceReplay.from_bytes(json.dumps(tampered).encode())
+    with pytest.raises(ValueError, match="does not reproduce"):
+        verify_reference_replay(scenario, accepted_envelope)

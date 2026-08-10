@@ -44,6 +44,7 @@ from arena_hero_sim.reference_engine import (
     observe_world,
     run_reference_episode,
     settle_reference_turn,
+    verify_reference_replay,
 )
 from arena_hero_sim.registry import BackendRegistry
 from arena_hero_sim.serialization import canonical_json_bytes, content_sha256
@@ -90,5 +91,6 @@ __all__ = [
     "observe_world",
     "run_reference_episode",
     "settle_reference_turn",
+    "verify_reference_replay",
 ]
 __version__ = "0.2.0"

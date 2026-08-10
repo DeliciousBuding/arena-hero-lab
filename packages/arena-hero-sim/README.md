@@ -37,8 +37,8 @@ The implemented vertical slice covers:
 6. natural resource-node harvest, worker cargo, movement back to a stationary core, partial or
    full deposit, capacity settlement, and deterministic event ordering;
 7. explicit commit and next-observation phases;
-8. versioned canonical replay/event records, frame hash chaining, final-world binding, and
-   tamper rejection;
+8. versioned canonical replay/event records, frame hash chaining, final-world binding,
+   tamper rejection, and byte-for-byte semantic re-execution from the registered scenario;
 9. stable single and batch execution through the platform registry.
 
 The golden closed loop is the public, synthetic sequence
