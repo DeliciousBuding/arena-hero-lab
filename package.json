@@ -9,7 +9,9 @@
     "preview": "pnpm --filter @arena-hero/leaderboard-web preview",
     "lint": "pnpm --filter @arena-hero/leaderboard-web lint",
     "deploy:gh-pages": "pnpm --filter @arena-hero/leaderboard-web deploy:gh-pages",
-    "convert:oracle": "pnpm --filter @arena-hero/leaderboard-web convert:oracle"
+    "convert:oracle": "pnpm --filter @arena-hero/leaderboard-web convert:oracle",
+    "convert": "uv run arena-hero-bench convert apps/leaderboard-web/scripts/input/results.json --output apps/leaderboard-web/src/data/bench.json --source-root apps/leaderboard-web",
+    "test": "uv run pytest -q"
   },
   "packageManager": "pnpm@10.32.1"
 }

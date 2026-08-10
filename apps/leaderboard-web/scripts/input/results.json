@@ -43,7 +43,7 @@
       "label": "core-mil（军事变体）"
     },
     {
-      "configNote": "SDK 注入（config-injection v3）：ARENA_CFG_WORKER_TARGET=8（低于默认 12，纯经济发育对照——任务书指定值；SDK 层探针验证有效，桥端通道待 R2，见 v3 文档 §条目）",
+      "configNote": "Configuration-injection benchmark: ARENA_CFG_WORKER_TARGET=8 (below the default 12; economy-focused comparison).",
       "id": "farmer-eco",
       "kind": "python",
       "label": "farmer-eco（纯经济对照）"

@@ -18,18 +18,30 @@
  * - contestants[]：kind: python | builtin（builtin = 对照组）
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const defaultSource = resolve(repoRoot, "scripts/input/results.json");
+const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const defaultSource = resolve(appRoot, "scripts/input/results.json");
+
+function argValue(name: string): string | undefined {
+  const prefix = `${name}=`;
+  return process.argv.find((argument) => argument.startsWith(prefix))?.slice(prefix.length);
+}
+
 const sourceArg =
-  process.argv.find((a) => a.startsWith("--source=")) ??
-  process.argv.find((a) => a.endsWith(".json") && !a.startsWith("-"));
-const sourcePath = sourceArg
-  ? resolve(sourceArg.startsWith("--source=") ? sourceArg.slice("--source=".length) : sourceArg)
-  : defaultSource;
-const outputPath = resolve(repoRoot, "src/data/bench.json");
+  argValue("--source") ??
+  process.argv.find((argument) => argument.endsWith(".json") && !argument.startsWith("-"));
+const sourcePath = resolve(sourceArg ?? defaultSource);
+const outputPath = resolve(argValue("--output") ?? resolve(appRoot, "src/data/bench.json"));
+const convertedAt = argValue("--converted-at");
+const explicitSourceLabel = argValue("--source-label");
+const relativeSourceDirectory = relative(appRoot, dirname(sourcePath));
+const sourceLabel =
+  explicitSourceLabel ??
+  (relativeSourceDirectory.startsWith("..") || isAbsolute(relativeSourceDirectory)
+    ? basename(dirname(sourcePath)) || "external"
+    : relativeSourceDirectory || "source");
 
 const SCHEMA = "arena.bench.report.v3";
 
@@ -44,7 +56,7 @@ const SCENARIO_LABELS: Record<string, string> = {
   "ffa-defense-pressure": "资源枯竭",
 };
 
-/** 条目 id → GitHub 仓库（社区 agent 全部第三方，含 arena-ts 自家 TS 客户端；
+/** 条目 id → GitHub 仓库（社区 agent 全部第三方，含 legacy TypeScript clients；
  *  展示用，不依赖评测产物）。
  *  来源：docs/reference/repository-classification.md 第三方表登记。 */
 const CONTESTANT_REPO_URL: Record<string, string> = {
@@ -88,7 +100,7 @@ const CONTESTANT_LINUXDO_TITLE: Record<string, string> = {
 };
 
 /** 条目 id → 展示名（覆盖评测产物 label 的错误措辞——core 为 VelvetEvening
- *  社区指南 agent，非官方参考；ts-* 为 arena-ts 自家 TS 客户端（去掉"内置对照"措辞，
+ *  社区指南 agent，非官方参考；ts-* 为 legacy TypeScript clients（去掉"内置对照"措辞，
  *  与第三方 agent 同等对待）；其余标签经核对准确，仅纠正错误项）。 */
 const CONTESTANT_LABEL: Record<string, string> = {
   core: "core（双策略指南）",
@@ -97,7 +109,7 @@ const CONTESTANT_LABEL: Record<string, string> = {
 };
 
 /** 条目 id → 展示用配置说明（覆盖评测产物 configNote 的"内置对照"措辞——
- *  arena-ts TS 客户端同样是参赛的第三方 agent；文案对齐仓库实际配置）。 */
+ *  legacy TypeScript clients同样是参赛的第三方 agent；文案对齐仓库实际配置）。 */
 const CONTESTANT_CONFIG_NOTE: Record<string, string> = {
   farmer: "Drew-Z 社区实现：资源优先（resource-first），12W+4V+4R 基础舰队，v0.14 动态价格适配",
   "farmer-eco": "Drew-Z 社区实现变体（经济倾向：worker_target=16/beacon_policy=retreat）",
@@ -107,8 +119,8 @@ const CONTESTANT_CONFIG_NOTE: Record<string, string> = {
   "waaiging-agg": "Waaiging 社区战术变体（进攻倾向：mode=aggress，6 先锋 + 9 游侠前压）",
   tactic: "feixingwawa 社区战术客户端（资源优先 + 均衡防守，12W/4V/4R 爬坡、矿点智能调度、Beacon 导向探索）",
   "arena-evolve": "Torther 基因启发式策略 + GA 进化研究（evolve_v7_best 冠军快照）",
-  "ts-aggressive": "arena-ts TypeScript 客户端（AGGRESSIVE_SAFETY_CONFIG：vanguardRatio=0.8 + accumulateThreshold=30，激进前压）",
-  "ts-safety": "arena-ts TypeScript 客户端（DEFAULT_SAFETY_CONFIG：保守配置，前压与防守均衡）",
+  "ts-aggressive": "TypeScript legacy client（AGGRESSIVE_SAFETY_CONFIG：vanguardRatio=0.8 + accumulateThreshold=30）",
+  "ts-safety": "TypeScript legacy client（DEFAULT_SAFETY_CONFIG：保守配置，前压与防守均衡）",
 };
 
 interface PerPlayerStats {
@@ -338,7 +350,7 @@ function main(): void {
   });
 
   /** 榜单行：主榜 + 对照组（v3.3 产物 leaderboardControl）合并为统一榜单——
-   *  arena-ts 客户端与社区 agent 同为参赛方，不设特化；按 composite 降序。
+   *  legacy TypeScript clients and community agents are treated equally，不设特化；按 composite 降序。
    *  （对照组分数为同基准外推量纲，排序如实反映评测产物，前端不干预。） */
   interface LeaderboardRow {
     rank: number;
@@ -386,9 +398,9 @@ function main(): void {
   const output = {
     schema: raw.schema,
     generatedAt: raw.generatedAt,
-    convertedAt: new Date().toISOString(),
+    convertedAt: convertedAt ?? raw.generatedAt,
     /** 产物相对仓库的路径（不落盘本机绝对路径）。 */
-    source: dirname(sourcePath).replace(repoRoot + sep, "").replace(/\\/g, "/"),
+    source: sourceLabel.replace(/\\/g, "/"),
     params: raw.params,
     contestants: raw.contestants.map((c) => ({
       id: c.id,

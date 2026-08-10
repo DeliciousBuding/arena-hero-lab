@@ -1,0 +1,18 @@
+[project]
+name = "arena-hero-research"
+version = "0.1.0"
+description = "Research and statistical analysis for Arena Hero benchmark artifacts."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["arena-hero-bench", "arena-hero-sim"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/arena_hero_research"]
+
+[tool.uv.sources]
+arena-hero-bench = { workspace = true }
+arena-hero-sim = { workspace = true }

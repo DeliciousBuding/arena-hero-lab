@@ -9,7 +9,7 @@
     "preview": "node scripts/preview.mjs",
     "deploy:gh-pages": "bash scripts/deploy-gh-pages.sh",
     "lint": "eslint",
-    "convert": "tsx scripts/convert.mts",
+    "convert": "pnpm --dir ../.. convert",
     "convert:oracle": "tsx scripts/convert.mts"
   },
   "dependencies": {
