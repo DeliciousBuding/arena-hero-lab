@@ -83,12 +83,13 @@ export function AppChrome() {
         <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="flex items-center gap-2.5 text-sm font-medium tracking-tight text-foreground transition-colors hover:text-brand"
+            className="flex items-center gap-2 text-sm font-medium tracking-tight text-foreground transition-colors hover:text-brand"
           >
             <span className="flex h-6 w-6 items-center justify-center rounded-md bg-foreground text-background">
               <Trophy className="h-3.5 w-3.5" />
             </span>
-            <span className="font-serif text-base">Arena Hero</span>
+            <span className="font-serif text-base leading-none">Arena Hero</span>
+            <span className="font-serif text-base leading-none text-brand">Leaderboard</span>
           </Link>
           <Separator orientation="vertical" className="hidden h-5 sm:block" />
           <Badge variant="outline" className="hidden sm:inline-flex">
