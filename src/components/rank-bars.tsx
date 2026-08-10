@@ -6,6 +6,14 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
+/** 迷你柱状图数据点（如各场景名次：值越小柱越高）。 */
+export interface MiniBarDatum {
+  label: string;
+  value: number;
+  /** 值越小柱越高（如名次）；默认值越大柱越高。 */
+  inverted?: boolean;
+}
+
 /** 排名条形图数据行（任意数值维度通用：综合分/经济/击杀/平均名次）。 */
 export interface RankBarRow {
   rank: number;
@@ -20,20 +28,22 @@ export interface RankBarRow {
   primary: string;
   /** 副指标文案（如 "均排 1.20"）。 */
   secondary?: string;
+  /** 迷你柱状图数据（arena.ai 风格，如各场景名次分布）。 */
+  bars?: MiniBarDatum[];
   href?: string;
 }
 
-const RANK_COLOR = [
-  "text-rank-gold",
-  "text-rank-silver",
-  "text-rank-bronze",
-  "text-muted-foreground",
+const RANK_BADGE_CLASS = [
+  "border-rank-gold/40 text-rank-gold bg-rank-gold/10",
+  "border-rank-silver/40 text-rank-silver bg-rank-silver/10",
+  "border-rank-bronze/40 text-rank-bronze bg-rank-bronze/10",
+  "border-border text-muted-foreground bg-secondary/60",
 ] as const;
 
 /**
- * 排名横向条形图（arena.ai Leaderboard 风格）：
- * 每行 = 名次徽标 + 名称 + 渐变条形 + 主值；前三名金银铜色，其余浅灰。
- * 内置搜索过滤（按中文名 / 英文 id），支持任意数值维度（综合分/经济/击杀/名次）。
+ * 排名条形图（arena.ai Leaderboard Agent 榜风格）：
+ * 每行 = 方形排名徽标 + 名称 + 右侧迷你柱状图（各场景名次分布）+ 主值。
+ * 前三名金银铜徽标；内置搜索过滤；点击条目进入详情页。
  */
 export function RankBars({
   rows,
@@ -53,18 +63,6 @@ export function RankBars({
       (row) => row.label.toLowerCase().includes(q) || row.id.toLowerCase().includes(q),
     );
   }, [rows, query]);
-
-  const maxAbs = useMemo(() => {
-    const values = filtered.map((r) => Math.abs(r.value));
-    return values.length ? Math.max(...values) : 1;
-  }, [filtered]);
-
-  /** 条形长度：ascending = 越大越长；反向维度（如名次）= 越小越长。 */
-  const widthPctOf = (row: RankBarRow): number => {
-    if (maxAbs <= 0) return 2;
-    const t = row.ascending ? Math.abs(row.value) / maxAbs : 1 - Math.abs(row.value) / maxAbs;
-    return Math.max(2, t * 100);
-  };
 
   return (
     <div>
@@ -101,74 +99,101 @@ export function RankBars({
         <p className="py-10 text-center text-sm text-muted-foreground">没有匹配的条目。</p>
       ) : (
         <div role="list" aria-label={`${valueLabel}排名条形图`}>
-          {filtered.map((row) => {
-            const widthPct = widthPctOf(row);
-            const inner = (
-              <>
-                <span
-                  className={cn(
-                    "w-7 shrink-0 text-right font-serif text-xl font-normal tnum",
-                    RANK_COLOR[Math.min(row.rank - 1, RANK_COLOR.length - 1)],
-                  )}
+          {filtered.map((row) => (
+            <div
+              key={row.id}
+              role="listitem"
+              className="group border-b border-border-faint py-2.5 transition-colors first:pt-0 last:border-0"
+            >
+              {row.href !== undefined ? (
+                <Link
+                  href={row.href}
+                  className="flex items-center gap-3 rounded-md px-1 py-1 transition-colors hover:bg-secondary/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                 >
-                  {row.rank}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="truncate text-sm font-medium text-foreground">
-                      {row.label}
-                    </span>
-                    <span className="shrink-0 text-xs text-muted-foreground tnum">
-                      {row.primary}
-                    </span>
-                  </div>
-                  <div
-                    className="mt-1.5 h-2 overflow-hidden rounded-full bg-secondary"
-                    role="img"
-                    aria-label={`${row.label} ${row.primary}`}
-                  >
-                    <div
-                      className={cn(
-                        "h-full rounded-full bg-gradient-to-r transition-[width] duration-500",
-                        row.rank === 1
-                          ? "from-brand/80 to-brand"
-                          : "from-foreground/30 to-foreground/55",
-                      )}
-                      style={{ width: `${widthPct}%` }}
-                    />
-                  </div>
-                  {row.secondary !== undefined ? (
-                    <p className="mt-1 text-[11px] text-muted-foreground tnum">
-                      {row.secondary}
-                    </p>
-                  ) : null}
+                  <RankRowInner row={row} />
+                </Link>
+              ) : (
+                <div className="flex items-center gap-3 rounded-md px-1 py-1">
+                  <RankRowInner row={row} />
                 </div>
-              </>
-            );
-            return (
-              <div
-                key={row.id}
-                role="listitem"
-                className={cn(
-                  "group border-b border-border-faint py-3 first:pt-0 last:border-0",
-                  "transition-colors",
-                )}
-              >
-                {row.href !== undefined ? (
-                  <Link
-                    href={row.href}
-                    className="flex items-start gap-3 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                  >
-                    {inner}
-                  </Link>
-                ) : (
-                  <div className="flex items-start gap-3">{inner}</div>
-                )}
-              </div>
-            );
-          })}
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>
+  );
+}
+
+/** 行内容：排名徽标 + 名称 + 迷你柱状图 + 主值（arena.ai 布局）。 */
+function RankRowInner({ row }: { row: RankBarRow }) {
+  const badgeIndex = Math.min(row.rank - 1, RANK_BADGE_CLASS.length - 1);
+  return (
+    <>
+      <span
+        className={cn(
+          "flex h-6 w-6 shrink-0 items-center justify-center rounded-sm border text-[11px] font-medium tnum",
+          RANK_BADGE_CLASS[badgeIndex],
+        )}
+      >
+        {row.rank}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-2">
+          <span className="truncate text-sm font-medium text-foreground group-hover:text-brand">
+            {row.label}
+          </span>
+          <span className="shrink-0 text-[11px] text-muted-foreground tnum">{row.primary}</span>
+        </div>
+        {row.secondary !== undefined ? (
+          <p className="mt-0.5 text-[11px] text-muted-foreground tnum">{row.secondary}</p>
+        ) : null}
+      </div>
+      {row.bars !== undefined && row.bars.length > 0 ? <MiniBars data={row.bars} /> : null}
+    </>
+  );
+}
+
+const MINI_BAR_WIDTH = 6;
+const MINI_BAR_GAP = 3;
+const MINI_BAR_HEIGHT = 36;
+const MINI_PAD = { top: 3, bottom: 0 };
+
+/** 迷你柱状图（arena.ai Agent 榜同款）：每柱一个数据点，悬浮显示详情。 */
+export function MiniBars({ data, ariaLabel }: { data: MiniBarDatum[]; ariaLabel?: string }) {
+  const maxAbs = Math.max(...data.map((d) => Math.abs(d.value)), 1);
+  const chartHeight = MINI_BAR_HEIGHT + MINI_PAD.top + MINI_PAD.bottom;
+  const chartWidth = data.length * (MINI_BAR_WIDTH + MINI_BAR_GAP) - MINI_BAR_GAP;
+
+  return (
+    <svg
+      viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+      width={chartWidth}
+      height={chartHeight}
+      role="img"
+      aria-label={ariaLabel ?? "各场景表现迷你柱状图"}
+      className="shrink-0"
+    >
+      {data.map((d, i) => {
+        const t = Math.abs(d.value) / maxAbs;
+        const normalized = d.inverted === true ? 1 - t : t;
+        const h = Math.max(2, normalized * MINI_BAR_HEIGHT);
+        const x = i * (MINI_BAR_WIDTH + MINI_BAR_GAP);
+        const y = MINI_PAD.top + (MINI_BAR_HEIGHT - h);
+        return (
+          <rect
+            key={i}
+            x={x}
+            y={y}
+            width={MINI_BAR_WIDTH}
+            height={h}
+            rx={1.5}
+            className="fill-foreground/25 transition-colors group-hover:fill-foreground/50"
+          >
+            <title>{`${d.label}: ${d.value}`}</title>
+          </rect>
+        );
+      })}
+    </svg>
   );
 }

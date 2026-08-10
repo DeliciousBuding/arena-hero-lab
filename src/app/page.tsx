@@ -8,48 +8,7 @@ import { SectionHeader } from "@/components/section-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Stat, StatHint, StatLabel, StatValue } from "@/components/ui/stat";
-import { benchData, contestantOf } from "@/lib/bench";
-
-/** 前三名领奖台行：serif 大号名次 + label + 副指标，底部 hairline */
-function PodiumRow({
-  rank,
-  label,
-  sub,
-  contestantId,
-}: {
-  rank: number;
-  label: string;
-  sub: string;
-  contestantId: string;
-}) {
-  return (
-    <Link
-      href={`/entry/${contestantId}`}
-      className="group block border-b border-border-faint pb-4 transition-colors hover:border-foreground/30"
-    >
-      <div className="flex items-baseline gap-3">
-        <span
-          className={
-            rank === 1
-              ? "font-serif text-3xl font-normal text-rank-gold tnum"
-              : rank === 2
-                ? "font-serif text-3xl font-normal text-rank-silver tnum"
-                : "font-serif text-3xl font-normal text-rank-bronze tnum"
-          }
-        >
-          {rank}
-        </span>
-        <div className="min-w-0">
-          <div className="truncate text-sm font-medium text-foreground group-hover:text-brand">
-            {label}
-          </div>
-          <div className="text-xs text-muted-foreground tnum">{sub}</div>
-        </div>
-      </div>
-    </Link>
-  );
-}
+import { benchData, contestantOf, scenarioBarsOf } from "@/lib/bench";
 
 /** 综合排名图数据行（composite 升序绘制，榜首条最长）。 */
 function rankRows(): RankBarRow[] {
@@ -64,6 +23,7 @@ function rankRows(): RankBarRow[] {
       ascending: true,
       primary: `${(entry.composite * 100).toFixed(1)}%`,
       secondary: `均排 ${entry.avgRank.toFixed(2)} · rankScore ${(entry.rankScore * 100).toFixed(1)}%`,
+      bars: scenarioBarsOf(entry.contestantId),
       href: `/entry/${entry.contestantId}`,
     };
   });
@@ -95,7 +55,6 @@ function scoreEntries(): ScoreBarEntry[] {
 export default function HomePage() {
   const { params } = benchData;
   const generatedDate = new Date(benchData.generatedAt).toLocaleString("zh-CN");
-  const top3 = benchData.leaderboard.slice(0, 3);
   const runId = benchData.source.split("/").pop() ?? "";
   const totalMatches = benchData.scenarios.reduce((n, s) => n + s.matches.length, 0);
 
@@ -132,46 +91,6 @@ export default function HomePage() {
           </a>
         </div>
       </header>
-
-      {/* ===== 数据总览 Stat 卡 ===== */}
-      <section className="mb-12 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat>
-          <StatLabel>条目</StatLabel>
-          <StatValue>{params.players}</StatValue>
-          <StatHint>agents</StatHint>
-        </Stat>
-        <Stat>
-          <StatLabel>场景</StatLabel>
-          <StatValue>{params.scenarios.length}</StatValue>
-          <StatHint>scenarios</StatHint>
-        </Stat>
-        <Stat>
-          <StatLabel>种子</StatLabel>
-          <StatValue>{params.seeds.length}</StatValue>
-          <StatHint>seeds/场景</StatHint>
-        </Stat>
-        <Stat>
-          <StatLabel>总场次</StatLabel>
-          <StatValue>{totalMatches}</StatValue>
-          <StatHint>matches</StatHint>
-        </Stat>
-      </section>
-
-      {/* ===== 前三名领奖台 ===== */}
-      <section className="mb-12 grid grid-cols-1 gap-x-10 sm:grid-cols-3">
-        {top3.map((row) => {
-          const contestant = contestantOf(row.contestantId);
-          return (
-            <PodiumRow
-              key={row.contestantId}
-              rank={row.rank}
-              label={contestant?.label ?? row.contestantId}
-              sub={`综合 ${(row.composite * 100).toFixed(1)}% · 均排 ${row.avgRank.toFixed(2)}`}
-              contestantId={row.contestantId}
-            />
-          );
-        })}
-      </section>
 
       {/* ===== 综合排名图 ===== */}
       <section className="mb-16">
