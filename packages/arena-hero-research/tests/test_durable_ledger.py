@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import multiprocessing
 from dataclasses import replace
+from multiprocessing.queues import Queue as ProcessQueue
+from multiprocessing.synchronize import Event as ProcessEvent
 
 import pytest
 
@@ -31,6 +34,30 @@ from arena_hero_research.storage import (
 from arena_hero_sim.serialization import content_sha256
 
 from .research_fixtures import make_preregistration
+
+
+def _freeze_successor_worker(
+    root: str,
+    operation_id: str,
+    lifecycle: ResearchLifecycle,
+    preregistration: Preregistration,
+    assignment,
+    start: ProcessEvent,
+    results: ProcessQueue,
+) -> None:
+    start.wait(15)
+    ledger = DurableResearchLedger(FilesystemResearchLedgerStorage(root))
+    try:
+        ledger.freeze_design(
+            operation_id=operation_id,
+            lifecycle=lifecycle,
+            preregistration=preregistration,
+            assignment=assignment,
+        )
+    except Exception as exc:
+        results.put(("error", type(exc).__name__, str(exc)))
+    else:
+        results.put(("ok", operation_id, ""))
 
 
 def _environment() -> EnvironmentSnapshot:
@@ -105,14 +132,38 @@ def _context(*, input_digest: str = "c" * 64):
     return preregistration, assignment, confirmatory, environment, sbom, tasks, results
 
 
-def _freeze(ledger: DurableResearchLedger, context) -> None:
-    preregistration, assignment, lifecycle, _, _, _, _ = context
-    ledger.freeze_design(
-        operation_id="freeze-confirmatory",
-        lifecycle=lifecycle,
+def _phase_chain(context) -> tuple[ResearchLifecycle, ...]:
+    preregistration, assignment, confirmatory, _, _, _, _ = context
+    pilot = ResearchLifecycle.create(
+        study_id=confirmatory.study_id,
         preregistration=preregistration,
         assignment=assignment,
     )
+    exploratory = pilot.transition(
+        ResearchPhase.EXPLORATORY,
+        preregistration=preregistration,
+        assignment=assignment,
+    )
+    assert (
+        exploratory.transition(
+            ResearchPhase.CONFIRMATORY,
+            preregistration=preregistration,
+            assignment=assignment,
+        )
+        == confirmatory
+    )
+    return pilot, exploratory, confirmatory
+
+
+def _freeze(ledger: DurableResearchLedger, context) -> None:
+    preregistration, assignment, _, _, _, _, _ = context
+    for lifecycle in _phase_chain(context):
+        ledger.freeze_design(
+            operation_id=f"freeze-{lifecycle.phase.value}",
+            lifecycle=lifecycle,
+            preregistration=preregistration,
+            assignment=assignment,
+        )
 
 
 def test_freeze_design_persists_all_immutable_scientific_state(tmp_path) -> None:
@@ -131,6 +182,7 @@ def test_freeze_design_persists_all_immutable_scientific_state(tmp_path) -> None
         ResearchRecordKind.LIFECYCLE,
     }
     assert restarted.state().operation("freeze-confirmatory") is not None
+    assert len(restarted.state().records_for(kind=ResearchRecordKind.LIFECYCLE)) == 3
 
 
 def test_confirmatory_design_cannot_be_modified_after_freeze(tmp_path) -> None:
@@ -168,7 +220,7 @@ def test_confirmatory_design_cannot_be_modified_after_freeze(tmp_path) -> None:
         )
     )
 
-    with pytest.raises(LedgerConflictError, match="immutable"):
+    with pytest.raises(DurableResearchLedgerError, match="supplied frozen design"):
         ledger.freeze_design(
             operation_id="posthoc-rewrite",
             lifecycle=changed_lifecycle,
@@ -209,7 +261,7 @@ def test_replication_operation_is_durable_idempotent_and_replayable(tmp_path) ->
 
     assert replay == results
     assert repeated == committed
-    assert len(restarted.state().transactions) == 2
+    assert len(restarted.state().transactions) == 4
 
 
 def test_replication_replay_rejects_changed_task_plan(tmp_path) -> None:
@@ -237,10 +289,18 @@ def test_durable_pilot_claim_blocks_confirmatory_holdout_after_restart(tmp_path)
     preregistration, assignment, lifecycle, environment, sbom, tasks, results = context
     root = tmp_path / "ledger"
     ledger = DurableResearchLedger(FilesystemResearchLedgerStorage(root))
-    _freeze(ledger, context)
+    pilot, exploratory, confirmatory = _phase_chain(context)
+    ledger.freeze_design(
+        operation_id="freeze-pilot",
+        lifecycle=pilot,
+        preregistration=preregistration,
+        assignment=assignment,
+    )
     ledger.claim_data_use(
         operation_id="pilot-operation",
-        study_id="study-1",
+        lifecycle=pilot,
+        preregistration=preregistration,
+        assignment=assignment,
         claims=(
             DataUseClaim(
                 dataset_sha256=tasks[0].provenance.input_data_sha256,
@@ -249,6 +309,19 @@ def test_durable_pilot_claim_blocks_confirmatory_holdout_after_restart(tmp_path)
                 operation_id="pilot-operation",
             ),
         ),
+    )
+
+    ledger.freeze_design(
+        operation_id="freeze-exploratory",
+        lifecycle=exploratory,
+        preregistration=preregistration,
+        assignment=assignment,
+    )
+    ledger.freeze_design(
+        operation_id="freeze-confirmatory",
+        lifecycle=confirmatory,
+        preregistration=preregistration,
+        assignment=assignment,
     )
 
     restarted = DurableResearchLedger(FilesystemResearchLedgerStorage(root))
@@ -395,7 +468,7 @@ def test_service_revalidates_durable_data_use_policy_on_load(tmp_path) -> None:
         expected_head_sha256=first.canonical_sha256,
     )
 
-    with pytest.raises(LedgerConflictError, match="cannot be reused"):
+    with pytest.raises(DurableResearchLedgerError, match="before pilot lifecycle"):
         DurableResearchLedger(storage).state()
 
 
@@ -484,7 +557,7 @@ def test_evidence_requires_design_and_current_phase_to_be_frozen(tmp_path) -> No
     preregistration, assignment, lifecycle, environment, sbom, tasks, results = context
     ledger = DurableResearchLedger(FilesystemResearchLedgerStorage(tmp_path / "ledger"))
 
-    with pytest.raises(DurableResearchLedgerError, match="must be frozen"):
+    with pytest.raises(DurableResearchLedgerError, match="predecessor chain"):
         ledger.record_replication_results(
             operation_id="replication-operation",
             lifecycle=lifecycle,
@@ -495,3 +568,278 @@ def test_evidence_requires_design_and_current_phase_to_be_frozen(tmp_path) -> No
             environment=environment,
             sbom=sbom,
         )
+
+
+def test_empty_ledger_rejects_confirmatory_as_first_phase(tmp_path) -> None:
+    context = _context()
+    preregistration, assignment, confirmatory, _, _, _, _ = context
+    ledger = DurableResearchLedger(FilesystemResearchLedgerStorage(tmp_path / "ledger"))
+
+    with pytest.raises(DurableResearchLedgerError, match="must begin at pilot"):
+        ledger.freeze_design(
+            operation_id="late-preregistration",
+            lifecycle=confirmatory,
+            preregistration=preregistration,
+            assignment=assignment,
+        )
+
+
+def test_successor_rejects_skip_and_backfill_after_evidence(tmp_path) -> None:
+    context = _context()
+    preregistration, assignment, _, _, _, _, _ = context
+    pilot, exploratory, confirmatory = _phase_chain(context)
+    ledger = DurableResearchLedger(FilesystemResearchLedgerStorage(tmp_path / "ledger"))
+    ledger.freeze_design(
+        operation_id="freeze-pilot",
+        lifecycle=pilot,
+        preregistration=preregistration,
+        assignment=assignment,
+    )
+
+    with pytest.raises(DurableResearchLedgerError, match="exactly one phase"):
+        ledger.freeze_design(
+            operation_id="skip-to-confirmatory",
+            lifecycle=confirmatory,
+            preregistration=preregistration,
+            assignment=assignment,
+        )
+
+    ledger.claim_data_use(
+        operation_id="pilot-evidence",
+        lifecycle=pilot,
+        preregistration=preregistration,
+        assignment=assignment,
+        claims=(DataUseClaim("f" * 64, "study-1", "pilot", "pilot-evidence"),),
+    )
+    ledger.freeze_design(
+        operation_id="freeze-exploratory",
+        lifecycle=exploratory,
+        preregistration=preregistration,
+        assignment=assignment,
+    )
+    with pytest.raises(DurableResearchLedgerError, match="exactly one phase"):
+        ledger.freeze_design(
+            operation_id="backfill-pilot",
+            lifecycle=pilot,
+            preregistration=preregistration,
+            assignment=assignment,
+        )
+
+
+def test_structural_state_rejects_malformed_history_record(tmp_path) -> None:
+    context = _context()
+    preregistration, assignment, _, _, _, _, _ = context
+    pilot, _, confirmatory = _phase_chain(context)
+    storage = FilesystemResearchLedgerStorage(tmp_path / "ledger")
+    ledger = DurableResearchLedger(storage)
+    first = ledger.freeze_design(
+        operation_id="freeze-pilot",
+        lifecycle=pilot,
+        preregistration=preregistration,
+        assignment=assignment,
+    )
+    payload = confirmatory.to_dict()
+    payload["history"] = ["pilot", "confirmatory"]
+    malformed = FrozenResearchRecord.create(
+        study_id="study-1",
+        kind=ResearchRecordKind.LIFECYCLE,
+        subject_id="phase-confirmatory",
+        payload=payload,
+    )
+    storage.commit(
+        operation_id="malformed-successor",
+        study_id="study-1",
+        records=(malformed,),
+        expected_head_sha256=first.canonical_sha256,
+    )
+
+    with pytest.raises(DurableResearchLedgerError, match="invalid durable lifecycle"):
+        ledger.state()
+
+
+def test_structural_state_rejects_noncanonical_confirmatory_transition(tmp_path) -> None:
+    context = _context()
+    preregistration, assignment, confirmatory, _, _, _, _ = context
+    pilot, exploratory, _ = _phase_chain(context)
+    storage = FilesystemResearchLedgerStorage(tmp_path / "ledger")
+    ledger = DurableResearchLedger(storage)
+    for lifecycle in (pilot, exploratory):
+        ledger.freeze_design(
+            operation_id=f"freeze-{lifecycle.phase.value}",
+            lifecycle=lifecycle,
+            preregistration=preregistration,
+            assignment=assignment,
+        )
+
+    payload = confirmatory.payload()
+    payload["confirmatory_freeze_sha256"] = "f" * 64
+    malformed = replace(
+        confirmatory,
+        confirmatory_freeze_sha256="f" * 64,
+        canonical_sha256=content_sha256(payload),
+    )
+    assert malformed.verify()
+    record = FrozenResearchRecord.create(
+        study_id="study-1",
+        kind=ResearchRecordKind.LIFECYCLE,
+        subject_id="phase-confirmatory",
+        payload=malformed.to_dict(),
+    )
+    state = ledger.state()
+    storage.commit(
+        operation_id="malformed-confirmatory",
+        study_id="study-1",
+        records=(record,),
+        expected_head_sha256=state.transactions[-1].canonical_sha256,
+    )
+
+    with pytest.raises(DurableResearchLedgerError, match="exact predecessor transition"):
+        ledger.state()
+
+
+def test_claim_requires_chain_and_role_phase_compatibility(tmp_path) -> None:
+    context = _context()
+    preregistration, assignment, confirmatory, _, _, _, _ = context
+    pilot = _phase_chain(context)[0]
+    ledger = DurableResearchLedger(FilesystemResearchLedgerStorage(tmp_path / "ledger"))
+    confirmatory_claim = DataUseClaim("f" * 64, "study-1", "confirmatory", "confirmatory-claim")
+    with pytest.raises(DurableResearchLedgerError, match="predecessor chain"):
+        ledger.claim_data_use(
+            operation_id="confirmatory-claim",
+            lifecycle=confirmatory,
+            preregistration=preregistration,
+            assignment=assignment,
+            claims=(confirmatory_claim,),
+        )
+
+    ledger.freeze_design(
+        operation_id="freeze-pilot",
+        lifecycle=pilot,
+        preregistration=preregistration,
+        assignment=assignment,
+    )
+    with pytest.raises(DurableResearchLedgerError, match="durable lifecycle phase"):
+        ledger.claim_data_use(
+            operation_id="confirmatory-claim",
+            lifecycle=pilot,
+            preregistration=preregistration,
+            assignment=assignment,
+            claims=(confirmatory_claim,),
+        )
+
+
+@pytest.mark.parametrize(
+    ("claim_study_id", "claim_operation_id"),
+    (
+        ("study-2", "injected-claim"),
+        ("study-1", "different-operation"),
+    ),
+)
+def test_structural_state_rejects_data_use_claim_binding_drift(
+    tmp_path,
+    claim_study_id: str,
+    claim_operation_id: str,
+) -> None:
+    context = _context()
+    storage = FilesystemResearchLedgerStorage(tmp_path / "ledger")
+    ledger = DurableResearchLedger(storage)
+    _freeze(ledger, context)
+    claim = DataUseClaim(
+        dataset_sha256="f" * 64,
+        study_id=claim_study_id,
+        role="confirmatory",
+        operation_id=claim_operation_id,
+    )
+    payload = claim.to_dict()
+    record = FrozenResearchRecord.create(
+        study_id="study-1",
+        kind=ResearchRecordKind.DATA_USE_CLAIM,
+        subject_id=content_sha256(payload),
+        payload=payload,
+    )
+    state = ledger.state()
+    storage.commit(
+        operation_id="injected-claim",
+        study_id="study-1",
+        records=(record,),
+        expected_head_sha256=state.transactions[-1].canonical_sha256,
+    )
+
+    with pytest.raises(DurableResearchLedgerError, match="lifecycle and transaction"):
+        ledger.state()
+
+
+def test_replication_evidence_rejects_incomplete_predecessor_chain(tmp_path) -> None:
+    context = _context()
+    preregistration, assignment, confirmatory, environment, sbom, tasks, results = context
+    pilot = _phase_chain(context)[0]
+    ledger = DurableResearchLedger(FilesystemResearchLedgerStorage(tmp_path / "ledger"))
+    ledger.freeze_design(
+        operation_id="freeze-pilot",
+        lifecycle=pilot,
+        preregistration=preregistration,
+        assignment=assignment,
+    )
+
+    with pytest.raises(DurableResearchLedgerError, match="predecessor chain"):
+        ledger.record_replication_results(
+            operation_id="premature-evidence",
+            lifecycle=confirmatory,
+            preregistration=preregistration,
+            assignment=assignment,
+            tasks=tasks,
+            results=results,
+            environment=environment,
+            sbom=sbom,
+        )
+
+
+def test_two_processes_racing_same_successor_allow_only_one_commit(tmp_path) -> None:
+    context = _context()
+    preregistration, assignment, _, _, _, _, _ = context
+    pilot, exploratory, _ = _phase_chain(context)
+    root = tmp_path / "ledger"
+    ledger = DurableResearchLedger(FilesystemResearchLedgerStorage(root))
+    ledger.freeze_design(
+        operation_id="freeze-pilot",
+        lifecycle=pilot,
+        preregistration=preregistration,
+        assignment=assignment,
+    )
+
+    process_context = multiprocessing.get_context("spawn")
+    start = process_context.Event()
+    results = process_context.Queue()
+    processes = [
+        process_context.Process(
+            target=_freeze_successor_worker,
+            args=(
+                str(root),
+                f"successor-{index}",
+                exploratory,
+                preregistration,
+                assignment,
+                start,
+                results,
+            ),
+        )
+        for index in range(2)
+    ]
+    for process in processes:
+        process.start()
+    start.set()
+    for process in processes:
+        process.join(20)
+        if process.is_alive():
+            process.terminate()
+            process.join(5)
+            pytest.fail("successor worker did not terminate")
+        assert process.exitcode == 0
+
+    outcomes = [results.get(timeout=5) for _ in processes]
+    assert [item[0] for item in outcomes].count("ok") == 1
+    assert [item[0] for item in outcomes].count("error") == 1
+    assert len(ledger.state().records_for(kind=ResearchRecordKind.LIFECYCLE)) == 2
+    assert ledger.state().records_for(kind=ResearchRecordKind.LIFECYCLE)[-1].subject_id == (
+        "phase-exploratory"
+    )

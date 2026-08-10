@@ -111,6 +111,38 @@ def test_result_bundle_rejects_sensitive_metadata_recursively() -> None:
         )
 
 
+def test_result_bundle_public_metadata_is_recursively_immutable() -> None:
+    run = _run()
+    estimates, quality = _analysis(run)
+    bundle = ResultBundle.create(
+        run=run,
+        estimates=estimates,
+        data_quality=quality,
+        provenance={"source": {"artifacts": [{"name": "fixture"}]}},
+        environment={"runtime": {"versions": ["3.12"]}},
+        publishable=True,
+    )
+    source = bundle.provenance["source"]
+    assert isinstance(source, dict)
+    artifacts = source["artifacts"]
+    assert isinstance(artifacts, list)
+    artifact = artifacts[0]
+    assert isinstance(artifact, dict)
+    runtime = bundle.environment["runtime"]
+    assert isinstance(runtime, dict)
+    versions = runtime["versions"]
+    assert isinstance(versions, list)
+
+    with pytest.raises(TypeError, match="immutable"):
+        source["new"] = "forbidden"
+    with pytest.raises(TypeError, match="immutable"):
+        artifacts.append({"name": "replacement"})
+    with pytest.raises(TypeError, match="immutable"):
+        artifact["name"] = "rewritten"
+    with pytest.raises(TypeError, match="immutable"):
+        versions[0] = "changed"
+
+
 def test_research_run_rejects_invalid_digest() -> None:
     with pytest.raises(ValueError, match="SHA-256"):
         replace(_run(), sbom_sha256="invalid")

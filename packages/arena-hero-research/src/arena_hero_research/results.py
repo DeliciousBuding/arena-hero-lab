@@ -8,6 +8,7 @@ from types import MappingProxyType
 
 from arena_hero_research.analysis import DataQualityReport, EffectEstimate
 from arena_hero_research.contracts import OutcomeRole, Preregistration, ResearchRunStatus
+from arena_hero_research.validation import freeze_public_metadata
 from arena_hero_sim.serialization import JsonValue, content_sha256, to_json_value
 
 
@@ -29,20 +30,7 @@ def _public_metadata(value: Mapping[str, JsonValue], field_name: str) -> Mapping
     converted = to_json_value(value)
     if not isinstance(converted, dict) or not converted:
         raise ValueError(f"{field_name} must be a non-empty JSON object")
-    prohibited = {"secret", "token", "password", "credential"}
-
-    def reject_sensitive_keys(item: JsonValue) -> None:
-        if isinstance(item, dict):
-            for key, nested in item.items():
-                if any(term in key.casefold() for term in prohibited):
-                    raise ValueError(f"{field_name} contains a prohibited sensitive key")
-                reject_sensitive_keys(nested)
-        elif isinstance(item, list):
-            for nested in item:
-                reject_sensitive_keys(nested)
-
-    reject_sensitive_keys(converted)
-    return MappingProxyType(converted)
+    return freeze_public_metadata(converted, field_name)
 
 
 @dataclass(frozen=True, slots=True)

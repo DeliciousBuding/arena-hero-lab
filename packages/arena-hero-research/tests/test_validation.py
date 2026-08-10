@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from arena_hero_research.ledger import OperationRecord
@@ -9,6 +11,7 @@ from arena_hero_research.storage import (
     ResearchRecordKind,
 )
 from arena_hero_research.validation import freeze_public_metadata, require_identifier
+from arena_hero_sim.serialization import content_sha256, to_json_value
 
 
 @pytest.mark.parametrize(
@@ -79,3 +82,31 @@ def test_operation_and_transaction_hash_normalized_identifiers() -> None:
     assert transaction.operation_id == "operation-1"
     assert transaction.study_id == "study"
     assert transaction.verify()
+
+
+def test_public_metadata_is_recursively_immutable_and_json_compatible() -> None:
+    metadata = freeze_public_metadata(
+        {"outer": {"items": [{"value": 1}]}},
+        "metadata",
+    )
+    assert isinstance(metadata, dict)
+    outer = metadata["outer"]
+    assert isinstance(outer, dict)
+    items = outer["items"]
+    assert isinstance(items, list)
+    nested = items[0]
+    assert isinstance(nested, dict)
+
+    with pytest.raises(TypeError, match="immutable"):
+        metadata["new"] = 1
+    with pytest.raises(TypeError, match="immutable"):
+        outer["new"] = 2
+    with pytest.raises(TypeError, match="immutable"):
+        items.append({"value": 2})
+    with pytest.raises(TypeError, match="immutable"):
+        nested["value"] = 99
+
+    expected = {"outer": {"items": [{"value": 1}]}}
+    assert json.loads(json.dumps(metadata, sort_keys=True)) == expected
+    assert to_json_value(metadata) == expected
+    assert content_sha256(metadata) == content_sha256(expected)

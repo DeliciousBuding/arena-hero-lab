@@ -57,35 +57,63 @@ only in pilot or exploratory phases and is rejected after the confirmatory freez
 
 The initial confirmatory analysis remains a paired-comparison workflow. It does not claim
 hierarchical inference, cluster-robust errors, sequential testing, adaptive randomization,
-or causal identification outside the registered design. Distributed executors, durable
-ledger adapters, signed provenance, and independent publication services remain future
-adapters behind the implemented contracts.
+or causal identification outside the registered design. The package includes a local
+filesystem reference ledger adapter; distributed executors, remote or replicated ledger
+adapters, signed provenance, and independent publication services remain future adapters
+behind the implemented ports.
 
 ## Minimal offline flow
 
+The durable chronology must be committed one phase at a time. Design records are frozen in
+the pilot transaction, each successor must extend the durable predecessor exactly once, and
+confirmatory evidence is accepted only after the confirmatory freeze is durable.
+
 ```python
+storage = FilesystemResearchLedgerStorage("research-ledger")
+ledger = DurableResearchLedger(storage)
+
 assignment = generate_assignments(
     preregistration,
     assignment_units,
     treatment_factor="strategy",
 )
-lifecycle = ResearchLifecycle.create(
+pilot = ResearchLifecycle.create(
     study_id="study-1",
     preregistration=preregistration,
     assignment=assignment,
 )
-lifecycle = lifecycle.transition(
+ledger.freeze_design(
+    operation_id="freeze-pilot",
+    lifecycle=pilot,
+    preregistration=preregistration,
+    assignment=assignment,
+)
+
+exploratory = pilot.transition(
     ResearchPhase.EXPLORATORY,
     preregistration=preregistration,
     assignment=assignment,
-).transition(
+)
+ledger.freeze_design(
+    operation_id="freeze-exploratory",
+    lifecycle=exploratory,
+    preregistration=preregistration,
+    assignment=assignment,
+)
+confirmatory = exploratory.transition(
     ResearchPhase.CONFIRMATORY,
+    preregistration=preregistration,
+    assignment=assignment,
+)
+ledger.freeze_design(
+    operation_id="freeze-confirmatory",
+    lifecycle=confirmatory,
     preregistration=preregistration,
     assignment=assignment,
 )
 
 tasks = build_replication_tasks(
-    lifecycle=lifecycle,
+    lifecycle=confirmatory,
     preregistration=preregistration,
     assignment=assignment,
     provenance_by_environment=provenance_by_environment,
@@ -93,6 +121,16 @@ tasks = build_replication_tasks(
 results = ReplicationRunner(fake_executor).run(
     operation_id="confirmatory-run-1",
     tasks=tasks,
+)
+ledger.record_replication_results(
+    operation_id="confirmatory-run-1",
+    lifecycle=confirmatory,
+    preregistration=preregistration,
+    assignment=assignment,
+    tasks=tasks,
+    results=results,
+    environment=environment_snapshot,
+    sbom=sbom,
 )
 merged = merge_replications(
     preregistration=preregistration,
@@ -138,35 +176,49 @@ and may layer stronger external supply-chain attestations on the same digests.
 `ResearchLedgerStorage` is the persistence port. The reference
 `FilesystemResearchLedgerStorage` adapter stores canonical public records under
 content-addressed SHA-256 object paths and commits operations as one canonical JSONL line
-in a sequence-checked, hash-chained journal. A process-scoped OS file lock enforces the
-single-writer section; objects are written through same-directory temporary files, `fsync`,
-and atomic replacement before the journal commit is appended and read back. Reusing an
-`operation_id` with identical record identities is idempotent; conflicting content fails
-closed. Immutable `(study, kind, subject)` keys cannot be rewritten and no delete API is
-provided.
+in a sequence-checked, hash-chained journal. A single-host OS file lock serializes writers.
+Objects use same-directory temporary files, file `fsync`, and atomic replacement before the
+journal line is appended, `fsync`ed, and read back. Reusing an `operation_id` with identical
+record identities is idempotent; conflicting content fails closed. Immutable
+`(study, kind, subject)` keys cannot be rewritten and no delete API is provided.
 
-A final journal fragment without a newline is treated as uncommitted, never silently
-accepted. `recover_torn_tail()` must be called explicitly; it first verifies the complete
-prefix, quarantines the discarded bytes by SHA-256, atomically restores the prefix, and
-verifies it again. Corruption in a committed line, hash-chain break, missing object, or
-object digest mismatch is not auto-repaired. The adapter is a local single-writer reference,
-not a distributed transaction service, remote object store, signature system, or protection
-against an attacker who can coherently rewrite every local byte.
+The protocol is designed to fail closed across ordinary process crashes: a crash before the
+journal commit can leave an unreferenced immutable object and may require computation to run
+again, but that object is not accepted as committed evidence. A final journal fragment
+without a newline is treated as uncommitted, never silently accepted.
+`recover_torn_tail()` must be called explicitly; it verifies the complete prefix,
+quarantines the discarded bytes by SHA-256, atomically restores the prefix, and verifies it
+again. Corruption in a committed line, hash-chain break, missing object, or object digest
+mismatch is not auto-repaired.
+
+Durability against sudden power loss is filesystem- and OS-dependent. Parent-directory
+`fsync` is best-effort on POSIX, is skipped by this adapter on Windows, and the first
+`mkdir(parents=True)` directory chain is not individually `fsync`ed. Atomic replacement,
+rename persistence, controller caches, and storage hardware may therefore provide weaker
+power-loss guarantees than the process-crash protocol. The adapter is a local reference,
+not a distributed exactly-once transaction service, remote object store, signed timestamp,
+complete supply-chain attestation, or protection against an attacker who can coherently
+rewrite every local byte.
 
 ## Durable scientific record service
 
-`DurableResearchLedger` is the application layer over the storage port. It freezes the
-preregistration, assignment manifest, analysis plan, and each lifecycle phase under stable
-immutable keys before evidence can be recorded. Replication commits atomically retain the
-held-out data-use claims, tasks, complete/partial/failed results, environment snapshot,
-minimal SBOM, and their provenance binding. Analysis commits retain result bundles whether
-the effect is favorable, null, adverse, partial, or failed. A conflicting rewrite of the
-same scientific subject or `operation_id` is rejected, and there is no deletion surface.
+`DurableResearchLedger` is the application layer over the storage port. A new study must
+begin with a pilot transaction that freezes the preregistration, assignment manifest, and
+analysis plan. Every later lifecycle record must be the unique next durable successor with
+exact predecessor history and unchanged design bindings; phases cannot be skipped or
+backfilled after evidence. Evidence is checked against the complete durable predecessor
+chain. Data-use claims must match the transaction operation, study, active phase role, and
+confirmatory freeze when held-out data is involved.
+
+Replication commits retain the held-out data-use claims, tasks, complete/partial/failed
+results, environment snapshot, minimal SBOM, and their provenance binding. Analysis commits
+retain result bundles whether the effect is favorable, null, adverse, partial, or failed. A
+conflicting rewrite of the same scientific subject or `operation_id` is rejected, and there
+is no deletion surface.
 
 Durable data-use claims are replayed on every restart, so pilot/exploratory leakage, holdout
 reuse by another study or operation, and post-hoc replacement remain blocked after process
 exit. Callers should invoke `replay_replication_results()` before executing an operation; a
 matching committed operation returns verified results without recomputation, while a changed
-task plan fails closed. The filesystem adapter provides an atomic durable commit, not
-distributed exactly-once execution: a crash before the journal commit may require compute to
-run again, but incomplete evidence is not accepted as committed.
+task plan fails closed. This is idempotent durable recording, not distributed exactly-once
+execution; the process-crash and power-loss limits above remain part of the adapter contract.

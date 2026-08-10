@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
-from types import MappingProxyType
 
 from arena_hero_sim.serialization import JsonValue, to_json_value
 
@@ -24,6 +23,63 @@ _SENSITIVE_FORMS = tuple(
     (part, "".join(character for character in part if character.isalnum()))
     for part in _SENSITIVE_PARTS
 )
+
+
+class FrozenJsonDict(dict[str, JsonValue]):
+    """JSON-serializable dict that rejects ordinary mutation APIs."""
+
+
+class FrozenJsonList(list[JsonValue]):
+    """JSON-serializable list that rejects ordinary mutation APIs."""
+
+
+def _immutable_json_mutation(*_args: object, **_kwargs: object) -> None:
+    raise TypeError("frozen JSON container is immutable")
+
+
+def _install_immutable_mutators(target: type[object], names: tuple[str, ...]) -> None:
+    for name in names:
+        setattr(target, name, _immutable_json_mutation)
+
+
+_install_immutable_mutators(
+    FrozenJsonDict,
+    (
+        "__setitem__",
+        "__delitem__",
+        "clear",
+        "pop",
+        "popitem",
+        "setdefault",
+        "update",
+        "__ior__",
+    ),
+)
+_install_immutable_mutators(
+    FrozenJsonList,
+    (
+        "__setitem__",
+        "__delitem__",
+        "append",
+        "clear",
+        "extend",
+        "insert",
+        "pop",
+        "remove",
+        "reverse",
+        "sort",
+        "__iadd__",
+        "__imul__",
+    ),
+)
+
+
+def _freeze_json(value: JsonValue) -> JsonValue:
+    if isinstance(value, dict):
+        return FrozenJsonDict({key: _freeze_json(item) for key, item in value.items()})
+    if isinstance(value, list):
+        return FrozenJsonList(_freeze_json(item) for item in value)
+    return value
 
 
 def require_text(value: str, field_name: str) -> str:
@@ -80,7 +136,10 @@ def freeze_public_metadata(
                 visit(nested, (*path, str(index)))
 
     visit(normalized, ())
-    return MappingProxyType(normalized)
+    frozen = _freeze_json(normalized)
+    if not isinstance(frozen, FrozenJsonDict):
+        raise TypeError(f"{field_name} must be a mapping")
+    return frozen
 
 
 def require_float(value: object, field_name: str) -> float:
