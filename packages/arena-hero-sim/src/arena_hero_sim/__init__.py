@@ -49,6 +49,11 @@ from arena_hero_sim.reference_engine import (
 )
 from arena_hero_sim.registry import BackendRegistry
 from arena_hero_sim.serialization import canonical_json_bytes, content_sha256
+from arena_hero_sim.workload import (
+    WORKLOAD_MANIFEST_SCHEMA,
+    WorkloadCase,
+    WorkloadManifest,
+)
 
 __all__ = [
     "REFERENCE_BACKEND_ID",
@@ -58,6 +63,7 @@ __all__ = [
     "REFERENCE_PROTOCOL_VERSION",
     "REFERENCE_RULES",
     "REFERENCE_RULESET",
+    "WORKLOAD_MANIFEST_SCHEMA",
     "BackendCapabilities",
     "BackendDescriptor",
     "BackendRegistry",
@@ -88,6 +94,8 @@ __all__ = [
     "SimulatorBackend",
     "SimulatorConfig",
     "UnsupportedReferenceSliceError",
+    "WorkloadCase",
+    "WorkloadManifest",
     "canonical_json_bytes",
     "content_sha256",
     "observe_world",

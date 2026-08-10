@@ -100,6 +100,9 @@ placeholder batch dispatch. It is not an engine-throughput benchmark and always 
 `production_claim=false`.
 
 M4 intentionally adds no reference-engine throughput claim. The reference engine is the
-correctness oracle. A future engine benchmark must name its workload, separate setup from hot
-path execution, pin engine/rules identities, report full environment metadata, and retain
-`production_claim=false` until an independently reviewed production-equivalent protocol exists.
+correctness oracle. `WorkloadManifest` and `WorkloadCase` now freeze a backend-neutral,
+content-addressed workload identity and deterministic request expansion; see
+[`../../docs/reference-workloads.md`](../../docs/reference-workloads.md). The first runner must
+execute the implemented movement scenarios, retain raw samples, and pass a reference/optimized
+differential gate. It must keep `production_claim=false` until an independently reviewed
+production-equivalent protocol exists.

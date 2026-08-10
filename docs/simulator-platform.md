@@ -80,6 +80,13 @@ placeholder result construction. It sets `production_claim=false`; it does not m
 simulation throughput. Reports contain durations, median, p95, throughput, Python version,
 platform family, backend id, and engine version without host identity.
 
+## Reference workload gate
+
+The backend-neutral workload contract and the mandatory reference/optimized differential gate are
+defined in [`reference-workloads.md`](reference-workloads.md). A real performance claim must bind a
+content-addressed workload manifest and retain raw measurement samples. Contract dispatch remains
+a separate overhead signal and cannot be promoted into engine-throughput evidence.
+
 ## Performance budgets
 
 Performance budgets are evidence gates, not marketing claims:
