@@ -6,14 +6,6 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
-/** 迷你柱状图数据点（如各场景名次：值越小柱越高）。 */
-export interface MiniBarDatum {
-  label: string;
-  value: number;
-  /** 值越小柱越高（如名次）；默认值越大柱越高。 */
-  inverted?: boolean;
-}
-
 /** 排名条形图数据行（任意数值维度通用：综合分/经济/击杀/平均名次）。 */
 export interface RankBarRow {
   rank: number;
@@ -28,8 +20,6 @@ export interface RankBarRow {
   primary: string;
   /** 副指标文案（如 "均排 1.20"）。 */
   secondary?: string;
-  /** 迷你柱状图数据（arena.ai 风格，如各场景名次分布）。 */
-  bars?: MiniBarDatum[];
   href?: string;
 }
 
@@ -41,8 +31,8 @@ const RANK_BADGE_CLASS = [
 ] as const;
 
 /**
- * 排名条形图（arena.ai Leaderboard Agent 榜风格）：
- * 每行 = 方形排名徽标 + 名称 + 右侧迷你柱状图（各场景名次分布）+ 主值。
+ * 排名条形图（arena.ai Leaderboard Agent 榜两栏设计）：
+ * 左栏 = 方形排名徽标 + 名称 + 副指标；右栏 = 圆角槽 + 横向条形 + 末端数值。
  * 前三名金银铜徽标；内置搜索过滤；点击条目进入详情页。
  */
 export function RankBars({
@@ -63,6 +53,18 @@ export function RankBars({
       (row) => row.label.toLowerCase().includes(q) || row.id.toLowerCase().includes(q),
     );
   }, [rows, query]);
+
+  const maxAbs = useMemo(() => {
+    const values = filtered.map((r) => Math.abs(r.value));
+    return values.length ? Math.max(...values) : 1;
+  }, [filtered]);
+
+  /** 条形长度：ascending = 越大越长；反向维度（如名次）= 越小越长。 */
+  const widthPctOf = (row: RankBarRow): number => {
+    if (maxAbs <= 0) return 2;
+    const t = row.ascending ? Math.abs(row.value) / maxAbs : 1 - Math.abs(row.value) / maxAbs;
+    return Math.max(2, t * 100);
+  };
 
   return (
     <div>
@@ -108,13 +110,15 @@ export function RankBars({
               {row.href !== undefined ? (
                 <Link
                   href={row.href}
-                  className="flex items-center gap-3 rounded-md px-1 py-1 transition-colors hover:bg-secondary/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                  className="grid items-center gap-x-4 gap-y-2 rounded-md px-1 py-1 transition-colors hover:bg-secondary/40 sm:grid-cols-[minmax(0,280px)_minmax(0,1fr)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                 >
-                  <RankRowInner row={row} />
+                  <RankRowLeft row={row} />
+                  <RankRowBar row={row} widthPct={widthPctOf(row)} />
                 </Link>
               ) : (
-                <div className="flex items-center gap-3 rounded-md px-1 py-1">
-                  <RankRowInner row={row} />
+                <div className="grid items-center gap-x-4 gap-y-2 rounded-md px-1 py-1 sm:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
+                  <RankRowLeft row={row} />
+                  <RankRowBar row={row} widthPct={widthPctOf(row)} />
                 </div>
               )}
             </div>
@@ -125,11 +129,11 @@ export function RankBars({
   );
 }
 
-/** 行内容：排名徽标 + 名称 + 迷你柱状图 + 主值（arena.ai 布局）。 */
-function RankRowInner({ row }: { row: RankBarRow }) {
+/** 左栏：排名徽标 + 名称 + 副指标。 */
+function RankRowLeft({ row }: { row: RankBarRow }) {
   const badgeIndex = Math.min(row.rank - 1, RANK_BADGE_CLASS.length - 1);
   return (
-    <>
+    <div className="flex min-w-0 items-center gap-3">
       <span
         className={cn(
           "flex h-6 w-6 shrink-0 items-center justify-center rounded-sm border text-[11px] font-medium tnum",
@@ -138,62 +142,40 @@ function RankRowInner({ row }: { row: RankBarRow }) {
       >
         {row.rank}
       </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2">
-          <span className="truncate text-sm font-medium text-foreground group-hover:text-brand">
-            {row.label}
-          </span>
-          <span className="shrink-0 text-[11px] text-muted-foreground tnum">{row.primary}</span>
-        </div>
+      <div className="min-w-0">
+        <span className="line-clamp-1 break-words text-sm font-medium text-foreground group-hover:text-brand">
+          {row.label}
+        </span>
         {row.secondary !== undefined ? (
-          <p className="mt-0.5 text-[11px] text-muted-foreground tnum">{row.secondary}</p>
+          <span className="mt-0.5 block text-[11px] text-muted-foreground tnum">
+            {row.secondary}
+          </span>
         ) : null}
       </div>
-      {row.bars !== undefined && row.bars.length > 0 ? <MiniBars data={row.bars} /> : null}
-    </>
+    </div>
   );
 }
 
-const MINI_BAR_WIDTH = 6;
-const MINI_BAR_GAP = 3;
-const MINI_BAR_HEIGHT = 36;
-const MINI_PAD = { top: 3, bottom: 0 };
-
-/** 迷你柱状图（arena.ai Agent 榜同款）：每柱一个数据点，悬浮显示详情。 */
-export function MiniBars({ data, ariaLabel }: { data: MiniBarDatum[]; ariaLabel?: string }) {
-  const maxAbs = Math.max(...data.map((d) => Math.abs(d.value)), 1);
-  const chartHeight = MINI_BAR_HEIGHT + MINI_PAD.top + MINI_PAD.bottom;
-  const chartWidth = data.length * (MINI_BAR_WIDTH + MINI_BAR_GAP) - MINI_BAR_GAP;
-
+/** 右栏：圆角槽 + 横向条形 + 末端主值（arena.ai Agent 榜同款）。 */
+function RankRowBar({ row, widthPct }: { row: RankBarRow; widthPct: number }) {
   return (
-    <svg
-      viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-      width={chartWidth}
-      height={chartHeight}
-      role="img"
-      aria-label={ariaLabel ?? "各场景表现迷你柱状图"}
-      className="shrink-0"
-    >
-      {data.map((d, i) => {
-        const t = Math.abs(d.value) / maxAbs;
-        const normalized = d.inverted === true ? 1 - t : t;
-        const h = Math.max(2, normalized * MINI_BAR_HEIGHT);
-        const x = i * (MINI_BAR_WIDTH + MINI_BAR_GAP);
-        const y = MINI_PAD.top + (MINI_BAR_HEIGHT - h);
-        return (
-          <rect
-            key={i}
-            x={x}
-            y={y}
-            width={MINI_BAR_WIDTH}
-            height={h}
-            rx={1.5}
-            className="fill-foreground/25 transition-colors group-hover:fill-foreground/50"
-          >
-            <title>{`${d.label}: ${d.value}`}</title>
-          </rect>
-        );
-      })}
-    </svg>
+    <div className="flex min-w-0 items-center gap-3">
+      <div
+        className="relative h-7 min-w-0 flex-1 overflow-hidden rounded-sm bg-secondary"
+        role="img"
+        aria-label={`${row.label} ${row.primary}`}
+      >
+        <div
+          className={cn(
+            "absolute inset-y-0 left-0 rounded-sm bg-gradient-to-r transition-[width] duration-500",
+            row.rank === 1 ? "from-brand/75 to-brand" : "from-foreground/25 to-foreground/50",
+          )}
+          style={{ width: `${widthPct}%` }}
+        />
+      </div>
+      <span className="w-14 shrink-0 text-right text-sm font-medium text-foreground tnum">
+        {row.primary}
+      </span>
+    </div>
   );
 }

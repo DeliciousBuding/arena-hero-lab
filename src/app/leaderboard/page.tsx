@@ -1,7 +1,7 @@
 import { RankBars, type RankBarRow } from "@/components/rank-bars";
 import { SectionHeader } from "@/components/section-header";
 import { Card, CardContent } from "@/components/ui/card";
-import { benchData, contestantOf, scenarioBarsOf } from "@/lib/bench";
+import { benchData, contestantOf } from "@/lib/bench";
 
 /** 通用维度行构建：主值 + 副指标 + 条长依据。 */
 function dimensionRows(
@@ -24,7 +24,6 @@ function dimensionRows(
       ascending: picked.ascending,
       primary: picked.primary,
       secondary: picked.secondary,
-      bars: scenarioBarsOf(entry.contestantId),
       href: `/entry/${entry.contestantId}`,
     };
   });

@@ -28,8 +28,11 @@ const NAV_ITEMS = [
  */
 export function AppChrome() {
   const pathname = usePathname();
-  const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href.split("#")[0]);
+  /** 锚点链接（#hash）不做 active 高亮（否则首页会恒亮"热图/场景"）。 */
+  const isActive = (href: string) => {
+    if (href.includes("#")) return false;
+    return href === "/" ? pathname === "/" : pathname.startsWith(href);
+  };
 
   return (
     <nav className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">

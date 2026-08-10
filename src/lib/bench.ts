@@ -150,21 +150,3 @@ export const SCORE_DIMENSIONS: { key: keyof LeaderboardRow; label: string; enLab
   { key: "economyScore", label: "经济", enLabel: "Economy" },
   { key: "survivalScore", label: "生存", enLabel: "Survival" },
 ] as const;
-
-/** 迷你柱状图数据点（各场景名次；名次越小柱越高）。 */
-export interface ScenarioRankDatum {
-  label: string;
-  value: number;
-  inverted: boolean;
-}
-
-/** 条目在各场景的平均名次（arena.ai 迷你柱状图数据源；未参赛场景剔除）。 */
-export function scenarioBarsOf(contestantId: string): ScenarioRankDatum[] {
-  const bars: ScenarioRankDatum[] = [];
-  for (const scenario of benchData.scenarios) {
-    const avgRank = scenario.perEntry[contestantId]?.avgRank;
-    if (avgRank == null) continue;
-    bars.push({ label: scenario.label, value: avgRank, inverted: true });
-  }
-  return bars;
-}

@@ -8,7 +8,7 @@ import { SectionHeader } from "@/components/section-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { benchData, contestantOf, scenarioBarsOf } from "@/lib/bench";
+import { benchData, contestantOf } from "@/lib/bench";
 
 /** 综合排名图数据行（composite 升序绘制，榜首条最长）。 */
 function rankRows(): RankBarRow[] {
@@ -23,7 +23,6 @@ function rankRows(): RankBarRow[] {
       ascending: true,
       primary: `${(entry.composite * 100).toFixed(1)}%`,
       secondary: `均排 ${entry.avgRank.toFixed(2)} · rankScore ${(entry.rankScore * 100).toFixed(1)}%`,
-      bars: scenarioBarsOf(entry.contestantId),
       href: `/entry/${entry.contestantId}`,
     };
   });
@@ -53,10 +52,8 @@ function scoreEntries(): ScoreBarEntry[] {
 }
 
 export default function HomePage() {
-  const { params } = benchData;
   const generatedDate = new Date(benchData.generatedAt).toLocaleString("zh-CN");
   const runId = benchData.source.split("/").pop() ?? "";
-  const totalMatches = benchData.scenarios.reduce((n, s) => n + s.matches.length, 0);
 
   return (
     <div className="container-page px-4 py-10 sm:px-6">
@@ -74,10 +71,6 @@ export default function HomePage() {
           Arena Hero
           <span className="ml-3 text-brand">Leaderboard</span>
         </h1>
-        <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
-          arena-hero 模拟器评测 v3：{params.players} 条目 × {params.scenarios.length} 场景 ×{" "}
-          {params.seeds.length} 种子 · {totalMatches} 场对抗的综合榜单。
-        </p>
         <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
           <span>数据源</span>
           <a
