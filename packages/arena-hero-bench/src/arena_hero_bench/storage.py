@@ -12,8 +12,10 @@ Design notes
 - A writer lock serializes check-then-write sections. Acquisition uses atomic
   exclusive file creation (``O_CREAT | O_EXCL``), which is reliable within and
   across processes on POSIX and Windows, so concurrent writers cannot
-  interleave object creation with conflict detection. A stale lock left by a
-  crashed owner is taken over after a configurable age.
+  interleave object creation with conflict detection. The mutex is fail-closed:
+  a lock file, however old, blocks a second writer until the timeout, and a
+  lock left behind by a crashed writer is never stolen automatically. Crash
+  recovery is explicit and manual (``StoreLock.recover``).
 - Digest-derived paths are hex-only; traversal, Windows separator, and
   absolute-path identifiers are rejected by validation before any filesystem
   operation.
@@ -73,22 +75,18 @@ class StoreLock(AbstractContextManager["StoreLock"]):
 
     Acquisition uses ``O_CREAT | O_EXCL``, which is atomic on POSIX and
     Windows both within and across processes, so two writers cannot both hold
-    the lock. A lock left behind by a crashed owner is taken over once it is
-    older than ``stale_after`` seconds. Release removes the lock file only when
-    it still carries this owner's token, so a timed-out acquirer can never
-    delete a live lock. The lock is not re-entrant.
+    the lock. The mutex is fail-closed: a lock file, however old, always blocks
+    a second writer until the timeout, and a lock left behind by a crashed
+    writer is never stolen automatically. Release removes the lock file only
+    when it still carries this owner's token, so a timed-out acquirer can never
+    delete a live lock. The lock is not re-entrant. Crash recovery is explicit:
+    confirm no live writer holds the lock, then call ``StoreLock.recover`` or
+    remove the lock file.
     """
 
-    def __init__(
-        self,
-        path: str | Path,
-        *,
-        timeout: float = 10.0,
-        stale_after: float = 60.0,
-    ) -> None:
+    def __init__(self, path: str | Path, *, timeout: float = 10.0) -> None:
         self.path = Path(path)
         self.timeout = timeout
-        self.stale_after = stale_after
         self._token: str | None = None
 
     def __enter__(self) -> StoreLock:
@@ -105,8 +103,6 @@ class StoreLock(AbstractContextManager["StoreLock"]):
             try:
                 fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
             except FileExistsError:
-                if self._remove_stale():
-                    continue
                 if time.monotonic() >= deadline:
                     raise StoreLockError(
                         f"could not acquire writer lock before timeout: {self.path}"
@@ -118,14 +114,14 @@ class StoreLock(AbstractContextManager["StoreLock"]):
             self._token = token
             return
 
-    def _remove_stale(self) -> bool:
-        try:
-            if time.time() - self.path.stat().st_mtime < self.stale_after:
-                return False
-            self.path.unlink()
-            return True
-        except FileNotFoundError:
-            return True
+    @classmethod
+    def recover(cls, path: str | Path) -> None:
+        """Explicitly remove a lock file left behind by a crashed writer.
+
+        This is the only recovery path and is never performed automatically.
+        Callers must first confirm that no live writer holds the lock.
+        """
+        Path(path).unlink()
 
     def release(self) -> None:
         if self._token is None:
@@ -152,23 +148,13 @@ class FilesystemArtifactStore:
     ``failed`` artifacts can never become publishable.
     """
 
-    def __init__(
-        self,
-        root: str | Path,
-        *,
-        lock_timeout: float = 10.0,
-        lock_stale_after: float = 60.0,
-    ) -> None:
+    def __init__(self, root: str | Path, *, lock_timeout: float = 10.0) -> None:
         self.root = Path(root).resolve()
         self._objects = self.root / "objects"
         self._manifests = self.root / "manifests"
         self._tmp = self.root / ".tmp"
         self._locks = self.root / ".locks"
-        self._lock = StoreLock(
-            self._locks / "writer.lock",
-            timeout=lock_timeout,
-            stale_after=lock_stale_after,
-        )
+        self._lock = StoreLock(self._locks / "writer.lock", timeout=lock_timeout)
         self._local = threading.Lock()
         for directory in (self._objects, self._manifests, self._tmp, self._locks):
             directory.mkdir(parents=True, exist_ok=True)

@@ -230,15 +230,39 @@ def test_store_lock_release_keeps_foreign_lock(tmp_path: Path) -> None:
     assert not lock_path.exists()
 
 
-def test_store_lock_takes_over_stale_lock(tmp_path: Path) -> None:
+def test_live_lock_is_never_taken_over_even_when_old(tmp_path: Path) -> None:
     lock_path = tmp_path / "writer.lock"
-    lock_path.write_text("dead:owner\n", encoding="ascii")
-    old = time.time() - 120.0
+    first = StoreLock(lock_path, timeout=0.5)
+    first.acquire()
+
+    # Age the live lock far beyond any conceivable stale threshold; the mutex
+    # is fail-closed and must still refuse the second writer.
+    old = time.time() - 3600.0
     os.utime(lock_path, (old, old))
 
-    lock = StoreLock(lock_path, timeout=0.5, stale_after=60.0)
+    second = StoreLock(lock_path, timeout=0.2)
+    with pytest.raises(StoreLockError, match="could not acquire"):
+        second.acquire()
+    assert lock_path.exists()
+
+    first.release()
+    assert not lock_path.exists()
+
+
+def test_store_lock_requires_explicit_recovery_after_crash(tmp_path: Path) -> None:
+    lock_path = tmp_path / "writer.lock"
+    lock_path.write_text("dead:owner\n", encoding="ascii")
+
+    blocked = StoreLock(lock_path, timeout=0.2)
+    with pytest.raises(StoreLockError, match="could not acquire"):
+        blocked.acquire()
+    assert lock_path.exists()
+
+    StoreLock.recover(lock_path)
+    assert not lock_path.exists()
+
+    lock = StoreLock(lock_path, timeout=0.5)
     lock.acquire()
-    assert lock_path.read_text(encoding="ascii") != "dead:owner\n"
     lock.release()
     assert not lock_path.exists()
 
