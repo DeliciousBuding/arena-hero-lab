@@ -9,6 +9,8 @@ from arena_hero_sim.workload import WorkloadCase, WorkloadManifest
 
 SCENARIO_A = "a" * 64
 SCENARIO_B = "b" * 64
+WORLD_A = "c" * 64
+WORLD_B = "d" * 64
 
 
 def workload() -> WorkloadManifest:
@@ -20,6 +22,7 @@ def workload() -> WorkloadManifest:
             WorkloadCase(
                 case_id="dependency-chain",
                 scenario_sha256=SCENARIO_A,
+                initial_state_sha256=WORLD_A,
                 seed=7,
                 max_ticks=4,
                 contestant_ids=("alpha",),
@@ -31,6 +34,7 @@ def workload() -> WorkloadManifest:
             WorkloadCase(
                 case_id="friendly-cycle",
                 scenario_sha256=SCENARIO_B,
+                initial_state_sha256=WORLD_B,
                 seed=11,
                 max_ticks=1,
                 contestant_ids=("alpha",),
@@ -61,6 +65,7 @@ def test_workload_identity_ignores_mapping_insertion_order() -> None:
             WorkloadCase(
                 case_id=first.case_id,
                 scenario_sha256=first.scenario_sha256,
+                initial_state_sha256=first.initial_state_sha256,
                 seed=first.seed,
                 max_ticks=first.max_ticks,
                 contestant_ids=first.contestant_ids,
@@ -102,6 +107,7 @@ def test_duplicate_cases_and_invalid_counts_fail_closed() -> None:
         WorkloadCase(
             case_id="invalid",
             scenario_sha256=SCENARIO_A,
+            initial_state_sha256=WORLD_A,
             seed=0,
             max_ticks=1,
             contestant_ids=("alpha",),
@@ -131,7 +137,7 @@ def test_request_expansion_is_stable_and_backend_comparable() -> None:
     assert len({item.episode_id for item in reference}) == 3
     assert all(item.episode_id.startswith("episode-") for item in reference)
     assert all(item.request_id.startswith("request-") for item in reference)
-    assert reference[0].initial_state_sha256 == SCENARIO_A
+    assert reference[0].initial_state_sha256 == WORLD_A
     assert reference[0].input_artifact_sha256 == SCENARIO_A
     assert reference[0].labels["workload_sha256"] == manifest.sha256
     assert reference[0].config.ruleset == manifest.ruleset
@@ -149,6 +155,7 @@ def test_maximum_length_portable_ids_expand_without_overflow() -> None:
             WorkloadCase(
                 case_id="c" * 128,
                 scenario_sha256=SCENARIO_A,
+                initial_state_sha256=WORLD_A,
                 seed=0,
                 max_ticks=1,
                 contestant_ids=("alpha",),

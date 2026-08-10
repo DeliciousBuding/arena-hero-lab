@@ -17,7 +17,8 @@ real engine workload and keeps `production_claim=false`.
 - schema, workload id, and workload version;
 - ruleset name, version, and rules digest;
 - ordered cases;
-- each scenario artifact digest, seed, tick budget, contestant ids, feature requirements,
+- each scenario artifact digest, initial-world digest, seed, tick budget, contestant ids,
+  feature requirements,
   frozen parameters, labels, and repetition count;
 - public, environment-neutral metadata.
 

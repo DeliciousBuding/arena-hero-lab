@@ -60,6 +60,7 @@ class WorkloadCase:
 
     case_id: str
     scenario_sha256: str
+    initial_state_sha256: str
     seed: int
     max_ticks: int
     contestant_ids: tuple[str, ...]
@@ -72,6 +73,11 @@ class WorkloadCase:
         object.__setattr__(self, "case_id", _identifier(self.case_id, "case_id"))
         object.__setattr__(
             self, "scenario_sha256", _sha256(self.scenario_sha256, "scenario_sha256")
+        )
+        object.__setattr__(
+            self,
+            "initial_state_sha256",
+            _sha256(self.initial_state_sha256, "initial_state_sha256"),
         )
         if self.seed < 0:
             raise ValueError("seed must be non-negative")
@@ -97,6 +103,7 @@ class WorkloadCase:
             {
                 "case_id": self.case_id,
                 "scenario_sha256": self.scenario_sha256,
+                "initial_state_sha256": self.initial_state_sha256,
                 "seed": self.seed,
                 "max_ticks": self.max_ticks,
                 "contestant_ids": self.contestant_ids,
@@ -127,6 +134,7 @@ class WorkloadCase:
         return cls(
             case_id=str(value.get("case_id", "")),
             scenario_sha256=str(value.get("scenario_sha256", "")),
+            initial_state_sha256=str(value.get("initial_state_sha256", "")),
             seed=_int_field(value.get("seed"), "seed", -1),
             max_ticks=_int_field(value.get("max_ticks"), "max_ticks", 0),
             contestant_ids=tuple(str(item) for item in contestants),
@@ -239,7 +247,7 @@ class WorkloadManifest:
                         requested_features=case.requested_features,
                         parameters=case.parameters,
                     ),
-                    initial_state_sha256=case.scenario_sha256,
+                    initial_state_sha256=case.initial_state_sha256,
                     input_artifact_sha256=case.scenario_sha256,
                     contestant_ids=case.contestant_ids,
                     labels=labels,
