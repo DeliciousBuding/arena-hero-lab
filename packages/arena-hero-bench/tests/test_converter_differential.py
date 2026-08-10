@@ -61,3 +61,16 @@ def test_converter_is_deterministic_for_fixed_input(tmp_path: Path) -> None:
     convert_file(FIXTURE, second, source_label=FIXED_SOURCE)
 
     assert first.read_bytes() == second.read_bytes()
+
+
+def test_public_config_notes_match_fixture_values(tmp_path: Path) -> None:
+    output = tmp_path / "converted.json"
+    convert_file(FIXTURE, output, source_label=FIXED_SOURCE, converted_at=FIXED_TIME)
+    data = json.loads(output.read_text(encoding="utf-8"))
+    contestants = {item["id"]: item for item in data["contestants"]}
+
+    assert "worker_target=8" in contestants["farmer-eco"]["configNote"]
+    assert "worker_target=16" not in contestants["farmer-eco"]["configNote"]
+    assert "mode=harvest" in contestants["core-mil"]["configNote"]
+    assert "target=20" in contestants["core-mil"]["configNote"]
+    assert "mode=control" not in contestants["core-mil"]["configNote"]

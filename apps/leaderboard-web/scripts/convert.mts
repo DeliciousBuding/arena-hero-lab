@@ -116,9 +116,9 @@ const CONTESTANT_LABEL: Record<string, string> = {
 /** 条目 id → 公开配置说明。社区实现与 legacy TypeScript contestants 一视同仁。 */
 const CONTESTANT_CONFIG_NOTE: Record<string, string> = {
   farmer: "Drew-Z 社区开源：资源优先（resource-first），12W+4V+4R 基础舰队 + v0.14 动态价格适配",
-  "farmer-eco": "Drew-Z 社区开源经济变体：worker_target=16 + beacon_policy=retreat，纯经济发育对照",
+  "farmer-eco": "Drew-Z 社区开源变体：worker_target=8（低于默认 12），缩短工人扩张阶段",
   core: "VelvetEvening 社区开源：双策略 v3.3（arena_core_agent），扫荡/龟守可切换，mode=harvest/target=30",
-  "core-mil": "VelvetEvening 社区开源军事变体：mode=control/target=8，偏重军事扩张",
+  "core-mil": "VelvetEvening 社区开源军事变体：mode=harvest + target=20，通过缩短发育期更早转向兵力投入",
   waaiging: "Waaiging 社区开源：SmartTactic 全能战术，4 模式自适应经济、动态产兵、编队推进、Core 斩首、信标控制",
   "waaiging-agg": "Waaiging 社区开源激进变体：mode=aggress，6 先锋 + 9 游侠开局前压",
   tactic: "feixingwawa 社区开源：资源优先 + 均衡防守战术客户端，12W/4V/4R 爬坡、矿点智能调度、Beacon 导向探索",

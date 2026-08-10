@@ -83,7 +83,7 @@
       "id": "core-mil",
       "label": "core-mil（军事变体）",
       "kind": "python",
-      "configNote": "VelvetEvening 社区开源军事变体：mode=control/target=8，偏重军事扩张",
+      "configNote": "VelvetEvening 社区开源军事变体：mode=harvest + target=20，通过缩短发育期更早转向兵力投入",
       "repoUrl": "https://github.com/VelvetEvening/ArenaHero-nearly-perfect-guide",
       "linuxdoUrl": "https://linux.do/t/topic/2715054",
       "linuxdoTitle": "近乎完美的双策略 for Arena-Hero (可满足自己扫荡和龟着换邀请码奖励两种需求)"
@@ -92,7 +92,7 @@
       "id": "farmer-eco",
       "label": "farmer-eco（经济变体）",
       "kind": "python",
-      "configNote": "Drew-Z 社区开源经济变体：worker_target=16 + beacon_policy=retreat，纯经济发育对照",
+      "configNote": "Drew-Z 社区开源变体：worker_target=8（低于默认 12），缩短工人扩张阶段",
       "repoUrl": "https://github.com/Drew-Z/arena-hero-agent",
       "linuxdoUrl": "https://linux.do/t/topic/2703873",
       "linuxdoTitle": "【开源】Arena Hero 无人值守 Agent：资源优先策略，支持本地、Docker 和 systemd"
