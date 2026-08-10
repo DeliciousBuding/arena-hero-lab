@@ -13,7 +13,7 @@ arena-hero 模拟器评测的产品级 Leaderboard 网站。
 - **Tailwind CSS v4**（CSS 变量设计令牌：surface/text/accent/heat 色阶、阴影、圆角、字体族）
 - **shadcn/ui 体系**（`src/components/ui/`）：card / badge / button / separator / tabs / tooltip / scroll-area / table / stat 原语，用 **class-variance-authority** 定义变体约束（variant × size），`cn()` = clsx + tailwind-merge 消解冲突
 - **Radix UI primitives**（键盘可访问 + ARIA + focus trap）：@radix-ui/react-separator / tabs / tooltip / scroll-area / slot / switch
-- **lucide-react**（统一图标语言，v1 移除品牌图标——GitHub 仓库用 GitBranch 语义图标）
+- **lucide-react**（统一图标语言，v1 移除品牌图标，GitHub 仓库用 GitBranch 语义图标）
 - 图表：全部自绘 SVG（热图 / v3 四维雷达 / 迷你柱状图 / 指标条 / 击杀时序），零图表库依赖
 - 设计 token 对齐 arena.ai 实测值（详见 `docs/design-system.md`）
 
@@ -68,8 +68,7 @@ pnpm build      # 重新构建，让新数据生效
 
 说明：
 
-- `next.config.ts`：`output: "export"` + `basePath: "/arena-hero-leaderboard"` + `images.unoptimized: true`
-  —— 所有 Link/资源由 Next 自动处理 basePath 前缀，无动态 API（数据全静态 import）。
+- `next.config.ts`：`output: "export"` + `basePath: "/arena-hero-leaderboard"` + `images.unoptimized: true`，所有 Link/资源由 Next 自动处理 basePath 前缀，无动态 API（数据全静态 import）。
 - 本地预览：`pnpm build && pnpm preview`（或 `npx serve out`，但需自行处理 basePath 前缀）。
 - 若 Actions 方案受阻（如组织限制），退化为 push `gh-pages` 分支方案：
   `pnpm build` 后把 `out/` 内容提交到 `gh-pages` 分支，Pages Source 选择该分支。
