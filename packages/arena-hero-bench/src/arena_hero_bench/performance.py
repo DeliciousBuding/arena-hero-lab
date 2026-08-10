@@ -329,6 +329,31 @@ def _record_round_issues(
     return digests
 
 
+def _valid_timer_sample(
+    started: object, finished: object, *, label: str, issues: list[str]
+) -> int | None:
+    """Validate one timer pair against the integer wall-clock contract, fail closed.
+
+    The measurement clock contract is ``Callable[[], int]``; anything else (bools,
+    floats, non-finite values, strings, or a backwards clock) is rejected with an
+    issue instead of being allowed to poison raw samples.
+    """
+    if isinstance(started, bool) or not isinstance(started, int):
+        issues.append(f"{label} timer start is not an integer")
+        return None
+    if isinstance(finished, bool) or not isinstance(finished, int):
+        issues.append(f"{label} timer finish is not an integer")
+        return None
+    duration = finished - started
+    if isinstance(duration, bool) or not isinstance(duration, int):
+        issues.append(f"{label} timer duration is not a finite integer")
+        return None
+    if duration < 0:
+        issues.append(f"{label} timer duration is negative (clock moved backwards)")
+        return None
+    return duration
+
+
 def measure_reference_workload(
     protocol: MeasurementProtocol,
     *,
@@ -336,9 +361,15 @@ def measure_reference_workload(
     scenario_registry: ReferenceScenarioRegistry | None = None,
     environment: PublicEnvironment | None = None,
     differential_report: DifferentialReport | None = None,
+    candidate_run: WorkloadRun | None = None,
     clock: Callable[[], int] | None = None,
 ) -> PerformanceEvidence:
-    """Measure real reference-engine runs; registry/scenario construction stays outside samples."""
+    """Measure real reference-engine runs; registry/scenario construction stays outside samples.
+
+    An injected ``differential_report`` is trusted only when it is byte-identical to a gate
+    recomputed over the current baseline run and, when supplied, ``candidate_run``. Stale,
+    forged, or wrong-identity reports fail closed and never enter publishable evidence.
+    """
 
     workload = manifest or canonical_reference_workload_manifest()
     scenarios = scenario_registry or canonical_reference_scenario_registry()
@@ -347,14 +378,29 @@ def measure_reference_workload(
     public_environment = environment or PublicEnvironment.capture()
 
     baseline = runners[0].run(workload, batch_size=protocol.batch_size)
-    gate = differential_report or compare_workload_runs(baseline, baseline)
     issues: list[str] = []
-    if gate.workload_sha256 != workload.sha256:
-        issues.append("differential report workload digest mismatch")
-    if not gate.passed:
-        issues.append("differential gate did not pass")
     if not baseline.publishable:
         issues.append("baseline semantic run is not complete and publishable")
+
+    gate = (
+        compare_workload_runs(baseline, candidate_run)
+        if candidate_run is not None
+        else compare_workload_runs(baseline, baseline)
+    )
+    if not gate.passed:
+        issues.append("differential gate did not pass")
+    if differential_report is not None:
+        if candidate_run is None:
+            issues.append("differential report requires a candidate run")
+        else:
+            if differential_report.workload_sha256 != gate.workload_sha256:
+                issues.append("differential report workload digest mismatch")
+            if differential_report.reference_run_sha256 != gate.reference_run_sha256:
+                issues.append("differential report reference run digest mismatch")
+            if differential_report.candidate_run_sha256 != gate.candidate_run_sha256:
+                issues.append("differential report candidate run digest mismatch")
+            if differential_report.sha256 != gate.sha256:
+                issues.append("differential report content digest mismatch")
 
     warmups_completed = 0
     raw_durations: list[int] = []
@@ -388,22 +434,25 @@ def measure_reference_workload(
                 issues.append(f"measured {round_index} failed: {type(error).__name__}")
                 break
             finished = timer()
-            duration = finished - started
+            label = f"measured {round_index}"
+            duration = _valid_timer_sample(started, finished, label=label, issues=issues)
+            if duration is None:
+                continue
             raw_durations.append(duration)
             observed_digests.append(
                 _record_round_issues(
                     runs,
                     expected_sha256=baseline.sha256,
-                    label=f"measured {round_index}",
+                    label=label,
                     issues=issues,
                 )
             )
             if duration <= 0:
-                issues.append(f"measured {round_index} duration is not positive")
+                issues.append(f"{label} duration is not positive")
             elif duration < protocol.minimum_sample_ns:
-                issues.append(f"measured {round_index} duration is below the credibility floor")
+                issues.append(f"{label} duration is below the credibility floor")
             if duration > timeout_ns:
-                issues.append(f"measured {round_index} exceeded timeout_seconds")
+                issues.append(f"{label} exceeded timeout_seconds")
     finally:
         if executor is not None:
             executor.shutdown(wait=True, cancel_futures=True)
