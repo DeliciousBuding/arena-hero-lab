@@ -87,7 +87,7 @@ def test_workload_is_recursively_immutable_at_public_boundaries() -> None:
     manifest = workload()
 
     with pytest.raises(FrozenInstanceError):
-        setattr(manifest, "workload_id", "changed")
+        cast(Any, manifest).workload_id = "changed"
     with pytest.raises(TypeError):
         cast(Any, manifest.metadata)["purpose"] = "changed"
     with pytest.raises(TypeError):
