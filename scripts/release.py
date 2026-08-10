@@ -65,6 +65,8 @@ def find_latest_run(run_root: str) -> str:
 
 def deploy_gh_pages() -> None:
     """用 git worktree 把 out/ 同步到 gh-pages 分支（legacy 部署，不依赖 bash）。"""
+    import shutil
+
     worktree = os.path.join(REPO_ROOT, ".worktrees", "gh-pages")
     run(["git", "worktree", "remove", "-f", worktree])
     run(["git", "worktree", "prune"])
@@ -76,8 +78,6 @@ def deploy_gh_pages() -> None:
             if name != ".git":
                 path = os.path.join(worktree, name)
                 if os.path.isdir(path) and not os.path.islink(path):
-                    import shutil
-
                     shutil.rmtree(path)
                 else:
                     os.remove(path)
@@ -86,8 +86,6 @@ def deploy_gh_pages() -> None:
             src = os.path.join(out_dir, name)
             dst = os.path.join(worktree, name)
             if os.path.isdir(src):
-                import shutil
-
                 shutil.copytree(src, dst)
             else:
                 shutil.copy2(src, dst)

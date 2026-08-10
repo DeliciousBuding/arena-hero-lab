@@ -1,7 +1,7 @@
 {
   "schema": "arena.bench.report.v3",
   "generatedAt": "2026-08-10T10:10:15.591Z",
-  "convertedAt": "2026-08-10T11:50:04.927Z",
+  "convertedAt": "2026-08-10T11:55:59.797Z",
   "source": "scripts/input",
   "params": {
     "players": 10,
