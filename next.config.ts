@@ -12,6 +12,8 @@ const nextConfig: NextConfig = {
   // GitHub Pages 子路径部署；本地预览时临时注释。
   basePath: "/arena-hero-leaderboard",
   images: { unoptimized: true },
+  // 把 basePath 暴露给前端（next/image 的 unoptimized 模式不会自动加前缀）
+  env: { NEXT_PUBLIC_BASE_PATH: "/arena-hero-leaderboard" },
 };
 
 export default nextConfig;

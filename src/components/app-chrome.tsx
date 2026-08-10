@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { Trophy } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -114,12 +113,9 @@ export function AppChrome() {
               rel="noreferrer"
               aria-label="Linux DO 社区（作者 @delicious233）"
             >
-              <Image
-                src="/linuxdo-logo.png"
+              <img
+                src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/linuxdo-logo.png`}
                 alt="Linux DO"
-                width={54}
-                height={18}
-                unoptimized
                 className="h-4 w-auto"
               />
               <span className="text-xs text-linuxdo">@delicious233</span>
