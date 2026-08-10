@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
+from typing import Any, cast
 
 import pytest
 
@@ -86,11 +87,11 @@ def test_workload_is_recursively_immutable_at_public_boundaries() -> None:
     manifest = workload()
 
     with pytest.raises(FrozenInstanceError):
-        manifest.workload_id = "changed"  # type: ignore[misc]
+        setattr(manifest, "workload_id", "changed")
     with pytest.raises(TypeError):
-        manifest.metadata["purpose"] = "changed"  # type: ignore[index]
+        cast(Any, manifest.metadata)["purpose"] = "changed"
     with pytest.raises(TypeError):
-        manifest.cases[0].parameters["mode"] = "changed"  # type: ignore[index]
+        cast(Any, manifest.cases[0].parameters)["mode"] = "changed"
 
 
 def test_duplicate_cases_and_invalid_counts_fail_closed() -> None:
