@@ -87,28 +87,36 @@ const CONTESTANT_LINUXDO_TITLE: Record<string, string> = {
   "arena-evolve": "Arena Hero 的一套进化框架(含可直接部署 agent)",
 };
 
-/** 条目 id → 展示名（覆盖评测产物 label 的错误措辞——core 为 VelvetEvening
- *  社区指南 agent，非官方参考；ts-* 为 arena-ts 自家 TS 客户端（去掉"内置对照"措辞，
- *  与第三方 agent 同等对待）；其余标签经核对准确，仅纠正错误项）。 */
+/** 条目 id → 展示名（覆盖评测产物 label：统一「英文 id（中文流派）」格式——
+ *  基准 agent 用 2-4 字流派、变体 agent 统一「X 变体」；ts-* 为 arena-hero-ts
+ *  模拟器评测自家客户端（与第三方 agent 同等对待，去掉"内置对照"措辞））。 */
 const CONTESTANT_LABEL: Record<string, string> = {
-  core: "core（双策略指南）",
+  farmer: "farmer（资源优先）",
+  "farmer-eco": "farmer-eco（经济变体）",
+  core: "core（双策略）",
+  "core-mil": "core-mil（军事变体）",
+  waaiging: "waaiging（全能战术）",
+  "waaiging-agg": "waaiging-agg（激进变体）",
+  tactic: "tactic（均衡防守）",
+  "arena-evolve": "arena-evolve（进化冠军）",
   "ts-aggressive": "ts-aggressive（激进压制）",
   "ts-safety": "ts-safety（保守均衡）",
 };
 
-/** 条目 id → 展示用配置说明（覆盖评测产物 configNote 的"内置对照"措辞——
- *  arena-ts TS 客户端同样是参赛的第三方 agent；文案对齐仓库实际配置）。 */
+/** 条目 id → 展示用配置说明（覆盖评测产物 configNote：统一
+ *  「作者 社区开源：核心策略（关键配置）」结构；ts-* 为 arena-hero-ts
+ *  模拟器评测自家客户端——2026-08-10 主仓更名后文案同步）。 */
 const CONTESTANT_CONFIG_NOTE: Record<string, string> = {
-  farmer: "Drew-Z 社区实现：资源优先（resource-first），12W+4V+4R 基础舰队，v0.14 动态价格适配",
-  "farmer-eco": "Drew-Z 社区实现变体（经济倾向：worker_target=16/beacon_policy=retreat）",
-  core: "VelvetEvening 社区进攻向指南（双策略 v3.3，arena_core_agent，mode=harvest/target=30）",
-  "core-mil": "VelvetEvening 社区指南变体（军事倾向：mode=control/target=8）",
-  waaiging: "Waaiging 社区战术 agent（SmartTactic，4 模式自适应经济/动态产兵/编队推进/Core 斩首/信标控制）",
-  "waaiging-agg": "Waaiging 社区战术变体（进攻倾向：mode=aggress，6 先锋 + 9 游侠前压）",
-  tactic: "feixingwawa 社区战术客户端（资源优先 + 均衡防守，12W/4V/4R 爬坡、矿点智能调度、Beacon 导向探索）",
-  "arena-evolve": "Torther 基因启发式策略 + GA 进化研究（evolve_v7_best 冠军快照）",
-  "ts-aggressive": "arena-ts TypeScript 客户端（AGGRESSIVE_SAFETY_CONFIG：vanguardRatio=0.8 + accumulateThreshold=30，激进前压）",
-  "ts-safety": "arena-ts TypeScript 客户端（DEFAULT_SAFETY_CONFIG：保守配置，前压与防守均衡）",
+  farmer: "Drew-Z 社区开源：资源优先（resource-first），12W+4V+4R 基础舰队 + v0.14 动态价格适配",
+  "farmer-eco": "Drew-Z 社区开源经济变体：worker_target=16 + beacon_policy=retreat，纯经济发育对照",
+  core: "VelvetEvening 社区开源：双策略 v3.3（arena_core_agent），扫荡/龟守可切换，mode=harvest/target=30",
+  "core-mil": "VelvetEvening 社区开源军事变体：mode=control/target=8，偏重军事扩张",
+  waaiging: "Waaiging 社区开源：SmartTactic 全能战术，4 模式自适应经济、动态产兵、编队推进、Core 斩首、信标控制",
+  "waaiging-agg": "Waaiging 社区开源激进变体：mode=aggress，6 先锋 + 9 游侠开局前压",
+  tactic: "feixingwawa 社区开源：资源优先 + 均衡防守战术客户端，12W/4V/4R 爬坡、矿点智能调度、Beacon 导向探索",
+  "arena-evolve": "Torther 社区开源：基因启发式策略 + GA 进化研究，evolve_v7_best 冠军快照",
+  "ts-aggressive": "arena-hero-ts 模拟器评测自家客户端：AGGRESSIVE_SAFETY_CONFIG（vanguardRatio=0.8 + accumulateThreshold=30），激进前压",
+  "ts-safety": "arena-hero-ts 模拟器评测自家客户端：DEFAULT_SAFETY_CONFIG，前压与防守均衡",
 };
 
 interface PerPlayerStats {
