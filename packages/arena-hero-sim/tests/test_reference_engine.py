@@ -9,6 +9,7 @@ from arena_hero_sim import (
     REFERENCE_BACKEND_ID,
     REFERENCE_ENGINE_VERSION,
     REFERENCE_FEATURES,
+    REFERENCE_MOVEMENT_RULE_IDENTITY,
     REFERENCE_PROTOCOL_VERSION,
     REFERENCE_RULES,
     REFERENCE_RULESET,
@@ -519,6 +520,7 @@ def test_backend_registration_and_capabilities_are_fail_closed() -> None:
     assert capabilities.supports_incremental_world_hash is False
     assert capabilities.supports_zero_copy is False
     assert "reference-harvest-deposit-v1" in capabilities.features
+    assert REFERENCE_MOVEMENT_RULE_IDENTITY in capabilities.features
     assert "combat" not in capabilities.features
 
 

@@ -16,8 +16,11 @@ See [`../../docs/simulator-platform.md`](../../docs/simulator-platform.md).
 
 ## M4 reference-engine slice
 
-The rules identity is `arena-hero/v0.14-reference-harvest-v1`. A result is `complete` only
-when all of the following are exact matches:
+The rules identity is `arena-hero/v0.14-reference-harvest-v1`. The additive simultaneous
+movement behavior is separately advertised as `arena.reference.movement-dependency.v1`; this
+keeps the original rules digest and harvest-to-deposit replay identity stable while making the
+newly supported boundary explicit. A result is `complete` only when all of the following are
+exact matches:
 
 - backend `reference-engine`, engine `0.1.0-m4`, and protocol `arena.sim.v1`;
 - the exported `REFERENCE_RULESET` digest;
@@ -32,8 +35,10 @@ The implemented vertical slice covers:
 2. canonical full-world and scenario SHA-256 identities;
 3. Manhattan visibility with integer supercover obstacle blocking;
 4. schema-level legal actions for `WORKER` units;
-5. one-cell simultaneous movement into obstacles, stationary occupancy, same-player capacity
-   arbitration by ascending raw UUID bytes, and cross-player contested destinations;
+5. one-cell simultaneous movement with fixed-point dependency settlement, atomic linear
+   chains, same-player swaps and cycles, hostile-swap rejection, stationary/failed-departure
+   blocking, cross-player contested destinations, and same-player capacity arbitration by
+   ascending raw UUID bytes;
 6. natural resource-node harvest, worker cargo, movement back to a stationary core, partial or
    full deposit, capacity settlement, and deterministic event ordering;
 7. explicit commit and next-observation phases;
@@ -54,7 +59,7 @@ the exact slice. In particular, M4 does not implement:
 
 - combat, beacon effects, dropped resource piles, refill placement, respawn, core migration,
   spawn, healing, repair, self-destruct, or opponent actions;
-- movement dependency chains, swaps, or cycles;
+- Core movement intents or mixed Unit/Core movement dependency graphs;
 - official match termination, winners, or official scoring;
 - incremental hashing, zero-copy interchange, process/distributed execution, or a security
   sandbox.
@@ -66,14 +71,18 @@ no random draw, so replay positions remain unchanged.
 
 ## TypeScript oracle boundary
 
-The M4 behavior was migrated from read-only, repository-local TypeScript oracle evidence:
+The M4 behavior was migrated from read-only, repository-local TypeScript oracle evidence. The
+movement resolver and golden matrix are pinned to commit
+`d56a5e7cd94b9873d39a366aa12d22911e2f62ab`; this is reference evidence, not a claim that
+ambiguous behavior is an official Arena Hero rule:
 
 - `packages/arena-agent/src/sim/world/world.ts` — cell capacity and world invariants;
 - `packages/arena-agent/src/sim/world/canonical.ts` — canonical world identity intent;
 - `packages/arena-agent/src/sim/visibility/visibility.ts` — Manhattan visibility and integer
   supercover blocking;
-- `packages/arena-agent/src/sim/engine/movement.ts` — simultaneous movement, raw-UUID
-  tie-breaks, occupancy, and contested destinations;
+- `packages/arena-agent/src/sim/engine/movement.ts` — simultaneous fixed-point movement,
+  dependency propagation, same-player cycles/swaps, hostile-swap rejection, raw-UUID tie-breaks,
+  occupancy, and contested destinations;
 - `packages/arena-agent/src/sim/engine/economy.ts` — natural-node harvest and deposit;
 - `packages/arena-agent/src/sim/engine/settlement.ts` — stable phase ordering and atomic commit;
 - `packages/arena-agent/test/sim-movement.test.ts` and

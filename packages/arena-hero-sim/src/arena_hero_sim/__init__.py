@@ -19,6 +19,7 @@ from arena_hero_sim.reference import (
     ReferenceEngineBackend,
 )
 from arena_hero_sim.reference_contracts import (
+    REFERENCE_MOVEMENT_RULE_IDENTITY,
     REFERENCE_RULES,
     ReferenceActionKind,
     ReferenceCommand,
@@ -53,6 +54,7 @@ __all__ = [
     "REFERENCE_BACKEND_ID",
     "REFERENCE_ENGINE_VERSION",
     "REFERENCE_FEATURES",
+    "REFERENCE_MOVEMENT_RULE_IDENTITY",
     "REFERENCE_PROTOCOL_VERSION",
     "REFERENCE_RULES",
     "REFERENCE_RULESET",

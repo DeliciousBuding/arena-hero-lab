@@ -1,4 +1,4 @@
-"""Deterministic reference engine for the bounded M4 harvest/deposit slice."""
+"""Deterministic reference engine for the bounded M4 movement/economy slice."""
 
 from __future__ import annotations
 

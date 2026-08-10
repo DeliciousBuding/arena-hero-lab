@@ -13,6 +13,7 @@ from arena_hero_sim.contracts import (
     SimulationStatus,
 )
 from arena_hero_sim.reference_contracts import (
+    REFERENCE_MOVEMENT_RULE_IDENTITY,
     REFERENCE_RULES,
     ReferenceEpisodeStatus,
     ReferenceScenario,
@@ -37,6 +38,7 @@ REFERENCE_FEATURES = frozenset(
         "full-world-hash",
         "reference-harvest-deposit-v1",
         "reference-legal-actions-v1",
+        REFERENCE_MOVEMENT_RULE_IDENTITY,
         "reference-visibility-v1",
         "versioned-replay-v1",
     }

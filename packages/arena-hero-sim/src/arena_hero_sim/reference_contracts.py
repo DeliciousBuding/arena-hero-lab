@@ -92,6 +92,9 @@ class ReferenceEpisodeStatus(StrEnum):
     PARTIAL = "partial"
 
 
+REFERENCE_MOVEMENT_RULE_IDENTITY = "arena.reference.movement-dependency.v1"
+
+
 REFERENCE_EVENT_TYPES = frozenset(
     {
         "UNIT_MOVE_SUCCEEDED",
