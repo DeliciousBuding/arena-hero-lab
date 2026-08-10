@@ -71,7 +71,7 @@ def deploy_gh_pages() -> None:
     if run(["git", "worktree", "add", "-B", "gh-pages", worktree, "origin/gh-pages"]) != 0:
         fail("worktree 创建失败（origin/gh-pages 不存在？先手动部署一次）")
     try:
-        run(["git", "rm", "-rq", "--ignore-unmatch", "."])
+        run(["git", "-C", worktree, "rm", "-rq", "--ignore-unmatch", "."])
         for name in os.listdir(worktree):
             if name != ".git":
                 path = os.path.join(worktree, name)
@@ -92,12 +92,12 @@ def deploy_gh_pages() -> None:
             else:
                 shutil.copy2(src, dst)
         open(os.path.join(worktree, ".nojekyll"), "w").close()
-        run(["git", "add", "-A"])
+        run(["git", "-C", worktree, "add", "-A"])
         stamp = datetime.now(timezone.utc).isoformat()
-        code = run(["git", "-c", "user.name=deploy", "-c", "user.email=deploy@localhost", "commit", "-m", f"deploy: {stamp}"])
+        code = run(["git", "-C", worktree, "-c", "user.name=deploy", "-c", "user.email=deploy@localhost", "commit", "-m", f"deploy: {stamp}"])
         if code != 0:
             log("==> 无变更，跳过推送")
-        elif run(["git", "push", "origin", "HEAD:gh-pages"]) != 0:
+        elif run(["git", "-C", worktree, "push", "origin", "HEAD:gh-pages"]) != 0:
             fail("gh-pages 推送失败")
     finally:
         run(["git", "worktree", "remove", "-f", worktree])
