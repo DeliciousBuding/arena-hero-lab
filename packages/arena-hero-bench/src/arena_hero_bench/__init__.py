@@ -1,5 +1,15 @@
 """Arena Hero benchmark platform contracts and tooling."""
 
+from arena_hero_bench.artifact_index import (
+    ArtifactIndexError,
+    GcCandidate,
+    GcPlan,
+    ManifestIssue,
+    ObjectIssue,
+    StaleScanError,
+    StoreScan,
+    build_gc_plan,
+)
 from arena_hero_bench.configuration import ConfigResolver, ConfigSchema, FrozenConfig
 from arena_hero_bench.contestant import ContestantManifest, ContestantRegistry
 from arena_hero_bench.manifest import ArtifactManifest, ArtifactStatus, RunManifest
@@ -34,6 +44,7 @@ __all__ = [
     "MEASUREMENT_PROTOCOL_SCHEMA",
     "MINIMUM_CREDIBLE_SAMPLE_NS",
     "PERFORMANCE_EVIDENCE_SCHEMA",
+    "ArtifactIndexError",
     "ArtifactManifest",
     "ArtifactStatus",
     "ArtifactStore",
@@ -45,8 +56,12 @@ __all__ = [
     "DistributedExecutor",
     "FilesystemArtifactStore",
     "FrozenConfig",
+    "GcCandidate",
+    "GcPlan",
     "LocalExecutor",
+    "ManifestIssue",
     "MeasurementProtocol",
+    "ObjectIssue",
     "PerformanceEvidence",
     "PerformanceMeasurementError",
     "ProcessExecutor",
@@ -56,6 +71,9 @@ __all__ = [
     "RunStatus",
     "ShardPlan",
     "ShardResult",
+    "StaleScanError",
+    "StoreScan",
+    "build_gc_plan",
     "measure_reference_workload",
     "merge_shards",
     "reference_engine_process_executor",
