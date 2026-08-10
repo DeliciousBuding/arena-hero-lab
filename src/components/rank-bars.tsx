@@ -1,10 +1,8 @@
 "use client";
 
-import { Search, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { GitHubIcon } from "@/components/app-chrome";
 
 /** 排名条形图数据行（任意数值维度通用：综合分/经济/击杀/平均名次）。 */
@@ -36,31 +34,19 @@ const RANK_BADGE_CLASS = [
 /**
  * 排名条形图（arena.ai Leaderboard Agent 榜两栏设计）：
  * 左栏 = 方形排名徽标 + 名称 + 副指标；右栏 = 圆角槽 + 横向条形 + 末端数值。
- * 前三名金银铜徽标；内置搜索过滤；点击条目进入详情页。
+ * 前三名金银铜徽标；点击条目进入详情页。
  */
 export function RankBars({
   rows,
   valueLabel,
-  placeholder = "搜索条目（中文名 / 英文 id）…",
 }: {
   rows: RankBarRow[];
   valueLabel: string;
-  placeholder?: string;
 }) {
-  const [query, setQuery] = useState("");
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter(
-      (row) => row.label.toLowerCase().includes(q) || row.id.toLowerCase().includes(q),
-    );
-  }, [rows, query]);
-
   const maxAbs = useMemo(() => {
-    const values = filtered.map((r) => Math.abs(r.value));
+    const values = rows.map((r) => Math.abs(r.value));
     return values.length ? Math.max(...values) : 1;
-  }, [filtered]);
+  }, [rows]);
 
   /** 条形长度：ascending = 越大越长；反向维度（如名次）= 越小越长。 */
   const widthPctOf = (row: RankBarRow): number => {
@@ -70,64 +56,35 @@ export function RankBars({
   };
 
   return (
-    <div>
-      <div className="mb-5 flex flex-wrap items-center gap-3">
-        <div className="relative max-w-sm flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={placeholder}
-            aria-label="搜索条目"
-            className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-9 text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          />
-          {query !== "" ? (
-            <Button
-              type="button"
-              onClick={() => setQuery("")}
-              variant="ghost"
-              size="icon-sm"
-              aria-label="清除搜索"
-              className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          ) : null}
-        </div>
-        <span className="text-xs text-muted-foreground">
-          {filtered.length} / {rows.length} 条目 · 单位 {valueLabel}
-        </span>
+    <div className="@container">
+      <div className="mb-4 text-xs text-muted-foreground">
+        {rows.length} 条目 · 单位 {valueLabel}
       </div>
 
-      {filtered.length === 0 ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">没有匹配的条目。</p>
-      ) : (
-        <div role="list" aria-label={`${valueLabel}排名条形图`}>
-          {filtered.map((row) => (
-            <div
-              key={row.id}
-              role="listitem"
-              className="group border-b border-border-faint py-2.5 transition-colors first:pt-0 last:border-0"
-            >
-              {row.href !== undefined ? (
-                <Link
-                  href={row.href}
-                  className="grid items-center gap-x-4 gap-y-2 rounded-md px-1 py-1 transition-colors hover:bg-secondary/40 sm:grid-cols-[minmax(0,280px)_minmax(0,1fr)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                >
-                  <RankRowLeft row={row} />
-                  <RankRowBar row={row} widthPct={widthPctOf(row)} />
-                </Link>
-              ) : (
-                <div className="grid items-center gap-x-4 gap-y-2 rounded-md px-1 py-1 sm:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
-                  <RankRowLeft row={row} />
-                  <RankRowBar row={row} widthPct={widthPctOf(row)} />
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      <div role="list" aria-label={`${valueLabel}排名条形图`}>
+        {rows.map((row) => (
+          <div
+            key={row.id}
+            role="listitem"
+            className="group border-b border-border-faint py-2.5 transition-colors first:pt-0 last:border-0"
+          >
+            {row.href !== undefined ? (
+              <Link
+                href={row.href}
+                className="grid grid-cols-1 items-center gap-x-4 gap-y-2 rounded-md px-1 py-1 transition-colors hover:bg-secondary/40 @md:grid-cols-[minmax(0,280px)_minmax(0,1fr)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              >
+                <RankRowLeft row={row} />
+                <RankRowBar row={row} widthPct={widthPctOf(row)} />
+              </Link>
+            ) : (
+              <div className="grid grid-cols-1 items-center gap-x-4 gap-y-2 rounded-md px-1 py-1 @md:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
+                <RankRowLeft row={row} />
+                <RankRowBar row={row} widthPct={widthPctOf(row)} />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

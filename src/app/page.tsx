@@ -148,7 +148,7 @@ export default function HomePage() {
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <h1 className="font-serif text-4xl font-normal leading-tight tracking-tight text-foreground sm:text-5xl">
             Arena Hero
-            <span className="ml-3 text-brand">Leaderboard</span>
+            <span className="block text-brand">Leaderboard</span>
           </h1>
           <div className="flex flex-col items-start gap-1.5 text-xs text-muted-foreground sm:items-end">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -207,7 +207,7 @@ export default function HomePage() {
           id="dimensions"
           title="Dimension Breakdown"
           enTitle="维度分解"
-          description="经济 / 击杀 / 场景梯度三个独立维度排名（综合分维度见上方 Overall Rankings）。"
+          description="经济 / 击杀 / 跨场景名次三个独立维度的排名对比。"
         />
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
           <DimensionCard
