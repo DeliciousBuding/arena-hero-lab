@@ -12,6 +12,16 @@ from arena_hero_bench.orchestration import (
     ShardResult,
     merge_shards,
 )
+from arena_hero_bench.performance import (
+    MEASUREMENT_PROTOCOL_SCHEMA,
+    MINIMUM_CREDIBLE_SAMPLE_NS,
+    PERFORMANCE_EVIDENCE_SCHEMA,
+    MeasurementProtocol,
+    PerformanceEvidence,
+    PerformanceMeasurementError,
+    PublicEnvironment,
+    measure_reference_workload,
+)
 from arena_hero_bench.process_executor import (
     BackendProcessSpec,
     ProcessExecutor,
@@ -21,6 +31,9 @@ from arena_hero_bench.process_executor import (
 from arena_hero_bench.storage import FilesystemArtifactStore
 
 __all__ = [
+    "MEASUREMENT_PROTOCOL_SCHEMA",
+    "MINIMUM_CREDIBLE_SAMPLE_NS",
+    "PERFORMANCE_EVIDENCE_SCHEMA",
     "ArtifactManifest",
     "ArtifactStatus",
     "ArtifactStore",
@@ -33,12 +46,17 @@ __all__ = [
     "FilesystemArtifactStore",
     "FrozenConfig",
     "LocalExecutor",
+    "MeasurementProtocol",
+    "PerformanceEvidence",
+    "PerformanceMeasurementError",
     "ProcessExecutor",
     "ProcessExecutorError",
+    "PublicEnvironment",
     "RunManifest",
     "RunStatus",
     "ShardPlan",
     "ShardResult",
+    "measure_reference_workload",
     "merge_shards",
     "reference_engine_process_executor",
 ]
