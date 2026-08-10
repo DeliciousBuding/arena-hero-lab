@@ -1,6 +1,6 @@
 # arena-hero-leaderboard
 
-arena-hero 模拟器评测 v3 的产品级 Leaderboard 网站（独立 git 仓库）。
+arena-hero 模拟器评测的产品级 Leaderboard 网站。
 视觉参考 [arena.ai/leaderboard](https://arena.ai/leaderboard)（sidebar + 卡片 + 精致表格 + 深色为主），
 **所有图表（热图 / 雷达 / 榜单 / 对比条）全部由前端 React + SVG 渲染，无 Python 出图、无图表库依赖**。
 数据来自评测产物 `arena.bench.report.v3`，静态导出（`output: "export"`）部署于 GitHub Pages。
@@ -42,7 +42,7 @@ pnpm lint       # eslint
 npx tsx scripts/convert.mts
 
 # 方式二：直接指向最新评测产物（推荐，全量评测完成后用此覆盖刷新）
-npx tsx scripts/convert.mts D:/Code/Projects/arena/data/runs/sim/<run-id>/results.json
+npx tsx scripts/convert.mts <path-to>/results.json
 
 pnpm build      # 重新构建，让新数据生效
 ```
