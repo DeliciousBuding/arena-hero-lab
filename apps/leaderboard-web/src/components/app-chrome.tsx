@@ -1,6 +1,7 @@
 "use client";
 
 import { Trophy } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -125,9 +126,11 @@ export function AppChrome() {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  <img
+                  <Image
                     src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/arenahero-mark.svg`}
                     alt=""
+                    width={16}
+                    height={16}
                     className="h-4 w-4 rounded"
                   />
                 </Link>
@@ -157,9 +160,11 @@ export function AppChrome() {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  <img
+                  <Image
                     src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/linuxdo-mark.png`}
                     alt=""
+                    width={20}
+                    height={20}
                     className="h-5 w-5 rounded-full ring-1 ring-border"
                   />
                 </Link>
