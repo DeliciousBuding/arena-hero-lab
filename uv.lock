@@ -54,7 +54,7 @@ dev = [
 
 [[package]]
 name = "arena-hero-research"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "packages/arena-hero-research" }
 dependencies = [
     { name = "arena-hero-bench" },

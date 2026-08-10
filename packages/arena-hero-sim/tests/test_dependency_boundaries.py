@@ -9,6 +9,9 @@ FORBIDDEN_PREFIXES = (
     "arena_hero_bench",
     "arena_hero_research",
     "arena_hero_agent",
+    "leaderboard_web",
+    "apps",
+    "web",
     "pandas",
     "scipy",
 )
