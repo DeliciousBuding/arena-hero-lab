@@ -12,25 +12,53 @@ Guarantees
   lock. The module contains no delete, apply, or write path at all; a
   :class:`GcPlan` is analysis output only and is never executable.
 - Fail closed: a non-empty root set is required before reachability is
-  computed, a live ``writer.lock`` marks the plan ``blocked`` with empty
-  candidates, and corrupt, missing, or invalid entries are classified but
-  never enter the candidate set.
+  computed; a present ``writer.lock`` (regular file or symlink, including a
+  dangling symlink) marks the snapshot and any plan ``blocked`` with empty
+  candidates; any invalid manifest record also blocks the plan because an
+  unparsable record may hide references; corrupt, missing, or invalid entries
+  are classified but never enter the candidate set.
+- Layout containment: the store root, ``objects/``, and ``manifests/`` roots
+  are all resolved and checked for containment; a layout root that is a
+  symlink/reparse point or that resolves outside the store root marks the
+  snapshot blocked and is never scanned. Entry symlinks and paths that escape
+  the layout root are issues, never candidates.
 - Deterministic: scan and plan digests depend only on the scanned content
-  (sorted canonical JSON), never on enumeration order or root ordering.
+  (sorted canonical JSON) and the raw writer-lock token, never on enumeration
+  order or root ordering.
 - Stale detection: every scan snapshot carries a stable ``snapshot_digest``
-  derived from the objects and manifests sets. ``build_plan(store=...)``
-  re-checks the store and raises :class:`StaleScanError` when the store no
-  longer matches the snapshot, so a snapshot cannot be silently reused after
-  the store changed.
+  derived from the objects, manifests, and writer-lock token. The lock is
+  probed read-only before and after the scan; a lock that appears, disappears,
+  or changes raw content/metadata between the two probes marks the snapshot
+  blocked. ``build_plan(store=...)`` re-checks the store and raises
+  :class:`StaleScanError` when the store no longer matches the snapshot, so a
+  snapshot cannot be silently reused after the store changed.
 
 Layout expectations
 -------------------
 Objects live at ``<root>/objects/<2 hex>/<62 hex>`` (lowercase SHA-256) and
 manifest records at ``<root>/manifests/<64 hex>.json``, matching
 :class:`~arena_hero_bench.storage.FilesystemArtifactStore`. Anything that does
-not fit the digest layout, or whose resolved path escapes the store root, is
-classified as an issue and never treated as deletable. The ``.tmp`` directory
-is never scanned.
+not fit the digest layout, whose resolved path escapes the store root, or that
+is not a regular file is classified as an issue and never treated as
+deletable. The ``.tmp`` directory is never scanned.
+
+Manifest strictness
+-------------------
+A manifest record is only *verified* when all of the following hold:
+
+- the filename matches ``<64 hex>.json`` exactly (``.txt`` and other suffixes
+  are invalid),
+- the entry is a regular file (a symlink or directory entry is invalid),
+- the SHA-256 of the *raw file bytes* equals the filename digest,
+- the payload parses as JSON and its canonical serialization is byte-identical
+  to the raw bytes (pretty JSON and non-canonical whitespace/newlines are
+  invalid),
+- the payload matches the strict artifact or run schema with no extra or
+  missing fields and strictly typed values.
+
+Any invalid manifest blocks the plan: an unparsable record may hide references
+to otherwise-unreferenced objects, so no candidates are produced while one
+exists.
 
 Reachability
 ------------
@@ -48,6 +76,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -56,11 +85,26 @@ from typing import Self
 
 from arena_hero_bench.manifest import ArtifactManifest
 from arena_hero_bench.storage import FilesystemArtifactStore
-from arena_hero_sim.serialization import content_sha256, to_json_value
+from arena_hero_sim.serialization import canonical_json_bytes, content_sha256, to_json_value
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _HEX2 = re.compile(r"^[0-9a-f]{2}$")
 _HEX62 = re.compile(r"^[0-9a-f]{62}$")
+_MANIFEST_NAME = re.compile(r"^[0-9a-f]{64}\.json$")
+
+_ARTIFACT_KEYS = frozenset(
+    {
+        "schema_version",
+        "generator_version",
+        "provenance",
+        "source_build_sha256",
+        "content_sha256",
+        "status",
+        "publishable",
+    }
+)
+_RUN_KEYS = _ARTIFACT_KEYS | frozenset({"artifacts"})
+_STATUS_VALUES = frozenset({"complete", "partial", "failed"})
 
 
 class ArtifactIndexError(ValueError):
@@ -102,6 +146,14 @@ class GcCandidate:
     kind: str
     digest: str
 
+    def __post_init__(self) -> None:
+        if self.kind not in {"object", "manifest"}:
+            raise ArtifactIndexError(
+                f"candidate kind must be 'object' or 'manifest': {self.kind!r}"
+            )
+        if not isinstance(self.digest, str) or not _SHA256.fullmatch(self.digest):
+            raise ArtifactIndexError("candidate digest must be a lowercase SHA-256 digest")
+
     def to_value(self) -> dict[str, str]:
         return {"kind": self.kind, "digest": self.digest}
 
@@ -115,29 +167,170 @@ class _ManifestRef:
     artifact_records: tuple[str, ...] = ()
 
 
+def _validated_digest_str(value: object, name: str) -> str:
+    if not isinstance(value, str) or not _SHA256.fullmatch(value):
+        raise ArtifactIndexError(f"{name} must be a lowercase SHA-256 digest")
+    return value
+
+
+def _validated_digests(value: object, name: str) -> set[str]:
+    if not isinstance(value, Iterable) or isinstance(value, (str, bytes, bytearray)):
+        raise ArtifactIndexError(f"{name} must be an iterable of digests")
+    return {_validated_digest_str(item, name) for item in value}
+
+
+def _validated_content_hash(value: object) -> tuple[str, str]:
+    if not isinstance(value, tuple) or len(value) != 2:
+        raise ArtifactIndexError("content hashes must be (digest, file_sha256) pairs")
+    digest, file_sha = value
+    return _validated_digest_str(digest, "content hash digest"), _validated_digest_str(
+        file_sha, "content hash value"
+    )
+
+
+def _coerce_object_issue(value: object) -> ObjectIssue:
+    if not isinstance(value, ObjectIssue):
+        raise ArtifactIndexError("object_issues must contain ObjectIssue instances")
+    return value
+
+
+def _coerce_manifest_issue(value: object) -> ManifestIssue:
+    if not isinstance(value, ManifestIssue):
+        raise ArtifactIndexError("invalid_manifests must contain ManifestIssue instances")
+    return value
+
+
+def _coerce_candidate(value: object) -> GcCandidate:
+    if not isinstance(value, GcCandidate):
+        raise ArtifactIndexError("candidates must contain GcCandidate instances")
+    return value
+
+
+def _object_issue_key(issue: ObjectIssue) -> tuple[str, str, str]:
+    return (issue.path, issue.reason, issue.digest or "")
+
+
+def _manifest_issue_key(issue: ManifestIssue) -> tuple[str, str, str]:
+    return (issue.path, issue.reason, issue.digest or "")
+
+
 def _store_relative(root: Path, path: Path) -> str:
     return path.relative_to(root).as_posix()
 
 
+def _is_reparse_point(st: os.stat_result) -> bool:
+    attributes = getattr(st, "st_file_attributes", 0)
+    reparse = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+    return bool(attributes & reparse)
+
+
+def _lock_token(value: object) -> str:
+    return hashlib.sha256(canonical_json_bytes(value)).hexdigest()
+
+
+def _probe_lock(root: Path) -> tuple[bool, str]:
+    """Read-only probe of ``<root>/.locks/writer.lock``.
+
+    Returns ``(blocked, token)``. Any present lock -- regular file or symlink,
+    including a dangling symlink -- blocks. The token digests the raw file
+    content plus lstat metadata, so a lock that appears, disappears, or
+    changes content/metadata changes the token. Nothing is acquired, taken
+    over, or otherwise modified.
+    """
+    locks_dir = root / ".locks"
+    lock_path = locks_dir / "writer.lock"
+    try:
+        locks_st = locks_dir.lstat()
+    except FileNotFoundError:
+        return False, ""
+    except OSError:
+        return True, _lock_token({"anomaly": "unreadable-locks"})
+    if stat.S_ISLNK(locks_st.st_mode) or _is_reparse_point(locks_st):
+        return True, _lock_token({"anomaly": "locks-symlink"})
+    if not stat.S_ISDIR(locks_st.st_mode):
+        return True, _lock_token({"anomaly": "locks-not-directory"})
+    try:
+        st = lock_path.lstat()
+    except FileNotFoundError:
+        return False, ""
+    except OSError:
+        return True, _lock_token({"anomaly": "unreadable-lock"})
+    if stat.S_ISLNK(st.st_mode) or _is_reparse_point(st):
+        try:
+            target = os.readlink(lock_path)
+        except OSError:
+            target = ""
+        return True, _lock_token(
+            {
+                "type": "symlink",
+                "target": target,
+                "size": st.st_size,
+                "mtime_ns": st.st_mtime_ns,
+                "ctime_ns": getattr(st, "st_ctime_ns", 0),
+            }
+        )
+    try:
+        raw = lock_path.read_bytes()
+    except OSError:
+        raw = b""
+    return True, _lock_token(
+        {
+            "type": "file",
+            "size": st.st_size,
+            "mtime_ns": st.st_mtime_ns,
+            "ctime_ns": getattr(st, "st_ctime_ns", 0),
+            "sha256": hashlib.sha256(raw).hexdigest(),
+        }
+    )
+
+
+def _probe_layout_root(root: Path, name: str) -> tuple[Path, Path, str | None]:
+    """Resolve a layout root and report containment/symlink issues.
+
+    Returns ``(path, resolved, issue)``. A layout root that is absent is fine
+    (an empty store). A root that is a symlink or reparse point, that is not a
+    directory, or that resolves outside the store root is an issue; the caller
+    must then treat the snapshot as blocked and never scan through it.
+    """
+    path = root / name
+    try:
+        st = path.lstat()
+    except FileNotFoundError:
+        return path, path, None
+    except OSError:
+        return path, path, "unreadable-root"
+    if stat.S_ISLNK(st.st_mode) or _is_reparse_point(st):
+        return path, path, "symlink-root"
+    if not stat.S_ISDIR(st.st_mode):
+        return path, path, "unexpected-root"
+    resolved = path.resolve()
+    if not resolved.is_relative_to(root):
+        return path, resolved, "escaped-root"
+    return path, resolved, None
+
+
 def _scan_objects(
     objects_root: Path, objects_root_resolved: Path
-) -> tuple[set[str], set[str], list[ObjectIssue]]:
+) -> tuple[set[str], set[str], list[ObjectIssue], list[tuple[str, str]]]:
     """Enumerate the two-level object layout, verifying every candidate.
 
-    Returns (verified digests, corrupt digests, issues). Entries that do not
-    fit ``<2 hex>/<62 hex>`` or whose resolved path escapes ``objects/`` are
-    issues; corrupt entries are present under a digest name but do not verify.
+    Returns ``(verified, corrupt, issues, content_hashes)``. Verified entries
+    hash to their digest name; corrupt entries are present under a digest name
+    but do not verify. ``content_hashes`` carries ``(digest, actual_sha256)``
+    for every readable digest-named file so raw content changes (even between
+    two corrupt payloads) are reflected in the snapshot token.
     """
     verified: set[str] = set()
     corrupt: set[str] = set()
     issues: list[ObjectIssue] = []
+    content_hashes: list[tuple[str, str]] = []
     if not objects_root.is_dir():
-        return verified, corrupt, issues
+        return verified, corrupt, issues, content_hashes
     try:
         prefixes = sorted(objects_root.iterdir(), key=lambda entry: entry.name)
     except OSError:
         issues.append(ObjectIssue("objects", "unreadable-directory", None))
-        return verified, corrupt, issues
+        return verified, corrupt, issues, content_hashes
     for prefix in prefixes:
         rel = _store_relative(objects_root, prefix)
         if not _HEX2.fullmatch(prefix.name):
@@ -146,6 +339,9 @@ def _scan_objects(
         resolved_prefix = prefix.resolve()
         if not resolved_prefix.is_relative_to(objects_root_resolved):
             issues.append(ObjectIssue(rel, "escaped-path", None))
+            continue
+        if prefix.is_symlink():
+            issues.append(ObjectIssue(rel, "symlink-entry", None))
             continue
         if not prefix.is_dir():
             issues.append(ObjectIssue(rel, "unexpected-entry", None))
@@ -166,6 +362,9 @@ def _scan_objects(
             if not resolved.is_relative_to(objects_root_resolved):
                 issues.append(ObjectIssue(child_rel, "escaped-path", digest))
                 continue
+            if child.is_symlink():
+                issues.append(ObjectIssue(child_rel, "symlink-entry", digest))
+                continue
             if not resolved.is_file():
                 issues.append(ObjectIssue(child_rel, "unexpected-entry", digest))
                 continue
@@ -174,57 +373,137 @@ def _scan_objects(
             except OSError:
                 corrupt.add(digest)
                 continue
-            if hashlib.sha256(payload).hexdigest() == digest:
+            file_sha = hashlib.sha256(payload).hexdigest()
+            content_hashes.append((digest, file_sha))
+            if file_sha == digest:
                 verified.add(digest)
             else:
                 corrupt.add(digest)
-    return verified, corrupt, issues
+    return verified, corrupt, issues, content_hashes
+
+
+def _strict_shared_fields(
+    payload: Mapping[str, object],
+) -> tuple[str, str, Mapping[str, str], str, str, str, bool] | None:
+    """Strictly validate the shared artifact/run scalar fields.
+
+    Returns ``(schema_version, generator_version, provenance,
+    source_build_sha256, content_sha256, status, publishable)`` or ``None``
+    when any field is missing, extra, or of the wrong type.
+    """
+    schema_version = payload.get("schema_version")
+    generator_version = payload.get("generator_version")
+    provenance = payload.get("provenance")
+    source_build_sha256 = payload.get("source_build_sha256")
+    content = payload.get("content_sha256")
+    status = payload.get("status")
+    publishable = payload.get("publishable")
+    if not isinstance(schema_version, str):
+        return None
+    if not isinstance(generator_version, str):
+        return None
+    if not isinstance(source_build_sha256, str):
+        return None
+    if not isinstance(content, str):
+        return None
+    if not isinstance(provenance, Mapping):
+        return None
+    normalized_provenance: dict[str, str] = {}
+    for key, value in provenance.items():
+        if not isinstance(key, str) or not isinstance(value, str):
+            return None
+        normalized_provenance[key] = value
+    if not isinstance(status, str) or status not in _STATUS_VALUES:
+        return None
+    if not isinstance(publishable, bool):
+        return None
+    if not _SHA256.fullmatch(content):
+        return None
+    if status != "complete" and publishable:
+        return None
+    return (
+        schema_version,
+        generator_version,
+        normalized_provenance,
+        source_build_sha256,
+        content,
+        status,
+        publishable,
+    )
+
+
+def _strict_validate_artifact(payload: Mapping[str, object]) -> ArtifactManifest | None:
+    if set(payload.keys()) != _ARTIFACT_KEYS:
+        return None
+    if _strict_shared_fields(payload) is None:
+        return None
+    try:
+        return ArtifactManifest.from_dict(payload)
+    except ValueError:
+        return None
+
+
+def _strict_validate_run(
+    payload: Mapping[str, object],
+) -> tuple[str, tuple[ArtifactManifest, ...]] | None:
+    """Strictly validate a run-style record.
+
+    Returns ``(run_content_sha256, artifacts)`` or ``None``. The payload must
+    contain exactly the run schema fields with strictly typed values; every
+    artifact must itself be a strictly valid artifact record.
+    """
+    if set(payload.keys()) != _RUN_KEYS:
+        return None
+    shared = _strict_shared_fields(payload)
+    if shared is None:
+        return None
+    content, publishable = shared[4], shared[6]
+    artifacts_value = payload.get("artifacts")
+    if not isinstance(artifacts_value, list):
+        return None
+    artifacts: list[ArtifactManifest] = []
+    for item in artifacts_value:
+        if not isinstance(item, Mapping):
+            return None
+        artifact = _strict_validate_artifact(item)
+        if artifact is None:
+            return None
+        artifacts.append(artifact)
+    if publishable and any(not artifact.publishable for artifact in artifacts):
+        return None
+    return content, tuple(artifacts)
 
 
 def _parse_manifest_ref(payload: Mapping[str, object]) -> _ManifestRef | None:
-    """Interpret a digest-verified manifest payload as reference edges."""
-    content = payload.get("content_sha256")
-    if not isinstance(content, str) or not _SHA256.fullmatch(content):
+    if "artifacts" in payload:
+        run = _strict_validate_run(payload)
+        if run is None:
+            return None
+        run_content, artifacts = run
+        return _ManifestRef(
+            content_sha256=run_content,
+            artifact_objects=tuple(artifact.content_sha256 for artifact in artifacts),
+            artifact_records=tuple(
+                content_sha256(to_json_value(artifact.to_dict())) for artifact in artifacts
+            ),
+        )
+    artifact = _strict_validate_artifact(payload)
+    if artifact is None:
         return None
-    if "artifacts" not in payload:
-        try:
-            ArtifactManifest.from_dict(payload)
-        except ValueError:
-            return None
-        return _ManifestRef(content_sha256=content)
-    artifacts = payload.get("artifacts")
-    if not isinstance(artifacts, list):
-        return None
-    artifact_objects: list[str] = []
-    artifact_records: list[str] = []
-    for item in artifacts:
-        if not isinstance(item, Mapping):
-            return None
-        item_content = item.get("content_sha256")
-        if not isinstance(item_content, str) or not _SHA256.fullmatch(item_content):
-            return None
-        try:
-            ArtifactManifest.from_dict(item)
-        except ValueError:
-            return None
-        artifact_objects.append(item_content)
-        artifact_records.append(content_sha256(to_json_value(item)))
-    return _ManifestRef(
-        content_sha256=content,
-        artifact_objects=tuple(artifact_objects),
-        artifact_records=tuple(artifact_records),
-    )
+    return _ManifestRef(content_sha256=artifact.content_sha256)
 
 
 def _scan_manifests(
     manifests_root: Path, manifests_root_resolved: Path, store_root: Path
 ) -> tuple[set[str], dict[str, _ManifestRef], list[ManifestIssue]]:
-    """Enumerate manifest records, classifying every entry.
+    """Enumerate manifest records, strictly classifying every entry.
 
-    Returns (verified record digests, parsed references, issues). A record is
-    verified when its filename stem is a legal SHA-256 and equals the SHA-256
-    of the canonical serialization of its parsed payload; run-style records
-    (with an ``artifacts`` list) are accepted alongside artifact records.
+    Returns ``(verified record digests, parsed references, issues)``. A record
+    is verified only when its filename is exactly ``<64 hex>.json``, the raw
+    file bytes hash to the filename digest, the payload round-trips through
+    canonical JSON byte-identically, and the payload passes strict artifact or
+    run schema validation. Everything else is an issue; any issue blocks the
+    plan (an unparsable record may hide references).
     """
     verified: set[str] = set()
     references: dict[str, _ManifestRef] = {}
@@ -238,27 +517,38 @@ def _scan_manifests(
         return verified, references, issues
     for path in entries:
         rel = _store_relative(store_root, path)
-        resolved = path.resolve()
-        if not resolved.is_relative_to(manifests_root_resolved):
-            issues.append(ManifestIssue(rel, "escaped-path", None))
-            continue
-        if not path.is_file():
-            issues.append(ManifestIssue(rel, "unexpected-entry", None))
-            continue
-        stem = path.stem
-        if not _SHA256.fullmatch(stem):
+        if not _MANIFEST_NAME.fullmatch(path.name):
             issues.append(ManifestIssue(rel, "wrong-name", None))
             continue
+        stem = path.name[:64]
+        resolved = path.resolve()
+        if not resolved.is_relative_to(manifests_root_resolved):
+            issues.append(ManifestIssue(rel, "escaped-path", stem))
+            continue
+        if path.is_symlink():
+            issues.append(ManifestIssue(rel, "symlink-entry", stem))
+            continue
+        if not path.is_file():
+            issues.append(ManifestIssue(rel, "unexpected-entry", stem))
+            continue
         try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+            raw = path.read_bytes()
+        except OSError:
+            issues.append(ManifestIssue(rel, "unreadable", stem))
+            continue
+        if hashlib.sha256(raw).hexdigest() != stem:
+            issues.append(ManifestIssue(rel, "raw-hash-mismatch", stem))
+            continue
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
             issues.append(ManifestIssue(rel, "invalid-json", stem))
             continue
         if not isinstance(payload, Mapping):
             issues.append(ManifestIssue(rel, "invalid-record", stem))
             continue
-        if content_sha256(payload) != stem:
-            issues.append(ManifestIssue(rel, "content-digest-mismatch", stem))
+        if canonical_json_bytes(payload) != raw:
+            issues.append(ManifestIssue(rel, "non-canonical", stem))
             continue
         ref = _parse_manifest_ref(payload)
         if ref is None:
@@ -274,8 +564,8 @@ class StoreScan:
     """A frozen, derived snapshot of one store at one point in time.
 
     Construct via :meth:`scan`; the snapshot is immutable and carries stable
-    digests over the scanned content. Roots are marked with :meth:`mark_roots`
-    and plans are built with :meth:`build_plan`.
+    digests over the scanned content plus the raw writer-lock token. Roots are
+    marked with :meth:`mark_roots` and plans are built with :meth:`build_plan`.
     """
 
     store_root: str
@@ -285,56 +575,130 @@ class StoreScan:
     manifests: frozenset[str]
     invalid_manifests: tuple[ManifestIssue, ...]
     blocked: bool
-    _references: Mapping[str, _ManifestRef] = field(repr=False, compare=False)
+    _references: Mapping[str, _ManifestRef] = field(default_factory=dict, repr=False, compare=False)
     roots: frozenset[str] = frozenset()
+    _content_hashes: tuple[tuple[str, str], ...] = field(default=(), repr=False, compare=False)
+    _lock_token: str = field(default="", repr=False, compare=False)
+    lock_digest: str = field(init=False, repr=False)
     objects_digest: str = field(init=False, repr=False)
     manifests_digest: str = field(init=False, repr=False)
     snapshot_digest: str = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
+        if not isinstance(self.store_root, str):
+            raise ArtifactIndexError("store_root must be a string")
+        if not isinstance(self.blocked, bool):
+            raise ArtifactIndexError("blocked must be a bool")
+        objects = frozenset(sorted(_validated_digests(self.objects, "objects")))
+        corrupt = frozenset(sorted(_validated_digests(self.corrupt_objects, "corrupt_objects")))
+        manifests = frozenset(sorted(_validated_digests(self.manifests, "manifests")))
+        roots = frozenset(sorted(_validated_digests(self.roots, "roots")))
+        object_issues = tuple(
+            sorted(
+                (_coerce_object_issue(item) for item in self.object_issues),
+                key=_object_issue_key,
+            )
+        )
+        invalid_manifests = tuple(
+            sorted(
+                (_coerce_manifest_issue(item) for item in self.invalid_manifests),
+                key=_manifest_issue_key,
+            )
+        )
+        references: dict[str, _ManifestRef] = {}
+        for key, value in self._references.items():
+            if not isinstance(key, str) or not isinstance(value, _ManifestRef):
+                raise ArtifactIndexError("references must map digests to _ManifestRef")
+            references[key] = value
+        content_hashes = tuple(
+            sorted(_validated_content_hash(item) for item in self._content_hashes)
+        )
+        lock_token = self._lock_token if isinstance(self._lock_token, str) else ""
+        object.__setattr__(self, "objects", objects)
+        object.__setattr__(self, "corrupt_objects", corrupt)
+        object.__setattr__(self, "object_issues", object_issues)
+        object.__setattr__(self, "manifests", manifests)
+        object.__setattr__(self, "invalid_manifests", invalid_manifests)
+        object.__setattr__(self, "roots", roots)
+        object.__setattr__(self, "_references", MappingProxyType(references))
+        object.__setattr__(self, "_content_hashes", content_hashes)
+        object.__setattr__(self, "_lock_token", lock_token)
         objects_digest = content_sha256(
             to_json_value(
                 {
-                    "verified": sorted(self.objects),
-                    "corrupt": sorted(self.corrupt_objects),
-                    "issues": [issue.to_value() for issue in self.object_issues],
+                    "verified": sorted(objects),
+                    "corrupt": sorted(corrupt),
+                    "content": content_hashes,
+                    "issues": [issue.to_value() for issue in object_issues],
                 }
             )
         )
         manifests_digest = content_sha256(
             to_json_value(
                 {
-                    "verified": sorted(self.manifests),
-                    "invalid": [issue.to_value() for issue in self.invalid_manifests],
+                    "verified": sorted(manifests),
+                    "invalid": [issue.to_value() for issue in invalid_manifests],
                 }
             )
         )
         snapshot_digest = content_sha256(
-            to_json_value({"objects": objects_digest, "manifests": manifests_digest})
+            to_json_value(
+                {
+                    "objects": objects_digest,
+                    "manifests": manifests_digest,
+                    "lock": lock_token,
+                }
+            )
         )
         object.__setattr__(self, "objects_digest", objects_digest)
         object.__setattr__(self, "manifests_digest", manifests_digest)
+        object.__setattr__(self, "lock_digest", lock_token)
         object.__setattr__(self, "snapshot_digest", snapshot_digest)
 
     @classmethod
-    def scan(cls, store: FilesystemArtifactStore, *, check_lock: bool = True) -> Self:
+    def scan(cls, store: FilesystemArtifactStore) -> Self:
         """Scan a store read-only and return a frozen snapshot.
 
-        ``check_lock`` controls whether a present ``.locks/writer.lock`` marks
-        the snapshot (and later plans) as blocked; the lock is never acquired,
-        taken over, or otherwise modified.
+        The writer lock is probed read-only before and after the scan; a lock
+        present at either probe (regular file or symlink, including dangling),
+        or a lock that changed between the two probes, marks the snapshot
+        blocked. The lock is never acquired, taken over, or otherwise
+        modified.
         """
         root = Path(store.root).resolve()
-        objects_root = root / "objects"
-        manifests_root = root / "manifests"
-        lock_path = root / ".locks" / "writer.lock"
-        blocked = check_lock and lock_path.exists()
-        verified_objects, corrupt_objects, object_issues = _scan_objects(
-            objects_root, objects_root.resolve()
+        start_blocked, start_token = _probe_lock(root)
+        objects_root, objects_resolved, objects_root_issue = _probe_layout_root(root, "objects")
+        if objects_root_issue is not None:
+            object_blocked = True
+            object_issues = [ObjectIssue("objects", objects_root_issue, None)]
+            verified_objects: set[str] = set()
+            corrupt_objects: set[str] = set()
+            content_hashes: list[tuple[str, str]] = []
+        else:
+            object_blocked = False
+            (
+                verified_objects,
+                corrupt_objects,
+                object_issues,
+                content_hashes,
+            ) = _scan_objects(objects_root, objects_resolved)
+        manifests_root, manifests_resolved, manifests_root_issue = _probe_layout_root(
+            root, "manifests"
         )
-        manifest_digests, references, manifest_issues = _scan_manifests(
-            manifests_root, manifests_root.resolve(), root
-        )
+        if manifests_root_issue is not None:
+            manifest_blocked = True
+            manifest_digests: set[str] = set()
+            references: dict[str, _ManifestRef] = {}
+            manifest_issues = [ManifestIssue("manifests", manifests_root_issue, None)]
+        else:
+            manifest_blocked = False
+            manifest_digests, references, manifest_issues = _scan_manifests(
+                manifests_root, manifests_resolved, root
+            )
+        end_blocked, end_token = _probe_lock(root)
+        lock_blocked = start_blocked or end_blocked or start_token != end_token
+        lock_token = end_token if end_token else start_token
+        blocked = lock_blocked or object_blocked or manifest_blocked
         return cls(
             store_root=root.as_posix(),
             objects=frozenset(verified_objects),
@@ -343,7 +707,9 @@ class StoreScan:
             manifests=frozenset(manifest_digests),
             invalid_manifests=tuple(manifest_issues),
             blocked=blocked,
-            _references=MappingProxyType(references),
+            _references=references,
+            _content_hashes=tuple(content_hashes),
+            _lock_token=lock_token,
         )
 
     def mark_roots(self, roots: Iterable[str]) -> Self:
@@ -385,18 +751,22 @@ class StoreScan:
     ) -> GcPlan:
         """Compute a frozen, dry-run GC plan from this snapshot.
 
-        When ``store`` is provided and ``recheck`` is true the store is
-        re-scanned: a newly present writer lock yields a ``blocked`` plan, and
-        any content change raises :class:`StaleScanError`. When ``store`` is
+        A snapshot that is blocked (writer lock present or changed during the
+        scan, or a layout root that is a symlink/escaped) or that contains any
+        invalid manifest record yields a ``blocked`` plan with empty
+        candidates: unparsable records may hide references. When ``store`` is
+        provided and ``recheck`` is true the store is re-scanned: a newly
+        present lock or invalid record yields a ``blocked`` plan, and any
+        content change raises :class:`StaleScanError`. When ``store`` is
         omitted the plan is derived purely from the snapshot; callers are then
         responsible for snapshot freshness (use :meth:`is_fresh` or re-scan).
         """
-        if self.blocked:
+        if self.blocked or self.invalid_manifests:
             return GcPlan.blocked_plan(self)
         if store is not None and recheck:
             fresh = StoreScan.scan(store)
-            if fresh.blocked:
-                return GcPlan.blocked_plan(self)
+            if fresh.blocked or fresh.invalid_manifests:
+                return GcPlan.blocked_plan(fresh)
             if fresh.snapshot_digest != self.snapshot_digest:
                 raise StaleScanError(
                     "store changed since snapshot "
@@ -469,7 +839,10 @@ class GcPlan:
     Plans are analysis output only: nothing in this module deletes, rewrites,
     or applies anything. ``candidates`` contains only sealed (verified),
     unreferenced objects and manifest records; corrupt, missing, and invalid
-    entries are reported separately and never become candidates.
+    entries are reported separately and never become candidates. All inputs
+    are deep-copied and normalized (sorted, de-duplicated, strictly typed) at
+    construction so later mutation of caller-owned containers cannot affect
+    the plan, and ``plan_digest`` binds the final normalized representation.
     """
 
     snapshot_digest: str
@@ -487,6 +860,53 @@ class GcPlan:
     plan_digest: str = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
+        if not isinstance(self.snapshot_digest, str) or not _SHA256.fullmatch(self.snapshot_digest):
+            raise ArtifactIndexError("snapshot_digest must be a lowercase SHA-256 digest")
+        if not isinstance(self.blocked, bool):
+            raise ArtifactIndexError("blocked must be a bool")
+        roots = frozenset(sorted(_validated_digests(self.roots, "roots")))
+        reachable_objects = frozenset(
+            sorted(_validated_digests(self.reachable_objects, "reachable_objects"))
+        )
+        unreferenced_objects = frozenset(
+            sorted(_validated_digests(self.unreferenced_objects, "unreferenced_objects"))
+        )
+        unreferenced_manifests = frozenset(
+            sorted(_validated_digests(self.unreferenced_manifests, "unreferenced_manifests"))
+        )
+        corrupt_objects = frozenset(
+            sorted(_validated_digests(self.corrupt_objects, "corrupt_objects"))
+        )
+        missing_objects = frozenset(
+            sorted(_validated_digests(self.missing_objects, "missing_objects"))
+        )
+        invalid_manifests = tuple(
+            sorted(
+                (_coerce_manifest_issue(item) for item in self.invalid_manifests),
+                key=_manifest_issue_key,
+            )
+        )
+        object_issues = tuple(
+            sorted(
+                (_coerce_object_issue(item) for item in self.object_issues),
+                key=_object_issue_key,
+            )
+        )
+        candidates = tuple(
+            sorted(
+                (_coerce_candidate(item) for item in self.candidates),
+                key=lambda candidate: (candidate.kind, candidate.digest),
+            )
+        )
+        object.__setattr__(self, "roots", roots)
+        object.__setattr__(self, "reachable_objects", reachable_objects)
+        object.__setattr__(self, "unreferenced_objects", unreferenced_objects)
+        object.__setattr__(self, "unreferenced_manifests", unreferenced_manifests)
+        object.__setattr__(self, "corrupt_objects", corrupt_objects)
+        object.__setattr__(self, "missing_objects", missing_objects)
+        object.__setattr__(self, "invalid_manifests", invalid_manifests)
+        object.__setattr__(self, "object_issues", object_issues)
+        object.__setattr__(self, "candidates", candidates)
         object.__setattr__(self, "plan_digest", content_sha256(to_json_value(self.to_value())))
 
     def to_value(self) -> dict[str, object]:
@@ -508,7 +928,7 @@ class GcPlan:
 
     @classmethod
     def blocked_plan(cls, snapshot: StoreScan) -> GcPlan:
-        """Return a fail-closed plan for a snapshot with a live writer lock."""
+        """Return a fail-closed plan for a snapshot that must not be swept."""
         return cls(
             snapshot_digest=snapshot.snapshot_digest,
             roots=snapshot.roots,
@@ -527,14 +947,14 @@ class GcPlan:
 def build_gc_plan(
     store: FilesystemArtifactStore,
     roots: Iterable[str],
-    *,
-    check_lock: bool = True,
 ) -> GcPlan:
     """Scan a store, mark roots, and build a plan from one snapshot.
 
-    This convenience path scans once; for re-validated freshness use the
-    two-phase API (:meth:`StoreScan.scan` + :meth:`StoreScan.build_plan` with
-    ``store``) so staleness is detected before planning.
+    The writer lock is always probed (read-only) and any invalid manifest
+    blocks the resulting plan; there is no lock-check bypass. For re-validated
+    freshness use the two-phase API (:meth:`StoreScan.scan` +
+    :meth:`StoreScan.build_plan` with ``store``) so staleness is detected
+    before planning.
     """
-    scan = StoreScan.scan(store, check_lock=check_lock)
+    scan = StoreScan.scan(store)
     return scan.mark_roots(roots).build_plan()
