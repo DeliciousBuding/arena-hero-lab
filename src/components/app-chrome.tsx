@@ -105,7 +105,7 @@ export function AppChrome() {
             asChild
             variant="ghost"
             size="sm"
-            className="h-8 gap-1.5"
+            className="group h-8 gap-2 rounded-full px-2.5"
           >
             <Link
               href="https://linux.do/u/delicious233"
@@ -114,11 +114,13 @@ export function AppChrome() {
               aria-label="Linux DO 社区（作者 @delicious233）"
             >
               <img
-                src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/linuxdo-logo.png`}
-                alt="Linux DO"
-                className="h-4 w-auto"
+                src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/linuxdo-mark.png`}
+                alt=""
+                className="h-5 w-5 rounded-full ring-1 ring-border"
               />
-              <span className="text-xs text-linuxdo">@delicious233</span>
+              <span className="text-xs text-muted-foreground transition-colors group-hover:text-foreground">
+                @delicious233
+              </span>
             </Link>
           </Button>
           <ThemeToggle />
