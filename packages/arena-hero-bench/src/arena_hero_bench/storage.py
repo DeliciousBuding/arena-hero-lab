@@ -20,7 +20,9 @@ Design notes
   absolute-path identifiers are rejected by validation before any filesystem
   operation.
 - An identity is immutable: a repeated ``put`` of identical bytes is an
-  idempotent no-op, while different bytes under the same identity are refused.
+  idempotent no-op; a torn or corrupt object under a valid identity is
+  atomically rewritten (self-healing) while holding the lock, and different
+  bytes under a genuinely reused identity are refused.
 - ``partial`` and ``failed`` artifacts may be retained for diagnostics but can
   never be stored as publishable and never report ``is_publishable``.
 """
@@ -229,8 +231,15 @@ class FilesystemArtifactStore:
         return self.get(manifest.content_sha256)
 
     def manifest_records(self) -> Iterator[ArtifactManifest]:
-        """Yield stored manifest records, skipping unreadable or invalid ones."""
+        """Yield stored manifest records, skipping unreadable or invalid ones.
+
+        A record is yielded only when its filename stem is a legal SHA-256 and
+        equals the canonical digest of the parsed record; wrong names and
+        tampered records fail closed by being skipped.
+        """
         for path in sorted(self._manifests.glob("*.json")):
+            if not _SHA256.fullmatch(path.stem):
+                continue
             try:
                 payload = json.loads(path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError):
@@ -238,13 +247,22 @@ class FilesystemArtifactStore:
             if not isinstance(payload, Mapping):
                 continue
             try:
-                yield ArtifactManifest.from_dict(payload)
+                record = ArtifactManifest.from_dict(payload)
             except ValueError:
                 continue
+            if content_sha256(to_json_value(record.to_dict())) != path.stem:
+                continue
+            yield record
 
     def is_publishable(self, digest: str) -> bool:
-        """Return whether any stored manifest marks this content publishable."""
+        """Return whether any stored manifest marks this content publishable.
+
+        The object itself must first verify; a missing or corrupt object is
+        never publishable.
+        """
         validated = _validated_digest(digest)
+        if not self.verify(validated):
+            return False
         return any(
             record.content_sha256 == validated
             and record.status is ArtifactStatus.COMPLETE
@@ -259,7 +277,14 @@ class FilesystemArtifactStore:
         except FileNotFoundError:
             existing = None
         if existing is not None:
+            if hashlib.sha256(existing).hexdigest() != digest:
+                # A torn or corrupt object under a valid identity: rewrite the
+                # canonical bytes atomically while the writer lock is held.
+                self._atomic_write(path, payload)
+                return
             if existing != payload:
+                # The existing object itself verifies, so this is a genuine
+                # digest identity reused for different bytes.
                 raise ArtifactConflictError("digest identity already stored with different bytes")
             return
         self._atomic_write(path, payload)
@@ -273,6 +298,9 @@ class FilesystemArtifactStore:
         except FileNotFoundError:
             existing = None
         if existing is not None:
+            if hashlib.sha256(existing).hexdigest() != record_digest:
+                self._atomic_write(path, payload)
+                return
             if existing != payload:
                 raise ArtifactConflictError("manifest identity already stored with different bytes")
             return
@@ -287,9 +315,13 @@ class FilesystemArtifactStore:
                 handle.write(payload)
                 handle.flush()
                 os.fsync(handle.fileno())
-            final_path.parent.mkdir(parents=True, exist_ok=True)
+            parent = final_path.parent
+            parent_was_missing = not parent.exists()
+            parent.mkdir(parents=True, exist_ok=True)
             os.replace(tmp_path, final_path)
-            self._fsync_directory(final_path.parent)
+            self._fsync_directory(parent)
+            if parent_was_missing:
+                self._fsync_directory(parent.parent)
         finally:
             with suppress(FileNotFoundError):
                 tmp_path.unlink()

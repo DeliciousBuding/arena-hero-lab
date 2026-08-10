@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -18,7 +19,7 @@ from arena_hero_bench.storage import (
     StoreLock,
     StoreLockError,
 )
-from arena_hero_sim.serialization import canonical_json_bytes, content_sha256
+from arena_hero_sim.serialization import canonical_json_bytes, content_sha256, to_json_value
 
 _SHA = "a" * 64
 
@@ -80,17 +81,39 @@ def test_put_rejects_non_bytes_payload(tmp_path: Path) -> None:
         store.put(cast(bytes, "not bytes"))
 
 
+class _FixedDigest:
+    def hexdigest(self) -> str:
+        return "c" * 64
+
+
 def test_same_identity_different_bytes_rejected(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     store = FilesystemArtifactStore(tmp_path / "store")
     fixed_digest = "c" * 64
+    # Simulate a genuine SHA-256 collision: both payloads map to the same
+    # digest while their stored bytes differ, so the identity is truly reused.
     monkeypatch.setattr("arena_hero_bench.storage.content_sha256", lambda _value: fixed_digest)
+    monkeypatch.setattr("arena_hero_bench.storage.hashlib.sha256", lambda _data: _FixedDigest())
 
     store.put(b"first bytes")
 
     with pytest.raises(ArtifactConflictError, match="different bytes"):
         store.put(b"second bytes")
+
+
+def test_put_self_heals_corrupt_existing_object(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    payload = b"canonical bytes"
+    digest = store.put(payload)
+
+    store._object_path(digest).write_bytes(b"torn or corrupt bytes")
+    assert not store.verify(digest)
+
+    healed = store.put(payload)
+    assert healed == digest
+    assert store.verify(digest)
+    assert store.get(digest) == payload
 
 
 def test_get_missing_raises(tmp_path: Path) -> None:
@@ -184,6 +207,50 @@ def test_complete_but_unpublishable_artifact_never_publishable(tmp_path: Path) -
     store.store_artifact(artifact, content)
 
     assert not store.is_publishable(artifact.content_sha256)
+
+
+def test_is_publishable_fails_closed_when_object_missing_or_corrupt(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    content = canonical_json_bytes({"scores": [1, 2, 3]})
+    artifact = artifact_for(content)
+    store.store_artifact(artifact, content)
+    assert store.is_publishable(artifact.content_sha256)
+
+    store._object_path(artifact.content_sha256).write_bytes(b"torn bytes")
+    assert not store.is_publishable(artifact.content_sha256)
+
+    store._object_path(artifact.content_sha256).unlink()
+    assert not store.is_publishable(artifact.content_sha256)
+
+
+def test_manifest_records_skips_wrong_name_and_tampered_records(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    content = canonical_json_bytes({"scores": [9, 8, 7]})
+    artifact = artifact_for(content)
+    store.store_artifact(artifact, content)
+
+    valid_body = {
+        "schema_version": "arena.lab.artifact.v1",
+        "generator_version": "0.1.0",
+        "provenance": {"source": "tests/artifact.json"},
+        "source_build_sha256": "a" * 64,
+        "content_sha256": "b" * 64,
+        "status": "complete",
+        "publishable": True,
+    }
+    # A manifest body under a non-digest filename must be skipped.
+    (store._manifests / "not-a-digest.json").write_text(json.dumps(valid_body), encoding="utf-8")
+
+    # A tampered manifest whose bytes no longer match its digest filename must
+    # be skipped even though it still parses.
+    tampered_digest = content_sha256(to_json_value(valid_body))
+    (store._manifests / f"{tampered_digest}.json").write_text(
+        json.dumps({**valid_body, "publishable": False}), encoding="utf-8"
+    )
+
+    records = list(store.manifest_records())
+    assert len(records) == 1
+    assert records[0].to_dict() == artifact.to_dict()
 
 
 def test_manifest_record_roundtrip(tmp_path: Path) -> None:
