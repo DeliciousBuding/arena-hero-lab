@@ -1,4 +1,5 @@
-import { GitBranch, MessageSquare } from "lucide-react";
+import { MessageSquare } from "lucide-react";
+import { GitHubIcon } from "@/components/app-chrome";
 import type { Contestant } from "@/lib/bench";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -42,7 +43,7 @@ export function ContestantLinks({
               target="_blank"
               rel="noopener noreferrer"
             >
-              <GitBranch className="h-3 w-3" />
+              <GitHubIcon className="h-3 w-3" />
               {variant === "compact" ? repoShorthand(contestant.repoUrl) : "GitHub"}
             </a>
           </Button>
