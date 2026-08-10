@@ -515,7 +515,9 @@ def test_backend_registration_and_capabilities_are_fail_closed() -> None:
     with pytest.raises(ValueError, match="duplicate reference scenario digest"):
         ReferenceEngineBackend((scenario, scenario))
 
-    capabilities = ReferenceEngineBackend((scenario,)).descriptor.capabilities
+    descriptor = ReferenceEngineBackend((scenario,)).descriptor
+    assert descriptor.engine_version == "0.1.1-m4"
+    capabilities = descriptor.capabilities
     assert capabilities.supports_batch is True
     assert capabilities.supports_incremental_world_hash is False
     assert capabilities.supports_zero_copy is False

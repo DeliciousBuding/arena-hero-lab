@@ -22,7 +22,7 @@ keeps the original rules digest and harvest-to-deposit replay identity stable wh
 newly supported boundary explicit. A result is `complete` only when all of the following are
 exact matches:
 
-- backend `reference-engine`, engine `0.1.0-m4`, and protocol `arena.sim.v1`;
+- backend `reference-engine`, engine `0.1.1-m4`, and protocol `arena.sim.v1`;
 - the exported `REFERENCE_RULESET` digest;
 - a scenario registered by its content SHA-256;
 - the scenario initial-world SHA-256, deterministic seed, contestants, and frozen config;

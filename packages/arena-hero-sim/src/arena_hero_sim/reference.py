@@ -25,7 +25,7 @@ from arena_hero_sim.reference_engine import (
 )
 
 REFERENCE_BACKEND_ID = "reference-engine"
-REFERENCE_ENGINE_VERSION = "0.1.0-m4"
+REFERENCE_ENGINE_VERSION = "0.1.1-m4"
 REFERENCE_PROTOCOL_VERSION = "arena.sim.v1"
 REFERENCE_RULESET = RulesetRef(
     "arena-hero",
