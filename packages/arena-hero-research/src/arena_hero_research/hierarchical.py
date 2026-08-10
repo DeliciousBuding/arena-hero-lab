@@ -23,9 +23,10 @@ Design boundaries (fail closed, never silently approximated):
 The authoritative estimator is a profile restricted-maximum-likelihood fit
 (``estimator = random-intercept-reml``). An independent method-of-moments /
 ANOVA path is provided for cross-validation; the two paths must agree within a
-declared numerical tolerance on balanced fixtures (and a looser tolerance on
-mildly unbalanced ones). The paired design (one control and one treatment per
-cluster) is the balanced degenerate case, and the bridge adapter
+declared numerical tolerance on balanced fixtures. Under allocation imbalance,
+effect agreement is reported separately but variance is explicitly marked
+unvalidated, so the aggregate report cannot pass. The paired design (one control
+and one treatment per cluster) is the balanced degenerate case, and the bridge adapter
 :func:`paired_to_cluster_observations` lets callers verify that the REML
 treatment effect reproduces the existing paired mean difference.
 
@@ -48,7 +49,6 @@ from arena_hero_research.validation import (
     require_float,
     require_identifier,
     require_int,
-    require_sequence,
     require_sha256,
     require_text,
 )
@@ -70,6 +70,36 @@ _SCHEMA = "arena.research.random-intercept-fit.v2"
 _LOG_LAMBDA_LOW = -30.0
 _LOG_LAMBDA_HIGH = 30.0
 _BOUNDARY_MARGIN = 1.0
+_FIT_PAYLOAD_FIELDS = frozenset(
+    {
+        "schema_version",
+        "outcome_name",
+        "control_level",
+        "treatment_level",
+        "estimator",
+        "effect_size_method",
+        "ci_method",
+        "confidence_level",
+        "estimand",
+        "cluster_count",
+        "observation_count",
+        "dropped_clusters",
+        "intercept",
+        "treatment_effect",
+        "standard_error",
+        "between_variance",
+        "error_variance",
+        "icc",
+        "hierarchical_effect",
+        "degrees_of_freedom",
+        "confidence_lower",
+        "confidence_upper",
+        "singular",
+        "boundary_lambda",
+        "warnings",
+    }
+)
+_FIT_FIELDS = _FIT_PAYLOAD_FIELDS | {"canonical_sha256"}
 
 
 class HierarchicalFitError(ValueError):
@@ -89,6 +119,55 @@ class ClusterMissingPolicy(StrEnum):
 
     FAIL = "fail"
     DROP_CLUSTER = "drop-cluster"
+
+
+def _strict_string(value: object, field_name: str) -> str:
+    if not isinstance(value, str):
+        raise HierarchicalFitError(f"{field_name} must be a string")
+    if value != value.strip():
+        raise HierarchicalFitError(f"{field_name} must already be canonical text")
+    return value
+
+
+def _strict_bool(value: object, field_name: str) -> bool:
+    if not isinstance(value, bool):
+        raise HierarchicalFitError(f"{field_name} must be a boolean")
+    return value
+
+
+def _strict_float(value: object, field_name: str) -> float:
+    try:
+        return require_float(value, field_name)
+    except (TypeError, ValueError) as error:
+        raise HierarchicalFitError(str(error)) from error
+
+
+def _strict_optional_float(value: object, field_name: str) -> float | None:
+    if value is None:
+        return None
+    return _strict_float(value, field_name)
+
+
+def _strict_int(value: object, field_name: str) -> int:
+    try:
+        return require_int(value, field_name)
+    except (TypeError, ValueError) as error:
+        raise HierarchicalFitError(str(error)) from error
+
+
+def _require_exact_keys(
+    value: Mapping[str, object], expected: frozenset[str], field_name: str
+) -> None:
+    actual = set(value)
+    if actual != expected:
+        missing = sorted(expected - actual)
+        unknown = sorted(actual - expected)
+        details: list[str] = []
+        if missing:
+            details.append(f"missing={missing}")
+        if unknown:
+            details.append(f"unknown={unknown}")
+        raise HierarchicalFitError(f"{field_name} schema mismatch: {'; '.join(details)}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,8 +193,10 @@ class ClusterObservation:
             self, "observation_id", require_identifier(self.observation_id, "observation_id")
         )
         object.__setattr__(self, "treatment", require_text(self.treatment, "treatment"))
-        if not math.isfinite(self.value):
-            raise ValueError("value must be finite")
+        normalized_value = _strict_float(self.value, "value")
+        if not math.isfinite(normalized_value):
+            raise HierarchicalFitError("value must be finite")
+        object.__setattr__(self, "value", normalized_value)
 
     def to_dict(self) -> dict[str, JsonValue]:
         return {
@@ -128,12 +209,17 @@ class ClusterObservation:
 
     @classmethod
     def from_dict(cls, value: Mapping[str, object]) -> ClusterObservation:
+        _require_exact_keys(
+            value,
+            frozenset({"outcome_name", "cluster_id", "observation_id", "treatment", "value"}),
+            "cluster observation",
+        )
         return cls(
-            outcome_name=str(value["outcome_name"]),
-            cluster_id=str(value["cluster_id"]),
-            observation_id=str(value["observation_id"]),
-            treatment=str(value["treatment"]),
-            value=require_float(value["value"], "value"),
+            outcome_name=_strict_string(value["outcome_name"], "outcome_name"),
+            cluster_id=_strict_string(value["cluster_id"], "cluster_id"),
+            observation_id=_strict_string(value["observation_id"], "observation_id"),
+            treatment=_strict_string(value["treatment"], "treatment"),
+            value=_strict_float(value["value"], "value"),
         )
 
 
@@ -157,6 +243,9 @@ class CrossValidationReport:
     variance_absolute_difference: float
     effect_tolerance: float
     variance_tolerance: float
+    effect_passed: bool
+    variance_validated: bool
+    variance_passed: bool
     passed: bool
     authoritative: str
 
@@ -192,6 +281,20 @@ class CrossValidationReport:
         ):
             if not math.isfinite(getattr(self, name)):
                 raise HierarchicalFitError(f"{name} must be finite")
+        for name in (
+            "balanced",
+            "effect_passed",
+            "variance_validated",
+            "variance_passed",
+            "passed",
+        ):
+            if not isinstance(getattr(self, name), bool):
+                raise HierarchicalFitError(f"{name} must be boolean")
+        expected_passed = self.effect_passed and self.variance_validated and self.variance_passed
+        if self.passed != expected_passed:
+            raise HierarchicalFitError(
+                "passed must require validated effect and variance agreement"
+            )
         object.__setattr__(self, "authoritative", require_text(self.authoritative, "authoritative"))
         if self.authoritative != _ESTIMATOR:
             raise HierarchicalFitError("cross-validation authority must be the REML estimator")
@@ -214,6 +317,9 @@ class CrossValidationReport:
             "variance_absolute_difference": self.variance_absolute_difference,
             "effect_tolerance": self.effect_tolerance,
             "variance_tolerance": self.variance_tolerance,
+            "effect_passed": self.effect_passed,
+            "variance_validated": self.variance_validated,
+            "variance_passed": self.variance_passed,
             "passed": self.passed,
             "authoritative": self.authoritative,
         }
@@ -281,7 +387,7 @@ class RandomInterceptFit:
         )
         if self.cluster_count < 2 or self.observation_count < 3:
             raise HierarchicalFitError("fit requires at least two clusters and three observations")
-        if self.dropped_clusters < 0 or self.dropped_clusters >= self.cluster_count:
+        if self.dropped_clusters < 0:
             raise HierarchicalFitError("dropped cluster count is invalid")
         for name in ("intercept", "treatment_effect"):
             if not math.isfinite(getattr(self, name)):
@@ -370,37 +476,56 @@ class RandomInterceptFit:
 
     @classmethod
     def from_dict(cls, value: Mapping[str, object]) -> RandomInterceptFit:
-        warnings = require_sequence(value["warnings"], "warnings")
-        restored = cls(
-            schema_version=str(value["schema_version"]),
-            outcome_name=str(value["outcome_name"]),
-            control_level=str(value["control_level"]),
-            treatment_level=str(value["treatment_level"]),
-            estimator=str(value["estimator"]),
-            effect_size_method=str(value["effect_size_method"]),
-            ci_method=str(value["ci_method"]),
-            confidence_level=require_float(value["confidence_level"], "confidence_level"),
-            estimand=str(value["estimand"]),
-            cluster_count=require_int(value["cluster_count"], "cluster_count"),
-            observation_count=require_int(value["observation_count"], "observation_count"),
-            dropped_clusters=require_int(value["dropped_clusters"], "dropped_clusters"),
-            intercept=require_float(value["intercept"], "intercept"),
-            treatment_effect=require_float(value["treatment_effect"], "treatment_effect"),
-            standard_error=_optional_float(value.get("standard_error"), "standard_error"),
-            between_variance=require_float(value["between_variance"], "between_variance"),
-            error_variance=require_float(value["error_variance"], "error_variance"),
-            icc=require_float(value["icc"], "icc"),
-            hierarchical_effect=_optional_float(
-                value.get("hierarchical_effect"), "hierarchical_effect"
-            ),
-            degrees_of_freedom=require_int(value["degrees_of_freedom"], "degrees_of_freedom"),
-            confidence_lower=_optional_float(value.get("confidence_lower"), "confidence_lower"),
-            confidence_upper=_optional_float(value.get("confidence_upper"), "confidence_upper"),
-            singular=value["singular"] is True,
-            boundary_lambda=value["boundary_lambda"] is True,
-            warnings=tuple(str(item) for item in warnings),
-            canonical_sha256=str(value["canonical_sha256"]),
-        )
+        try:
+            _require_exact_keys(value, _FIT_FIELDS, "random-intercept fit")
+            warnings_value = value["warnings"]
+            if not isinstance(warnings_value, list):
+                raise HierarchicalFitError("warnings must be a JSON list")
+            warnings = tuple(_strict_string(item, "warning") for item in warnings_value)
+            restored = cls(
+                schema_version=_strict_string(value["schema_version"], "schema_version"),
+                outcome_name=_strict_string(value["outcome_name"], "outcome_name"),
+                control_level=_strict_string(value["control_level"], "control_level"),
+                treatment_level=_strict_string(value["treatment_level"], "treatment_level"),
+                estimator=_strict_string(value["estimator"], "estimator"),
+                effect_size_method=_strict_string(
+                    value["effect_size_method"], "effect_size_method"
+                ),
+                ci_method=_strict_string(value["ci_method"], "ci_method"),
+                confidence_level=_strict_float(value["confidence_level"], "confidence_level"),
+                estimand=_strict_string(value["estimand"], "estimand"),
+                cluster_count=_strict_int(value["cluster_count"], "cluster_count"),
+                observation_count=_strict_int(value["observation_count"], "observation_count"),
+                dropped_clusters=_strict_int(value["dropped_clusters"], "dropped_clusters"),
+                intercept=_strict_float(value["intercept"], "intercept"),
+                treatment_effect=_strict_float(value["treatment_effect"], "treatment_effect"),
+                standard_error=_strict_optional_float(value["standard_error"], "standard_error"),
+                between_variance=_strict_float(value["between_variance"], "between_variance"),
+                error_variance=_strict_float(value["error_variance"], "error_variance"),
+                icc=_strict_float(value["icc"], "icc"),
+                hierarchical_effect=_strict_optional_float(
+                    value["hierarchical_effect"], "hierarchical_effect"
+                ),
+                degrees_of_freedom=_strict_int(value["degrees_of_freedom"], "degrees_of_freedom"),
+                confidence_lower=_strict_optional_float(
+                    value["confidence_lower"], "confidence_lower"
+                ),
+                confidence_upper=_strict_optional_float(
+                    value["confidence_upper"], "confidence_upper"
+                ),
+                singular=_strict_bool(value["singular"], "singular"),
+                boundary_lambda=_strict_bool(value["boundary_lambda"], "boundary_lambda"),
+                warnings=warnings,
+                canonical_sha256=_strict_string(value["canonical_sha256"], "canonical_sha256"),
+            )
+        except HierarchicalFitError:
+            raise
+        except (KeyError, TypeError, ValueError) as error:
+            raise HierarchicalFitError(
+                f"invalid random-intercept fit schema: {type(error).__name__}"
+            ) from error
+        if restored.to_dict() != dict(value):
+            raise HierarchicalFitError("random-intercept fit payload is not canonical schema v2")
         if not restored.verify():
             raise HierarchicalFitError("random-intercept fit digest verification failed")
         return restored
@@ -622,14 +747,18 @@ def cross_validate_random_intercept(
         if balanced:
             effect_tolerance = max(1e-8, 1e-8 * abs(reml_effect))
             variance_tolerance = max(1e-7, 1e-7 * reml_between, 1e-7 * reml_error)
-            enforce_variance = True
+            variance_validated = True
         else:
-            # Within-OLS and REML use different weighting under allocation imbalance.
+            # The independent MoM variance estimator is not calibrated as a
+            # conformance oracle under allocation imbalance. Report effect
+            # agreement separately, but never claim overall validation.
             effect_tolerance = max(1e-2, 1e-2 * abs(reml_effect))
             variance_tolerance = max(1e-2, 1e-2 * reml_between, 1e-2 * reml_error)
-            enforce_variance = False
+            variance_validated = False
         effect_difference = abs(ols_effect - reml_effect)
         variance_difference = max(abs(mom_between - reml_between), abs(mom_error - reml_error))
+        effect_passed = effect_difference <= effect_tolerance
+        variance_passed = variance_validated and variance_difference <= variance_tolerance
         return CrossValidationReport(
             outcome_name=normalized_outcome,
             control_level=control,
@@ -647,8 +776,10 @@ def cross_validate_random_intercept(
             variance_absolute_difference=variance_difference,
             effect_tolerance=effect_tolerance,
             variance_tolerance=variance_tolerance,
-            passed=effect_difference <= effect_tolerance
-            and (not enforce_variance or variance_difference <= variance_tolerance),
+            effect_passed=effect_passed,
+            variance_validated=variance_validated,
+            variance_passed=variance_passed,
+            passed=effect_passed and variance_validated and variance_passed,
             authoritative=_ESTIMATOR,
         )
 
@@ -708,23 +839,80 @@ def _cluster_sums(
     clusters: dict[str, dict[str, tuple[float, ...]]],
     control_level: str,
     treatment_level: str,
-) -> tuple[tuple[str, ...], tuple[int, ...], dict[str, tuple[float, float, float, float, float]]]:
-    """Return sorted cluster ids, sizes, and per-cluster (n, sy, st, sty, sq)."""
+) -> tuple[
+    tuple[str, ...],
+    tuple[int, ...],
+    dict[str, tuple[float, float, float, float, float]],
+    float,
+]:
+    """Return stable centered sufficient statistics for every cluster.
+
+    A deterministic observed value is subtracted from every outcome before any
+    squares or cross-products are formed. The model includes an intercept, so
+    this translation leaves treatment and variance estimates unchanged while
+    avoiding catastrophic cancellation for large common offsets.
+    """
 
     ids = tuple(sorted(clusters))
+    first = clusters[ids[0]]
+    anchor_values = first[control_level] or first[treatment_level]
+    anchor = anchor_values[0]
     sizes: list[int] = []
     sums: dict[str, tuple[float, float, float, float, float]] = {}
     for cluster_id in ids:
-        baseline = clusters[cluster_id][control_level]
-        contrast = clusters[cluster_id][treatment_level]
-        size = len(baseline) + len(contrast)
+        baseline = tuple(value - anchor for value in clusters[cluster_id][control_level])
+        contrast = tuple(value - anchor for value in clusters[cluster_id][treatment_level])
+        centered = (*baseline, *contrast)
+        size = len(centered)
         sizes.append(size)
-        total = sum(baseline) + sum(contrast)
+        total = math.fsum(centered)
         treatment_count = len(contrast)
-        treatment_total = sum(contrast)
-        squares = sum(value * value for value in (*baseline, *contrast))
-        sums[cluster_id] = (float(size), total, float(treatment_count), treatment_total, squares)
-    return ids, tuple(sizes), sums
+        treatment_total = math.fsum(contrast)
+        squares = math.fsum(value * value for value in centered)
+        sums[cluster_id] = (
+            float(size),
+            total,
+            float(treatment_count),
+            treatment_total,
+            squares,
+        )
+    return ids, tuple(sizes), sums, anchor
+
+
+def _reml_components(
+    cluster_ids: tuple[str, ...],
+    sums: dict[str, tuple[float, float, float, float, float]],
+    lam: float,
+) -> tuple[float, float, float, float, float, float, float]:
+    coefficients = {
+        cluster_id: lam / (1.0 + sums[cluster_id][0] * lam) for cluster_id in cluster_ids
+    }
+    a00 = math.fsum(
+        sums[cluster_id][0] - coefficients[cluster_id] * sums[cluster_id][0] * sums[cluster_id][0]
+        for cluster_id in cluster_ids
+    )
+    a01 = math.fsum(
+        sums[cluster_id][2] - coefficients[cluster_id] * sums[cluster_id][0] * sums[cluster_id][2]
+        for cluster_id in cluster_ids
+    )
+    a11 = math.fsum(
+        sums[cluster_id][2] - coefficients[cluster_id] * sums[cluster_id][2] * sums[cluster_id][2]
+        for cluster_id in cluster_ids
+    )
+    b0 = math.fsum(
+        sums[cluster_id][1] - coefficients[cluster_id] * sums[cluster_id][0] * sums[cluster_id][1]
+        for cluster_id in cluster_ids
+    )
+    b1 = math.fsum(
+        sums[cluster_id][3] - coefficients[cluster_id] * sums[cluster_id][2] * sums[cluster_id][1]
+        for cluster_id in cluster_ids
+    )
+    q = math.fsum(
+        sums[cluster_id][4] - coefficients[cluster_id] * sums[cluster_id][1] * sums[cluster_id][1]
+        for cluster_id in cluster_ids
+    )
+    log_terms = math.fsum(math.log1p(sums[cluster_id][0] * lam) for cluster_id in cluster_ids)
+    return a00, a01, a11, b0, b1, q, log_terms
 
 
 def _reml_fit(
@@ -733,39 +921,34 @@ def _reml_fit(
     control_level: str,
     treatment_level: str,
 ) -> tuple[float, float, float, float, float, bool, bool, tuple[str, ...]]:
-    """Profile REML fit.
+    """Profile REML fit using centered, compensated sufficient statistics.
 
     Returns (beta, mu, sigma2_e, sigma2_u, se2, singular, boundary, warnings).
     """
 
-    _, sizes, sums = _cluster_sums(clusters, control_level, treatment_level)
+    _, sizes, sums, anchor = _cluster_sums(clusters, control_level, treatment_level)
     observation_count = sum(sizes)
     degrees = observation_count - 2
 
     def profile(log_lambda: float) -> float:
         lam = math.exp(log_lambda)
-        a00 = a01 = a11 = 0.0
-        b0 = b1 = 0.0
-        q = 0.0
-        log_terms = 0.0
-        for cluster_id in cluster_ids:
-            size, total, treatment_count, treatment_total, squares = sums[cluster_id]
-            coeff = lam / (1.0 + size * lam)
-            a00 += size - coeff * size * size
-            a01 += treatment_count - coeff * size * treatment_count
-            a11 += treatment_count - coeff * treatment_count * treatment_count
-            b0 += total - coeff * size * total
-            b1 += treatment_total - coeff * treatment_count * total
-            q += squares - coeff * total * total
-            log_terms += math.log1p(size * lam)
+        a00, a01, a11, b0, b1, q, log_terms = _reml_components(cluster_ids, sums, lam)
         determinant = a00 * a11 - a01 * a01
         scale = a00 * a11
-        if determinant <= 0 or scale <= 0 or determinant < 1e-14 * scale or q <= 0:
+        if (
+            not all(
+                math.isfinite(value) for value in (a00, a01, a11, b0, b1, q, log_terms, determinant)
+            )
+            or determinant <= 0
+            or scale <= 0
+            or determinant < 1e-14 * scale
+            or q <= 0
+        ):
             return -1e300
         beta0 = (a11 * b0 - a01 * b1) / determinant
         beta1 = (a00 * b1 - a01 * b0) / determinant
         residual = q - (beta0 * b0 + beta1 * b1)
-        if residual <= 0 or residual < 1e-12 * q:
+        if not math.isfinite(residual) or residual <= 0 or residual < 1e-12 * q:
             return -1e300
         return -0.5 * (degrees * math.log(residual) + math.log(determinant) + log_terms)
 
@@ -776,36 +959,28 @@ def _reml_fit(
     )
     singular = boundary or lam < 1e-28 or lam > 1e28
 
-    a00 = a01 = a11 = 0.0
-    b0 = b1 = 0.0
-    q = 0.0
-    for cluster_id in cluster_ids:
-        size, total, treatment_count, treatment_total, squares = sums[cluster_id]
-        coeff = lam / (1.0 + size * lam)
-        a00 += size - coeff * size * size
-        a01 += treatment_count - coeff * size * treatment_count
-        a11 += treatment_count - coeff * treatment_count * treatment_count
-        b0 += total - coeff * size * total
-        b1 += treatment_total - coeff * treatment_count * total
-        q += squares - coeff * total * total
+    a00, a01, a11, b0, b1, q, _ = _reml_components(cluster_ids, sums, lam)
     determinant = a00 * a11 - a01 * a01
-    if determinant <= 0:
+    if not math.isfinite(determinant) or determinant <= 0:
         raise SingularFitError("random-intercept fit produced a singular design matrix")
-    beta0 = (a11 * b0 - a01 * b1) / determinant
+    beta0_centered = (a11 * b0 - a01 * b1) / determinant
     beta1 = (a00 * b1 - a01 * b0) / determinant
-    residual = q - (beta0 * b0 + beta1 * b1)
-    if residual <= 0:
+    residual = q - (beta0_centered * b0 + beta1 * b1)
+    if not math.isfinite(residual) or residual <= 0:
         raise SingularFitError("random-intercept fit produced a non-positive residual")
     sigma2_e = residual / degrees
     sigma2_u = lam * sigma2_e
     se2 = sigma2_e * a00 / determinant
+    intercept = beta0_centered + anchor
+    if not all(math.isfinite(value) for value in (beta1, intercept, sigma2_e, sigma2_u, se2)):
+        raise SingularFitError("random-intercept fit produced non-finite statistics")
     warnings: tuple[str, ...] = ()
     if singular:
         warnings = (
             "between-cluster variance estimate is at the boundary; "
             "confidence interval and effect size are undefined",
         )
-    return beta1, beta0, sigma2_e, sigma2_u, se2, singular, boundary, warnings
+    return beta1, intercept, sigma2_e, sigma2_u, se2, singular, boundary, warnings
 
 
 def _mom_fit(
@@ -814,76 +989,80 @@ def _mom_fit(
     control_level: str,
     treatment_level: str,
 ) -> tuple[float, float, float]:
-    """Independent method-of-moments / ANOVA path (cross-validation only)."""
+    """Independent centered method-of-moments / ANOVA path."""
 
-    _, sizes, sums = _cluster_sums(clusters, control_level, treatment_level)
+    _, sizes, sums, _ = _cluster_sums(clusters, control_level, treatment_level)
     observation_count = sum(sizes)
     cluster_count = len(cluster_ids)
     if cluster_count < 3:
         raise HierarchicalFitError(
             "method-of-moments between-variance estimation requires at least three clusters"
         )
-    cross = 0.0
-    treatment_variation = 0.0
-    for cluster_id in cluster_ids:
-        size, total, treatment_count, treatment_total, _ = sums[cluster_id]
-        cross += treatment_total - total * treatment_count / size
-        treatment_variation += treatment_count - treatment_count**2 / size
+    cross = math.fsum(
+        sums[cluster_id][3] - sums[cluster_id][1] * sums[cluster_id][2] / sums[cluster_id][0]
+        for cluster_id in cluster_ids
+    )
+    treatment_variation = math.fsum(
+        sums[cluster_id][2] - sums[cluster_id][2] * sums[cluster_id][2] / sums[cluster_id][0]
+        for cluster_id in cluster_ids
+    )
     if treatment_variation <= 0:
         raise ClusterIdentifiabilityError(
             "no within-cluster treatment variation is available for the contrast"
         )
     within_beta = cross / treatment_variation
-    within_residual = 0.0
-    for cluster_id in cluster_ids:
-        size, total, treatment_count, treatment_total, square_sum = sums[cluster_id]
-        within_residual += (
-            square_sum
-            - total * total / size
-            - 2.0 * within_beta * (treatment_total - total * treatment_count / size)
-            + within_beta * within_beta * (treatment_count - treatment_count**2 / size)
-        )
+    within_residual = math.fsum(
+        sums[cluster_id][4]
+        - sums[cluster_id][1] * sums[cluster_id][1] / sums[cluster_id][0]
+        - 2.0
+        * within_beta
+        * (sums[cluster_id][3] - sums[cluster_id][1] * sums[cluster_id][2] / sums[cluster_id][0])
+        + within_beta
+        * within_beta
+        * (sums[cluster_id][2] - sums[cluster_id][2] * sums[cluster_id][2] / sums[cluster_id][0])
+        for cluster_id in cluster_ids
+    )
     within_degrees = observation_count - cluster_count - 1
     if within_degrees <= 0:
         raise HierarchicalFitError("insufficient degrees of freedom for the within estimate")
     sigma2_e = within_residual / within_degrees
+    if not math.isfinite(sigma2_e) or sigma2_e <= 0:
+        raise SingularFitError("MoM/ANOVA path produced non-positive residual variance")
 
-    weight_sum = 0.0
-    weighted_y = 0.0
-    weighted_t = 0.0
-    for cluster_id, size in zip(cluster_ids, sizes, strict=True):
-        _, total, treatment_count, _, _ = sums[cluster_id]
-        weight_sum += size
-        weighted_y += total
-        weighted_t += treatment_count
+    weight_sum = float(observation_count)
+    weighted_y = math.fsum(sums[cluster_id][1] for cluster_id in cluster_ids)
+    weighted_t = math.fsum(sums[cluster_id][2] for cluster_id in cluster_ids)
     overall_y = weighted_y / weight_sum
     overall_t = weighted_t / weight_sum
-    stt = 0.0
-    str_cross = 0.0
-    for cluster_id, size in zip(cluster_ids, sizes, strict=True):
-        _, total, treatment_count, _, _ = sums[cluster_id]
-        y_bar = total / size
-        t_bar = treatment_count / size
-        stt += size * (t_bar - overall_t) ** 2
-        str_cross += size * (t_bar - overall_t) * (y_bar - overall_y)
+    stt = math.fsum(
+        sums[cluster_id][0] * (sums[cluster_id][2] / sums[cluster_id][0] - overall_t) ** 2
+        for cluster_id in cluster_ids
+    )
+    str_cross = math.fsum(
+        sums[cluster_id][0]
+        * (sums[cluster_id][2] / sums[cluster_id][0] - overall_t)
+        * (sums[cluster_id][1] / sums[cluster_id][0] - overall_y)
+        for cluster_id in cluster_ids
+    )
     slope = str_cross / stt if stt > 0 else 0.0
-    between_residual = 0.0
-    for cluster_id, size in zip(cluster_ids, sizes, strict=True):
-        _, total, treatment_count, _, _ = sums[cluster_id]
-        y_bar = total / size
-        t_bar = treatment_count / size
-        residual = (y_bar - overall_y) - slope * (t_bar - overall_t)
-        between_residual += size * residual * residual
-    # Balanced or proportional designs leave the cluster-mean treatment slope
-    # unidentifiable (stt == 0), so only the grand mean is estimated: K - 1
-    # residual degrees of freedom. Unbalanced designs estimate the slope too.
+    between_residual = math.fsum(
+        sums[cluster_id][0]
+        * (
+            (sums[cluster_id][1] / sums[cluster_id][0] - overall_y)
+            - slope * (sums[cluster_id][2] / sums[cluster_id][0] - overall_t)
+        )
+        ** 2
+        for cluster_id in cluster_ids
+    )
     between_degrees = cluster_count - 1 if stt <= 0 else cluster_count - 2
     if between_degrees <= 0:
         raise HierarchicalFitError("insufficient degrees of freedom for the between estimate")
     msb = between_residual / between_degrees
-    m0 = (observation_count - sum(size * size for size in sizes) / observation_count) / (
+    m0 = (observation_count - math.fsum(size * size for size in sizes) / observation_count) / (
         cluster_count - 1
     )
+    if not math.isfinite(m0) or m0 <= 0:
+        raise SingularFitError("MoM/ANOVA path produced an invalid cluster-size factor")
     sigma2_u = max(0.0, (msb - sigma2_e) / m0)
 
     if not all(math.isfinite(value) for value in (within_beta, sigma2_u, sigma2_e)):

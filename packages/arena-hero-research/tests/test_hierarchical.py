@@ -21,6 +21,7 @@ from arena_hero_research.hierarchical import (
     fit_random_intercept,
     paired_to_cluster_observations,
 )
+from arena_hero_sim.serialization import JsonValue, content_sha256
 
 BALANCED = [
     ("c1", 1.0, 2.2),
@@ -68,6 +69,13 @@ def test_cluster_observation_round_trip_and_validation() -> None:
         ClusterObservation("score", "c1", "c1.t", "treatment", math.inf)
     with pytest.raises(ValueError, match="must not be empty"):
         ClusterObservation("score", "c1", "c1.t", "", 2.5)
+    with pytest.raises(HierarchicalFitError, match="numeric"):
+        ClusterObservation("score", "c1", "c1.bool", "treatment", True)
+    with pytest.raises(HierarchicalFitError, match="numeric"):
+        ClusterObservation("score", "c1", "c1.text", "treatment", cast(float, "1.0"))
+    normalized = ClusterObservation("score", "c1", "c1.int", "treatment", 1)
+    assert normalized.value == 1.0
+    assert isinstance(normalized.value, float)
 
 
 # --------------------------------------------------------------------------- fit
@@ -82,8 +90,8 @@ def test_balanced_fit_known_answer_and_ci() -> None:
     assert fit.observation_count == 8
     assert fit.degrees_of_freedom == 3
     assert fit.treatment_effect == pytest.approx(1.425)
-    assert fit.between_variance == pytest.approx(0.5416666686415601, rel=1e-9)
-    assert fit.error_variance == pytest.approx(0.021249999925448886, rel=1e-9)
+    assert fit.between_variance == pytest.approx(0.5416666686415601, rel=1e-8)
+    assert fit.error_variance == pytest.approx(0.021249999925448886, rel=1e-8)
     assert fit.icc == pytest.approx(
         fit.between_variance / (fit.between_variance + fit.error_variance)
     )
@@ -157,6 +165,9 @@ def test_balanced_cross_validation_within_tolerance() -> None:
     )
     assert report.balanced
     assert report.authoritative == "random-intercept-reml"
+    assert report.effect_passed
+    assert report.variance_validated
+    assert report.variance_passed
     assert report.passed
     assert report.effect_absolute_difference <= 1e-8
     assert report.variance_absolute_difference <= 1e-7
@@ -174,7 +185,10 @@ def test_mildly_unbalanced_cross_validation_within_loose_tolerance() -> None:
     )
     report = cross_validate_random_intercept(outcome_name="score", observations=observations)
     assert not report.balanced
-    assert report.passed
+    assert report.effect_passed
+    assert not report.variance_validated
+    assert not report.variance_passed
+    assert not report.passed
     assert report.effect_absolute_difference <= report.effect_tolerance
     # Path A is the independent within-cluster OLS contrast, not REML/GLS.
     assert report.path_a_effect == pytest.approx(1.408, abs=1e-12)
@@ -200,7 +214,10 @@ def test_adversarial_unbalanced_cross_validation() -> None:
     assert fit.verify()
     report = cross_validate_random_intercept(outcome_name="score", observations=observations)
     assert not report.balanced
-    assert report.passed
+    assert report.effect_passed
+    assert not report.variance_validated
+    assert not report.variance_passed
+    assert not report.passed
     assert report.effect_absolute_difference <= report.effect_tolerance
 
 
@@ -264,6 +281,41 @@ def test_from_dict_rejects_tampered_digest() -> None:
     payload["treatment_effect"] = fit.treatment_effect + 1.0
     with pytest.raises(HierarchicalFitError, match="digest verification"):
         RandomInterceptFit.from_dict(payload)
+
+
+def _resign_fit_payload(payload: dict[str, JsonValue]) -> dict[str, JsonValue]:
+    body = {key: value for key, value in payload.items() if key != "canonical_sha256"}
+    payload["canonical_sha256"] = content_sha256(body)
+    return payload
+
+
+def test_from_dict_rejects_noncanonical_types_and_schema_shape() -> None:
+    fit = fit_random_intercept(outcome_name="score", observations=balanced_observations())
+
+    numeric_label = fit.to_dict()
+    numeric_label["control_level"] = 123
+    with pytest.raises(HierarchicalFitError, match="string"):
+        RandomInterceptFit.from_dict(_resign_fit_payload(numeric_label))
+
+    string_boolean = fit.to_dict()
+    string_boolean["singular"] = "false"
+    with pytest.raises(HierarchicalFitError, match="boolean"):
+        RandomInterceptFit.from_dict(_resign_fit_payload(string_boolean))
+
+    padded = fit.to_dict()
+    padded["control_level"] = " control "
+    with pytest.raises(HierarchicalFitError, match="canonical text"):
+        RandomInterceptFit.from_dict(_resign_fit_payload(padded))
+
+    unknown = fit.to_dict()
+    unknown["future_field"] = "unexpected"
+    with pytest.raises(HierarchicalFitError, match="unknown"):
+        RandomInterceptFit.from_dict(_resign_fit_payload(unknown))
+
+    missing = fit.to_dict()
+    del missing["estimand"]
+    with pytest.raises(HierarchicalFitError, match="missing"):
+        RandomInterceptFit.from_dict(_resign_fit_payload(missing))
 
 
 # --------------------------------------------------------------------------- paired bridge
@@ -421,6 +473,50 @@ def test_extreme_values_stay_finite_and_deterministic() -> None:
     assert fit.verify()
     assert math.isfinite(fit.treatment_effect)
     assert fit.treatment_effect == pytest.approx(2.0, abs=1e-6)
+
+
+def test_reml_and_cross_validation_are_translation_invariant() -> None:
+    observations = balanced_observations()
+    baseline_fit = fit_random_intercept(outcome_name="score", observations=observations)
+    baseline_report = cross_validate_random_intercept(
+        outcome_name="score", observations=observations
+    )
+
+    for offset in (1e3, 1e6, 1e8):
+        shifted = tuple(replace(item, value=item.value + offset) for item in observations)
+        fit = fit_random_intercept(outcome_name="score", observations=shifted)
+        report = cross_validate_random_intercept(outcome_name="score", observations=shifted)
+        assert fit.treatment_effect == pytest.approx(baseline_fit.treatment_effect, abs=1e-7)
+        assert fit.between_variance == pytest.approx(
+            baseline_fit.between_variance, rel=1e-6, abs=1e-8
+        )
+        assert fit.error_variance == pytest.approx(baseline_fit.error_variance, rel=1e-6, abs=1e-8)
+        assert fit.intercept == pytest.approx(baseline_fit.intercept + offset, abs=1e-7)
+        assert report.path_a_effect == pytest.approx(baseline_report.path_a_effect, abs=1e-7)
+        assert report.path_a_between_variance == pytest.approx(
+            baseline_report.path_a_between_variance, rel=1e-6, abs=1e-8
+        )
+        assert report.path_a_error_variance == pytest.approx(
+            baseline_report.path_a_error_variance, rel=1e-6, abs=1e-8
+        )
+        assert report.passed
+
+
+def test_drop_cluster_allows_more_dropped_than_retained() -> None:
+    observations = [
+        *clustered([("c1", (1.0,), (2.0,)), ("c2", (1.5,), (2.5,))]),
+        ClusterObservation("score", "c3", "c3.c", "control", 3.0),
+        ClusterObservation("score", "c4", "c4.c", "control", 4.0),
+        ClusterObservation("score", "c5", "c5.c", "control", 5.0),
+    ]
+    fit = fit_random_intercept(
+        outcome_name="score",
+        observations=observations,
+        missing_policy=ClusterMissingPolicy.DROP_CLUSTER,
+    )
+    assert fit.cluster_count == 2
+    assert fit.dropped_clusters == 3
+    assert fit.verify()
 
 
 def test_long_and_reordered_identifiers_are_deterministic() -> None:

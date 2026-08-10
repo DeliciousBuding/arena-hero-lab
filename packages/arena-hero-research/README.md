@@ -77,8 +77,11 @@ two-level random-intercept model over the frozen `ClusterObservation` grain
 `control_level` and `treatment_level` labels; the directed estimand is always treatment minus
 control and never depends on lexical label ordering. The authoritative estimator is profile
 REML (stdlib only); `cross_validate_random_intercept` compares it against an independent
-within-cluster OLS effect plus between-cluster method-of-moments path with declared
-tolerances. The paired design is the balanced degenerate case and
+within-cluster OLS effect plus between-cluster method-of-moments path. Balanced
+designs validate both effects and variances against declared tolerances. Allocation-
+unbalanced designs may report `effect_passed`, but set `variance_validated=false` and
+therefore can never claim aggregate `passed=true`. The paired design is the balanced
+degenerate case and
 `paired_to_cluster_observations` bridges pairs so the REML effect reproduces the existing
 paired mean difference.
 

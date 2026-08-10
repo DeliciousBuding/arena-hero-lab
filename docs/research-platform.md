@@ -134,16 +134,19 @@ independent of lexical label ordering.
   fixed-``lambda`` GLS (stdlib only, no NumPy/SciPy/Pandas/Statsmodels);
 - independent cross-validation path: within-cluster OLS + between-cluster method-of-moments
   (MoM/ANOVA), compared against the REML result with declared tolerances;
-- balanced fixtures must agree within ``1e-8`` (effect) and ``1e-7`` (variance); mildly
-  unbalanced fixtures use a looser effect tolerance (``1e-3``) and record variance
-  agreement without gating on it;
+- balanced fixtures must agree within ``1e-8`` (effect) and ``1e-7`` (variance);
+  allocation-unbalanced fixtures expose separate ``effect_passed``,
+  ``variance_validated``, and ``variance_passed`` fields. Their MoM variance is not a
+  calibrated conformance oracle, so ``variance_validated=false`` and aggregate
+  ``passed=false`` even when the effect check passes;
 - confidence interval: conservative between-cluster t with ``df = cluster_count - 1``;
   this is **not** Satterthwaite or Kenward-Roger;
 - effect size: ``hierarchical-d-v1 = beta / sqrt(sigma2_u + sigma2_e)``; this is **not**
   Cohen's d or Cohen's dz;
 - canonical identity: schema ``arena.research.random-intercept-fit.v2`` includes the
   explicit control/treatment direction and a content-addressed SHA-256 over the frozen
-  payload; ``RandomInterceptFit.from_dict`` verifies the digest and rejects tampering.
+  payload; ``RandomInterceptFit.from_dict`` requires the exact v2 key set and original
+  JSON types, rejects normalization/unknown fields, and verifies the digest.
 
 Fail-closed gates (no silent fallback):
 
