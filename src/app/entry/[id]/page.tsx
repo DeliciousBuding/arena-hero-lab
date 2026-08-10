@@ -2,6 +2,7 @@ import { ArrowLeft, CircleAlert, Trophy } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ContestantLinks } from "@/components/contestant-links";
+import { KillStats } from "@/components/kill-stats";
 import { KillTimelinePanel } from "@/components/kill-timeline-panel";
 import { MiniBars } from "@/components/mini-bars";
 import { RadarChart } from "@/components/radar-chart";
@@ -10,6 +11,7 @@ import { SectionHeader } from "@/components/section-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import {
   Table,
   TableBody,
@@ -403,6 +405,8 @@ export default async function EntryPage({
           description="核心摧毁事件沿 tick 轴展开：每行一个玩家，标记位置 = 摧毁时刻、颜色 = 击杀者（悬浮查看击杀者 → 被击杀者）。"
         />
         <Card className="p-6">
+          <KillStats contestantId={id} />
+          <Separator className="my-6" />
           <KillTimelinePanel
             scenarios={benchData.scenarios}
             roster={benchData.contestants.map((c) => ({ id: c.id, label: c.label }))}
