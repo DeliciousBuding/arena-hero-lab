@@ -92,6 +92,41 @@ class ReplicationOutcomeEvidence:
         }
 
 
+@dataclass(frozen=True, slots=True, order=True)
+class ReplicationDroppedPair:
+    replication_index: int
+    outcome_name: str
+    pair_id: str
+    reason: str
+
+    def __post_init__(self) -> None:
+        if self.replication_index < 0:
+            raise ValueError("replication_index must be non-negative")
+        object.__setattr__(
+            self, "outcome_name", require_identifier(self.outcome_name, "outcome_name")
+        )
+        object.__setattr__(self, "pair_id", require_identifier(self.pair_id, "pair_id"))
+        if not self.reason.strip():
+            raise ValueError("dropped-pair reason must not be empty")
+
+    def to_dict(self) -> dict[str, JsonValue]:
+        return {
+            "replication_index": self.replication_index,
+            "outcome_name": self.outcome_name,
+            "pair_id": self.pair_id,
+            "reason": self.reason,
+        }
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, object]) -> ReplicationDroppedPair:
+        return cls(
+            replication_index=require_int(value["replication_index"], "replication_index"),
+            outcome_name=str(value["outcome_name"]),
+            pair_id=str(value["pair_id"]),
+            reason=str(value["reason"]),
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class ReplicationMerge:
     schema_version: str
@@ -105,7 +140,7 @@ class ReplicationMerge:
     successful_replications: int
     merged_outcomes: tuple[MergedOutcomePairs, ...]
     replication_evidence: tuple[ReplicationOutcomeEvidence, ...]
-    dropped_pairs: tuple[DroppedPair, ...]
+    dropped_pairs: tuple[ReplicationDroppedPair, ...]
     canonical_sha256: str
 
     def __post_init__(self) -> None:
@@ -129,11 +164,30 @@ class ReplicationMerge:
             raise ReplicationQualityError("result digests must be unique")
         if self.successful_replications != len(results):
             raise ReplicationQualityError("successful replication count must match results")
+        outcomes = tuple(self.merged_outcomes)
+        outcome_names = {item.outcome_name for item in outcomes}
+        if not outcomes or len(outcome_names) != len(outcomes):
+            raise ReplicationQualityError("merged outcomes must be non-empty and unique")
+        evidence = tuple(sorted(self.replication_evidence))
+        evidence_keys = {(item.replication_index, item.outcome_name) for item in evidence}
+        expected_evidence = {
+            (index, outcome_name)
+            for index in range(self.successful_replications)
+            for outcome_name in outcome_names
+        }
+        if evidence_keys != expected_evidence or len(evidence_keys) != len(evidence):
+            raise ReplicationQualityError(
+                "replication evidence is incomplete or selectively reported"
+            )
+        drops = tuple(sorted(self.dropped_pairs))
+        drop_keys = {(item.replication_index, item.outcome_name, item.pair_id) for item in drops}
+        if len(drop_keys) != len(drops):
+            raise ReplicationQualityError("merged dropped-pair records must be unique")
         object.__setattr__(self, "expected_task_sha256s", expected)
         object.__setattr__(self, "result_sha256s", results)
-        object.__setattr__(self, "merged_outcomes", tuple(self.merged_outcomes))
-        object.__setattr__(self, "replication_evidence", tuple(sorted(self.replication_evidence)))
-        object.__setattr__(self, "dropped_pairs", tuple(sorted(self.dropped_pairs)))
+        object.__setattr__(self, "merged_outcomes", outcomes)
+        object.__setattr__(self, "replication_evidence", evidence)
+        object.__setattr__(self, "dropped_pairs", drops)
 
     def payload(self) -> dict[str, JsonValue]:
         return {
@@ -169,7 +223,7 @@ class ReplicationMerge:
         drops = require_sequence(value["dropped_pairs"], "dropped_pairs")
         parsed_outcomes: list[MergedOutcomePairs] = []
         parsed_evidence: list[ReplicationOutcomeEvidence] = []
-        parsed_drops: list[DroppedPair] = []
+        parsed_drops: list[ReplicationDroppedPair] = []
         for item in outcomes:
             if not isinstance(item, Mapping):
                 raise TypeError("merged outcome must be a mapping")
@@ -203,7 +257,7 @@ class ReplicationMerge:
         for item in drops:
             if not isinstance(item, Mapping):
                 raise TypeError("dropped pair must be a mapping")
-            parsed_drops.append(DroppedPair.from_dict(item))
+            parsed_drops.append(ReplicationDroppedPair.from_dict(item))
         return cls(
             schema_version=str(value["schema_version"]),
             data_role=DataRole(str(value["data_role"])),
@@ -328,7 +382,7 @@ def merge_replications(
     }
     hypotheses = {item.outcome_name: item for item in preregistration.hypotheses}
     merged = {name: ([], []) for name in expected_outcomes}
-    all_drops: list[DroppedPair] = []
+    all_drops: list[ReplicationDroppedPair] = []
     all_evidence: list[ReplicationOutcomeEvidence] = []
     ordered_results = tuple(result_by_task[item.task_id] for item in ordered_tasks)
     for result in ordered_results:
@@ -341,7 +395,15 @@ def merge_replications(
         for outcome_name, (control, treatment) in cleaned.items():
             merged[outcome_name][0].extend(control)
             merged[outcome_name][1].extend(treatment)
-        all_drops.extend(drops)
+        all_drops.extend(
+            ReplicationDroppedPair(
+                replication_index=result.task.replication_index,
+                outcome_name=item.outcome_name,
+                pair_id=item.pair_id,
+                reason=item.reason,
+            )
+            for item in drops
+        )
         all_evidence.extend(evidence)
 
     plan = preregistration.design.replication_plan

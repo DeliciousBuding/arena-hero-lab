@@ -1,4 +1,4 @@
-"""Preregistered research contracts and reproducible analysis for Arena Hero Lab."""
+"""Preregistered research contracts and reproducible execution for Arena Hero Lab."""
 
 from arena_hero_research.analysis import (
     DataQualityReport,
@@ -10,6 +10,19 @@ from arena_hero_research.analysis import (
     benjamini_hochberg,
     normal_approx_paired_sample_size,
     paired_effect_with_bootstrap_ci,
+)
+from arena_hero_research.assignment import (
+    AssignmentError,
+    AssignmentManifest,
+    AssignmentRecord,
+    AssignmentUnit,
+    generate_assignments,
+)
+from arena_hero_research.conclusion import (
+    ConclusionError,
+    OutcomeConclusion,
+    ResearchConclusion,
+    create_research_conclusion,
 )
 from arena_hero_research.contracts import (
     AnalysisPlan,
@@ -26,32 +39,97 @@ from arena_hero_research.contracts import (
     ResearchQuestion,
     ResearchRunStatus,
 )
+from arena_hero_research.execution import (
+    DataRole,
+    DroppedPair,
+    ExecutionProvenance,
+    PairedObservation,
+    ReplicationError,
+    ReplicationResult,
+    ReplicationResultStatus,
+    ReplicationTask,
+    build_replication_tasks,
+)
+from arena_hero_research.ledger import (
+    DataUseClaim,
+    DataUseLedger,
+    LedgerConflictError,
+    OperationLedger,
+    OperationRecord,
+)
+from arena_hero_research.lifecycle import LifecycleError, ResearchLifecycle, ResearchPhase
+from arena_hero_research.planning import (
+    MonteCarloPowerResult,
+    PowerPlanningError,
+    simulate_monte_carlo_power,
+)
+from arena_hero_research.replication import (
+    MergedOutcomePairs,
+    ReplicationDroppedPair,
+    ReplicationMerge,
+    ReplicationOutcomeEvidence,
+    ReplicationQualityError,
+    merge_replications,
+)
 from arena_hero_research.results import (
     AnalysisPlanMismatchError,
     ResearchBundleError,
     ResearchRun,
     ResultBundle,
 )
+from arena_hero_research.runner import ReplicationExecutor, ReplicationRunner
 from arena_hero_research.statistics import arithmetic_mean
 
 __all__ = [
     "AnalysisPlan",
     "AnalysisPlanMismatchError",
+    "AssignmentError",
+    "AssignmentManifest",
+    "AssignmentRecord",
+    "AssignmentUnit",
+    "ConclusionError",
     "DataQualityReport",
+    "DataRole",
+    "DataUseClaim",
+    "DataUseLedger",
+    "DroppedPair",
     "EffectEstimate",
+    "ExecutionProvenance",
     "ExperimentDesign",
     "Factor",
     "Hypothesis",
     "HypothesisDirection",
+    "LedgerConflictError",
+    "LifecycleError",
+    "MergedOutcomePairs",
     "MissingDataPolicy",
     "MissingObservationError",
+    "MonteCarloPowerResult",
     "MultipleComparisonPolicy",
+    "OperationLedger",
+    "OperationRecord",
     "Outcome",
+    "OutcomeConclusion",
     "OutcomeRole",
+    "PairedObservation",
+    "PowerPlanningError",
     "Preregistration",
+    "ReplicationDroppedPair",
+    "ReplicationError",
+    "ReplicationExecutor",
+    "ReplicationMerge",
+    "ReplicationOutcomeEvidence",
     "ReplicationPlan",
+    "ReplicationQualityError",
+    "ReplicationResult",
+    "ReplicationResultStatus",
+    "ReplicationRunner",
+    "ReplicationTask",
     "ResearchAnalysisError",
     "ResearchBundleError",
+    "ResearchConclusion",
+    "ResearchLifecycle",
+    "ResearchPhase",
     "ResearchQuestion",
     "ResearchRun",
     "ResearchRunStatus",
@@ -60,7 +138,13 @@ __all__ = [
     "analyze_preregistered_paired_outcomes",
     "arithmetic_mean",
     "benjamini_hochberg",
+    "build_replication_tasks",
+    "create_research_conclusion",
+    "generate_assignments",
+    "merge_replications",
     "normal_approx_paired_sample_size",
     "paired_effect_with_bootstrap_ci",
+    "simulate_monte_carlo_power",
 ]
+
 __version__ = "0.2.0"
