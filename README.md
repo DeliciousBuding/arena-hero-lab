@@ -3,6 +3,13 @@
 Arena Hero Lab is a public monorepo for deterministic simulation, reproducible
 benchmarks, research workflows, replay artifacts, and the Arena Hero leaderboard web app.
 
+![Python](https://img.shields.io/badge/Python-3.12-3776ab)
+![Next.js](https://img.shields.io/badge/Next.js-16-black)
+![React](https://img.shields.io/badge/React-19-61dafb)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6)
+![Static Export](https://img.shields.io/badge/Static-Export-ffffff)
+![License](https://img.shields.io/badge/License-Apache--2.0-blue)
+
 The repository is organized around replaceable packages with one-way dependencies:
 
 ```text
@@ -64,7 +71,7 @@ pnpm convert
 
 It transforms `arena.bench.report.v3` into the static web dataset at
 `apps/leaderboard-web/src/data/bench.json`. The former TypeScript converter remains
-available only as a differential-test oracle:
+available only as a differential-test oracle. Its public compatibility source lives in [arena-hero-agent-ts](https://github.com/DeliciousBuding/arena-hero-agent-ts):
 
 ```bash
 pnpm convert:oracle
