@@ -3,6 +3,7 @@
 import { Trophy } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { benchData } from "@/lib/bench";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -16,10 +17,10 @@ import {
 import { ThemeToggle } from "./theme-toggle";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Leaderboard" },
-  { href: "/#dimensions", label: "维度" },
-  { href: "/#heatmap", label: "热图" },
-  { href: "/#scenarios", label: "场景" },
+  { href: "/", label: "Leaderboard", sectionId: "rankings" },
+  { href: "/#dimensions", label: "维度", sectionId: "dimensions" },
+  { href: "/#heatmap", label: "热图", sectionId: "heatmap" },
+  { href: "/#scenarios", label: "场景", sectionId: "scenarios" },
 ] as const;
 
 /** GitHub 经典黑猫头像（官方 mark-github octicon，fill 风格）。 */
@@ -38,14 +39,41 @@ export function GitHubIcon({ className }: { className?: string }) {
 
 /**
  * 顶部导航：sticky + 半透明背景模糊，48px 高，底部 hairline。
- * 右侧 = GitHub 黑猫 + Linux DO（@作者）+ 主题切换；锚点链接不做 active 高亮。
+ * 右侧 = GitHub 黑猫 + Linux DO（@作者）+ 主题切换；锚点项按滚动位置 scroll spy 高亮。
  */
 export function AppChrome() {
   const pathname = usePathname();
-  /** 锚点链接（#hash）不做 active 高亮（否则首页会恒亮"维度/热图/场景"）。 */
-  const isActive = (href: string) => {
-    if (href.includes("#")) return false;
-    return href === "/" ? pathname === "/" : pathname.startsWith(href);
+  /** scroll spy：当前视口顶部附近的区块 id（无区块可见 = null，如 hero 区）。 */
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+
+  useEffect(() => {
+    const sections = NAV_ITEMS.map((item) => item.sectionId)
+      .map((id) => document.getElementById(id))
+      .filter((el): el is HTMLElement => el !== null);
+    if (sections.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible.length > 0) {
+          setActiveSection(visible[0].target.id);
+        }
+      },
+      // 视口上部 15%–30% 的窄带作为"当前区块"判定区
+      { rootMargin: "-15% 0px -70% 0px", threshold: 0 },
+    );
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, [pathname]);
+
+  /** 锚点链接按 scroll spy 高亮；首页 Leaderboard 在 hero/榜单区亮。 */
+  const isActive = (href: string): boolean => {
+    if (href.includes("#")) {
+      return activeSection === href.slice(2);
+    }
+    return pathname === "/" && (activeSection === null || activeSection === "rankings");
   };
 
   return (
