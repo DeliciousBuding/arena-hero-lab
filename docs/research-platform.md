@@ -125,8 +125,10 @@ Y_ij = mu + beta * T_ij + u_i + e_ij
 with independent random intercepts ``u_i ~ N(0, sigma2_u)`` per cluster and errors
 ``e_ij ~ N(0, sigma2_e)``. The data grain is
 (outcome, cluster, observation, treatment, value) via the frozen ``ClusterObservation``
-record, and the estimand is the **within-cluster (conditional) average treatment
-contrast** ``beta = E[Y | T=1, u] - E[Y | T=0, u]``, constant over every cluster.
+record. Every fit registers explicit ``control_level`` and ``treatment_level`` labels;
+the estimand is the directed **within-cluster (conditional) average treatment contrast**
+``beta = E[Y | T=treatment, u] - E[Y | T=control, u]``, constant over every cluster and
+independent of lexical label ordering.
 
 - estimator: profile REML over ``lambda = sigma2_u / sigma2_e`` with a closed-form
   fixed-``lambda`` GLS (stdlib only, no NumPy/SciPy/Pandas/Statsmodels);
@@ -139,17 +141,19 @@ contrast** ``beta = E[Y | T=1, u] - E[Y | T=0, u]``, constant over every cluster
   this is **not** Satterthwaite or Kenward-Roger;
 - effect size: ``hierarchical-d-v1 = beta / sqrt(sigma2_u + sigma2_e)``; this is **not**
   Cohen's d or Cohen's dz;
-- canonical identity: schema ``arena.research.random-intercept-fit.v1`` with a
-  content-addressed SHA-256 over the frozen payload; tampering breaks verification.
+- canonical identity: schema ``arena.research.random-intercept-fit.v2`` includes the
+  explicit control/treatment direction and a content-addressed SHA-256 over the frozen
+  payload; ``RandomInterceptFit.from_dict`` verifies the digest and rejects tampering.
 
 Fail-closed gates (no silent fallback):
 
-- fewer than two complete clusters, non-finite values, or clusters missing a treatment
-  level are rejected;
+- fewer than two complete clusters, non-finite or numerically overflowing values, or
+  clusters missing a declared control/treatment level are rejected with typed research errors;
 - cluster-randomized designs (no within-cluster treatment variation anywhere) are
   rejected as unidentifiable for the within-cluster estimand;
-- a missing-level policy is declared up front: ``fail`` rejects the incomplete cluster,
-  ``drop-cluster`` drops it and records the count and a warning;
+- a missing-level policy is declared up front with the strict ``ClusterMissingPolicy``
+  enum: ``FAIL`` rejects the incomplete cluster, while ``DROP_CLUSTER`` drops it and records
+  the count and a warning; string coercion is rejected;
 - a singular or boundary between-cluster variance produces no confidence interval, no
   standard error, and no effect-size claim, and is reported explicitly;
 - the paired design (one control and one treatment per cluster) is the balanced degenerate

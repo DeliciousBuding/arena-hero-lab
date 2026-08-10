@@ -73,15 +73,18 @@ and independent publication services remain future adapters behind the implement
 
 For clustered or repeated-measure outcomes the package provides a minimal but real
 two-level random-intercept model over the frozen `ClusterObservation` grain
-(outcome, cluster, observation, treatment, value). The estimand is the within-cluster
-(conditional) average treatment contrast. The authoritative estimator is profile REML
-(stdlib only); `cross_validate_random_intercept` compares it against an independent
-within-OLS + between method-of-moments path with declared tolerances. The paired design is
-the balanced degenerate case and `paired_to_cluster_observations` bridges pairs so the REML
-effect reproduces the existing paired mean difference.
+(outcome, cluster, observation, treatment, value). Callers register explicit
+`control_level` and `treatment_level` labels; the directed estimand is always treatment minus
+control and never depends on lexical label ordering. The authoritative estimator is profile
+REML (stdlib only); `cross_validate_random_intercept` compares it against an independent
+within-cluster OLS effect plus between-cluster method-of-moments path with declared
+tolerances. The paired design is the balanced degenerate case and
+`paired_to_cluster_observations` bridges pairs so the REML effect reproduces the existing
+paired mean difference.
 
-Design gates fail closed: fewer than two clusters, non-finite values, missing levels (under
-a declared `fail` / `drop-cluster` policy), and cluster-randomized designs are rejected;
+Design gates fail closed: fewer than two clusters, non-finite or numerically overflowing
+values, missing levels (under a strict `ClusterMissingPolicy.FAIL` /
+`ClusterMissingPolicy.DROP_CLUSTER` policy), and cluster-randomized designs are rejected;
 singular or boundary variance disables interval and effect-size claims. The confidence
 interval is a conservative between-cluster t with `df = cluster_count - 1` (not
 Satterthwaite or Kenward-Roger), and the effect label is `hierarchical-d-v1` (not Cohen's

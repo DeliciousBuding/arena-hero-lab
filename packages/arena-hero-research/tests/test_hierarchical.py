@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import math
 from dataclasses import replace
+from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -174,6 +176,10 @@ def test_mildly_unbalanced_cross_validation_within_loose_tolerance() -> None:
     assert not report.balanced
     assert report.passed
     assert report.effect_absolute_difference <= report.effect_tolerance
+    # Path A is the independent within-cluster OLS contrast, not REML/GLS.
+    assert report.path_a_effect == pytest.approx(1.408, abs=1e-12)
+    assert report.path_b_effect != pytest.approx(report.path_a_effect, abs=1e-6)
+    assert report.effect_absolute_difference > 1e-3
 
 
 def test_adversarial_unbalanced_cross_validation() -> None:
@@ -196,6 +202,68 @@ def test_adversarial_unbalanced_cross_validation() -> None:
     assert not report.balanced
     assert report.passed
     assert report.effect_absolute_difference <= report.effect_tolerance
+
+
+def test_balance_requires_same_per_cluster_allocation_not_only_total_n() -> None:
+    observations = clustered(
+        [
+            ("c1", (1.0,), (2.0, 2.1, 2.2)),
+            ("c2", (1.5, 1.6), (2.5, 2.6)),
+            ("c3", (2.0, 2.1, 2.2), (3.0,)),
+            ("c4", (2.5, 2.6), (3.5, 3.6)),
+        ]
+    )
+    report = cross_validate_random_intercept(outcome_name="score", observations=observations)
+    assert not report.balanced
+
+
+def test_missing_policy_rejects_string_coercion() -> None:
+    observations = [
+        *balanced_observations(),
+        ClusterObservation("score", "c5", "c5.c", "control", 1.0),
+    ]
+    with pytest.raises(HierarchicalFitError, match="ClusterMissingPolicy"):
+        fit_random_intercept(
+            outcome_name="score",
+            observations=observations,
+            missing_policy=cast(ClusterMissingPolicy, "drop-cluster"),
+        )
+
+
+def test_contrast_direction_is_explicit_not_lexicographic() -> None:
+    observations = clustered(
+        [(cluster_id, (control,), (treatment,)) for cluster_id, control, treatment in BALANCED],
+        control="z-control",
+        treatment="a-treatment",
+    )
+    fit = fit_random_intercept(
+        outcome_name="score",
+        observations=observations,
+        control_level="z-control",
+        treatment_level="a-treatment",
+    )
+    assert fit.treatment_effect == pytest.approx(1.425, abs=1e-9)
+    assert fit.control_level == "z-control"
+    assert fit.treatment_level == "a-treatment"
+    assert "treatment=a-treatment" in fit.estimand
+    assert "treatment=z-control" in fit.estimand
+
+
+@pytest.mark.parametrize("base", [1e154, 1e308])
+def test_extreme_finite_values_fail_with_typed_error(base: float) -> None:
+    observations = clustered(
+        [(f"c{index}", (base + index,), (base + index + 2.0,)) for index in range(4)]
+    )
+    with pytest.raises(HierarchicalFitError):
+        fit_random_intercept(outcome_name="score", observations=observations)
+
+
+def test_from_dict_rejects_tampered_digest() -> None:
+    fit = fit_random_intercept(outcome_name="score", observations=balanced_observations())
+    payload = fit.to_dict()
+    payload["treatment_effect"] = fit.treatment_effect + 1.0
+    with pytest.raises(HierarchicalFitError, match="digest verification"):
+        RandomInterceptFit.from_dict(payload)
 
 
 # --------------------------------------------------------------------------- paired bridge
@@ -380,6 +448,3 @@ def test_hierarchical_module_has_no_heavy_dependencies() -> None:
     assert "import scipy" not in source
     assert "import pandas" not in source
     assert "import statsmodels" not in source
-
-
-from pathlib import Path  # noqa: E402

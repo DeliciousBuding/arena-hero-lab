@@ -54,13 +54,19 @@ from arena_hero_research.validation import (
 )
 from arena_hero_sim.serialization import JsonValue, content_sha256
 
-_ESTIMAND = (
-    "within-cluster average treatment contrast: E[Y|T=1,u]-E[Y|T=0,u]=beta for every cluster u"
-)
+
+def _estimand(control_level: str, treatment_level: str) -> str:
+    return (
+        "within-cluster average treatment contrast: "
+        f"E[Y|treatment={treatment_level},u]-E[Y|treatment={control_level},u]=beta "
+        "for every cluster u"
+    )
+
+
 _ESTIMATOR = "random-intercept-reml"
 _EFFECT_SIZE_METHOD = "hierarchical-d-v1"
 _CI_METHOD = "between-cluster-t"
-_SCHEMA = "arena.research.random-intercept-fit.v1"
+_SCHEMA = "arena.research.random-intercept-fit.v2"
 _LOG_LAMBDA_LOW = -30.0
 _LOG_LAMBDA_HIGH = 30.0
 _BOUNDARY_MARGIN = 1.0
@@ -136,6 +142,8 @@ class CrossValidationReport:
     """Independent method-of-moments vs REML agreement report."""
 
     outcome_name: str
+    control_level: str
+    treatment_level: str
     cluster_count: int
     observation_count: int
     balanced: bool
@@ -156,6 +164,12 @@ class CrossValidationReport:
         object.__setattr__(
             self, "outcome_name", require_identifier(self.outcome_name, "outcome_name")
         )
+        object.__setattr__(self, "control_level", require_text(self.control_level, "control_level"))
+        object.__setattr__(
+            self, "treatment_level", require_text(self.treatment_level, "treatment_level")
+        )
+        if self.control_level == self.treatment_level:
+            raise HierarchicalFitError("control and treatment levels must differ")
         object.__setattr__(self, "cluster_count", require_int(self.cluster_count, "cluster_count"))
         object.__setattr__(
             self, "observation_count", require_int(self.observation_count, "observation_count")
@@ -185,6 +199,8 @@ class CrossValidationReport:
     def to_dict(self) -> dict[str, JsonValue]:
         return {
             "outcome_name": self.outcome_name,
+            "control_level": self.control_level,
+            "treatment_level": self.treatment_level,
             "cluster_count": self.cluster_count,
             "observation_count": self.observation_count,
             "balanced": self.balanced,
@@ -209,6 +225,8 @@ class RandomInterceptFit:
 
     schema_version: str
     outcome_name: str
+    control_level: str
+    treatment_level: str
     estimator: str
     effect_size_method: str
     ci_method: str
@@ -238,14 +256,20 @@ class RandomInterceptFit:
         object.__setattr__(
             self, "outcome_name", require_identifier(self.outcome_name, "outcome_name")
         )
+        object.__setattr__(self, "control_level", require_text(self.control_level, "control_level"))
+        object.__setattr__(
+            self, "treatment_level", require_text(self.treatment_level, "treatment_level")
+        )
+        if self.control_level == self.treatment_level:
+            raise HierarchicalFitError("control and treatment levels must differ")
         if self.estimator != _ESTIMATOR:
             raise HierarchicalFitError("only the REML estimator is authoritative")
         if self.effect_size_method != _EFFECT_SIZE_METHOD:
             raise HierarchicalFitError("unsupported hierarchical effect-size method")
         if self.ci_method != _CI_METHOD:
             raise HierarchicalFitError("unsupported hierarchical confidence-interval method")
-        if self.estimand != _ESTIMAND:
-            raise HierarchicalFitError("fit must disclose the registered estimand")
+        if self.estimand != _estimand(self.control_level, self.treatment_level):
+            raise HierarchicalFitError("fit must disclose the registered directed estimand")
         if not 0.0 < self.confidence_level < 1.0:
             raise HierarchicalFitError("confidence_level must be between zero and one")
         object.__setattr__(self, "cluster_count", require_int(self.cluster_count, "cluster_count"))
@@ -313,6 +337,8 @@ class RandomInterceptFit:
         return {
             "schema_version": self.schema_version,
             "outcome_name": self.outcome_name,
+            "control_level": self.control_level,
+            "treatment_level": self.treatment_level,
             "estimator": self.estimator,
             "effect_size_method": self.effect_size_method,
             "ci_method": self.ci_method,
@@ -345,9 +371,11 @@ class RandomInterceptFit:
     @classmethod
     def from_dict(cls, value: Mapping[str, object]) -> RandomInterceptFit:
         warnings = require_sequence(value["warnings"], "warnings")
-        return cls(
+        restored = cls(
             schema_version=str(value["schema_version"]),
             outcome_name=str(value["outcome_name"]),
+            control_level=str(value["control_level"]),
+            treatment_level=str(value["treatment_level"]),
             estimator=str(value["estimator"]),
             effect_size_method=str(value["effect_size_method"]),
             ci_method=str(value["ci_method"]),
@@ -373,6 +401,9 @@ class RandomInterceptFit:
             warnings=tuple(str(item) for item in warnings),
             canonical_sha256=str(value["canonical_sha256"]),
         )
+        if not restored.verify():
+            raise HierarchicalFitError("random-intercept fit digest verification failed")
+        return restored
 
 
 def _optional_float(value: object, field_name: str) -> float | None:
@@ -426,170 +457,210 @@ def paired_to_cluster_observations(
     return tuple(converted)
 
 
+def _normalize_contrast(control_level: str, treatment_level: str) -> tuple[str, str]:
+    control = require_text(control_level, "control_level")
+    treatment = require_text(treatment_level, "treatment_level")
+    if control == treatment:
+        raise HierarchicalFitError("control and treatment levels must differ")
+    return control, treatment
+
+
+def _normalize_missing_policy(policy: ClusterMissingPolicy) -> ClusterMissingPolicy:
+    if not isinstance(policy, ClusterMissingPolicy):
+        raise HierarchicalFitError("missing_policy must be a ClusterMissingPolicy value")
+    return policy
+
+
+def _numeric_boundary(operation: str, function):
+    try:
+        return function()
+    except HierarchicalFitError:
+        raise
+    except (ArithmeticError, ValueError) as error:
+        raise HierarchicalFitError(
+            f"{operation} failed at the finite numerical boundary: {type(error).__name__}"
+        ) from error
+
+
 def fit_random_intercept(
     *,
     outcome_name: str,
     observations: Sequence[ClusterObservation],
+    control_level: str = "control",
+    treatment_level: str = "treatment",
     confidence_level: float = 0.95,
     missing_policy: ClusterMissingPolicy = ClusterMissingPolicy.FAIL,
 ) -> RandomInterceptFit:
-    """Fit the random-intercept model and return a content-addressed result.
-
-    The authoritative estimator is profile REML. Identifiability, missing-data,
-    and singular-boundary rules fail closed; no silent fallback is performed.
-    """
+    """Fit a directed treatment-minus-control random-intercept model."""
 
     normalized_outcome = require_identifier(outcome_name, "outcome_name")
+    control, treatment = _normalize_contrast(control_level, treatment_level)
+    policy = _normalize_missing_policy(missing_policy)
     if not 0.0 < confidence_level < 1.0:
         raise HierarchicalFitError("confidence_level must be between zero and one")
-    clusters, dropped = _prepare_clusters(normalized_outcome, observations, missing_policy)
-    cluster_ids = tuple(sorted(clusters))
-    cluster_count = len(cluster_ids)
-    observation_count = sum(len(values) for values in clusters.values())
 
-    beta, intercept, sigma2_e, sigma2_u, se2, singular, boundary, warnings = _reml_fit(
-        cluster_ids, clusters
-    )
-
-    if singular:
-        confidence_lower = confidence_upper = standard_error = effect = None
-    else:
-        standard_error = math.sqrt(se2)
-        degrees = cluster_count - 1
-        tail = (1.0 - confidence_level) / 2.0
-        critical = student_t_inv_cdf(1.0 - tail, degrees)
-        half_width = critical * standard_error
-        confidence_lower = beta - half_width
-        confidence_upper = beta + half_width
-        effect = beta / math.sqrt(sigma2_u + sigma2_e)
-    icc = sigma2_u / (sigma2_u + sigma2_e)
-    if dropped:
-        warnings = (
-            *warnings,
-            "incomplete clusters were dropped according to the preregistered policy",
+    def calculate() -> RandomInterceptFit:
+        clusters, dropped = _prepare_clusters(
+            normalized_outcome, observations, policy, control, treatment
         )
-    provisional = RandomInterceptFit(
-        schema_version=_SCHEMA,
-        outcome_name=normalized_outcome,
-        estimator=_ESTIMATOR,
-        effect_size_method=_EFFECT_SIZE_METHOD,
-        ci_method=_CI_METHOD,
-        confidence_level=confidence_level,
-        estimand=_ESTIMAND,
-        cluster_count=cluster_count,
-        observation_count=observation_count,
-        dropped_clusters=dropped,
-        intercept=intercept,
-        treatment_effect=beta,
-        standard_error=standard_error,
-        between_variance=sigma2_u,
-        error_variance=sigma2_e,
-        icc=icc,
-        hierarchical_effect=effect,
-        degrees_of_freedom=cluster_count - 1,
-        confidence_lower=confidence_lower,
-        confidence_upper=confidence_upper,
-        singular=singular,
-        boundary_lambda=boundary,
-        warnings=warnings,
-        canonical_sha256="0" * 64,
-    )
-    return RandomInterceptFit(
-        schema_version=provisional.schema_version,
-        outcome_name=provisional.outcome_name,
-        estimator=provisional.estimator,
-        effect_size_method=provisional.effect_size_method,
-        ci_method=provisional.ci_method,
-        confidence_level=provisional.confidence_level,
-        estimand=provisional.estimand,
-        cluster_count=provisional.cluster_count,
-        observation_count=provisional.observation_count,
-        dropped_clusters=provisional.dropped_clusters,
-        intercept=provisional.intercept,
-        treatment_effect=provisional.treatment_effect,
-        standard_error=provisional.standard_error,
-        between_variance=provisional.between_variance,
-        error_variance=provisional.error_variance,
-        icc=provisional.icc,
-        hierarchical_effect=provisional.hierarchical_effect,
-        degrees_of_freedom=provisional.degrees_of_freedom,
-        confidence_lower=provisional.confidence_lower,
-        confidence_upper=provisional.confidence_upper,
-        singular=provisional.singular,
-        boundary_lambda=provisional.boundary_lambda,
-        warnings=provisional.warnings,
-        canonical_sha256=content_sha256(provisional.payload()),
-    )
+        cluster_ids = tuple(sorted(clusters))
+        cluster_count = len(cluster_ids)
+        observation_count = sum(
+            len(values) for grouped in clusters.values() for values in grouped.values()
+        )
+        beta, intercept, sigma2_e, sigma2_u, se2, singular, boundary, warnings = _reml_fit(
+            cluster_ids, clusters, control, treatment
+        )
+        if singular:
+            confidence_lower = confidence_upper = standard_error = effect = None
+        else:
+            standard_error = math.sqrt(se2)
+            critical = student_t_inv_cdf(1.0 - (1.0 - confidence_level) / 2.0, cluster_count - 1)
+            half_width = critical * standard_error
+            confidence_lower = beta - half_width
+            confidence_upper = beta + half_width
+            effect = beta / math.sqrt(sigma2_u + sigma2_e)
+        icc = sigma2_u / (sigma2_u + sigma2_e)
+        if not all(
+            math.isfinite(value) for value in (beta, intercept, sigma2_e, sigma2_u, se2, icc)
+        ):
+            raise SingularFitError("random-intercept fit produced non-finite statistics")
+        if dropped:
+            warnings = (
+                *warnings,
+                "incomplete clusters were dropped according to the preregistered policy",
+            )
+        provisional = RandomInterceptFit(
+            schema_version=_SCHEMA,
+            outcome_name=normalized_outcome,
+            control_level=control,
+            treatment_level=treatment,
+            estimator=_ESTIMATOR,
+            effect_size_method=_EFFECT_SIZE_METHOD,
+            ci_method=_CI_METHOD,
+            confidence_level=confidence_level,
+            estimand=_estimand(control, treatment),
+            cluster_count=cluster_count,
+            observation_count=observation_count,
+            dropped_clusters=dropped,
+            intercept=intercept,
+            treatment_effect=beta,
+            standard_error=standard_error,
+            between_variance=sigma2_u,
+            error_variance=sigma2_e,
+            icc=icc,
+            hierarchical_effect=effect,
+            degrees_of_freedom=cluster_count - 1,
+            confidence_lower=confidence_lower,
+            confidence_upper=confidence_upper,
+            singular=singular,
+            boundary_lambda=boundary,
+            warnings=warnings,
+            canonical_sha256="0" * 64,
+        )
+        return RandomInterceptFit(
+            schema_version=provisional.schema_version,
+            outcome_name=provisional.outcome_name,
+            control_level=provisional.control_level,
+            treatment_level=provisional.treatment_level,
+            estimator=provisional.estimator,
+            effect_size_method=provisional.effect_size_method,
+            ci_method=provisional.ci_method,
+            confidence_level=provisional.confidence_level,
+            estimand=provisional.estimand,
+            cluster_count=provisional.cluster_count,
+            observation_count=provisional.observation_count,
+            dropped_clusters=provisional.dropped_clusters,
+            intercept=provisional.intercept,
+            treatment_effect=provisional.treatment_effect,
+            standard_error=provisional.standard_error,
+            between_variance=provisional.between_variance,
+            error_variance=provisional.error_variance,
+            icc=provisional.icc,
+            hierarchical_effect=provisional.hierarchical_effect,
+            degrees_of_freedom=provisional.degrees_of_freedom,
+            confidence_lower=provisional.confidence_lower,
+            confidence_upper=provisional.confidence_upper,
+            singular=provisional.singular,
+            boundary_lambda=provisional.boundary_lambda,
+            warnings=provisional.warnings,
+            canonical_sha256=content_sha256(provisional.payload()),
+        )
+
+    return _numeric_boundary("random-intercept fit", calculate)
 
 
 def cross_validate_random_intercept(
     *,
     outcome_name: str,
     observations: Sequence[ClusterObservation],
+    control_level: str = "control",
+    treatment_level: str = "treatment",
     missing_policy: ClusterMissingPolicy = ClusterMissingPolicy.FAIL,
 ) -> CrossValidationReport:
-    """Compare the independent MoM/ANOVA path against the authoritative REML fit.
-
-    Balanced fixtures must agree within a tight tolerance; mildly unbalanced
-    fixtures use a looser effect tolerance and the report records both paths
-    with ``authoritative = random-intercept-reml``.
-    """
+    """Compare independent within-OLS/MoM estimates with authoritative REML."""
 
     normalized_outcome = require_identifier(outcome_name, "outcome_name")
-    clusters, _ = _prepare_clusters(normalized_outcome, observations, missing_policy)
-    cluster_ids = tuple(sorted(clusters))
-    cluster_count = len(cluster_ids)
-    observation_count = sum(len(values) for values in clusters.values())
-    if cluster_count < 3:
-        raise HierarchicalFitError(
-            "cross-validation requires at least three clusters for MoM variance estimation"
+    control, treatment = _normalize_contrast(control_level, treatment_level)
+    policy = _normalize_missing_policy(missing_policy)
+
+    def calculate() -> CrossValidationReport:
+        clusters, _ = _prepare_clusters(
+            normalized_outcome, observations, policy, control, treatment
         )
-    mom_effect, mom_between, mom_error = _mom_fit(cluster_ids, clusters)
-    reml = _reml_fit(cluster_ids, clusters)
-    reml_effect = reml[0]
-    reml_between = reml[3]
-    reml_error = reml[2]
-    balanced = _is_balanced(clusters)
-    if balanced:
-        effect_tolerance = max(1e-8, 1e-8 * abs(reml_effect))
-        variance_tolerance = max(1e-7, 1e-7 * reml_between, 1e-7 * reml_error)
-        enforce_variance = True
-    else:
-        # Method-of-moments variance components are approximate for unbalanced
-        # data; the effect tolerance is loosened and variance agreement is
-        # recorded but not enforced as a pass gate.
-        effect_tolerance = max(1e-3, 1e-3 * abs(reml_effect))
-        variance_tolerance = max(1e-2, 1e-2 * reml_between, 1e-2 * reml_error)
-        enforce_variance = False
-    effect_difference = abs(mom_effect - reml_effect)
-    variance_difference = max(abs(mom_between - reml_between), abs(mom_error - reml_error))
-    passed = effect_difference <= effect_tolerance and (
-        not enforce_variance or variance_difference <= variance_tolerance
-    )
-    return CrossValidationReport(
-        outcome_name=normalized_outcome,
-        cluster_count=cluster_count,
-        observation_count=observation_count,
-        balanced=balanced,
-        path_a_effect=mom_effect,
-        path_b_effect=reml_effect,
-        path_a_between_variance=mom_between,
-        path_a_error_variance=mom_error,
-        path_b_between_variance=reml_between,
-        path_b_error_variance=reml_error,
-        effect_absolute_difference=effect_difference,
-        variance_absolute_difference=variance_difference,
-        effect_tolerance=effect_tolerance,
-        variance_tolerance=variance_tolerance,
-        passed=passed,
-        authoritative=_ESTIMATOR,
-    )
+        cluster_ids = tuple(sorted(clusters))
+        cluster_count = len(cluster_ids)
+        observation_count = sum(
+            len(values) for grouped in clusters.values() for values in grouped.values()
+        )
+        if cluster_count < 3:
+            raise HierarchicalFitError("cross-validation requires at least three clusters")
+        ols_effect, mom_between, mom_error = _mom_fit(cluster_ids, clusters, control, treatment)
+        reml = _reml_fit(cluster_ids, clusters, control, treatment)
+        reml_effect, reml_error, reml_between = reml[0], reml[2], reml[3]
+        balanced = _is_balanced(clusters, control, treatment)
+        if balanced:
+            effect_tolerance = max(1e-8, 1e-8 * abs(reml_effect))
+            variance_tolerance = max(1e-7, 1e-7 * reml_between, 1e-7 * reml_error)
+            enforce_variance = True
+        else:
+            # Within-OLS and REML use different weighting under allocation imbalance.
+            effect_tolerance = max(1e-2, 1e-2 * abs(reml_effect))
+            variance_tolerance = max(1e-2, 1e-2 * reml_between, 1e-2 * reml_error)
+            enforce_variance = False
+        effect_difference = abs(ols_effect - reml_effect)
+        variance_difference = max(abs(mom_between - reml_between), abs(mom_error - reml_error))
+        return CrossValidationReport(
+            outcome_name=normalized_outcome,
+            control_level=control,
+            treatment_level=treatment,
+            cluster_count=cluster_count,
+            observation_count=observation_count,
+            balanced=balanced,
+            path_a_effect=ols_effect,
+            path_b_effect=reml_effect,
+            path_a_between_variance=mom_between,
+            path_a_error_variance=mom_error,
+            path_b_between_variance=reml_between,
+            path_b_error_variance=reml_error,
+            effect_absolute_difference=effect_difference,
+            variance_absolute_difference=variance_difference,
+            effect_tolerance=effect_tolerance,
+            variance_tolerance=variance_tolerance,
+            passed=effect_difference <= effect_tolerance
+            and (not enforce_variance or variance_difference <= variance_tolerance),
+            authoritative=_ESTIMATOR,
+        )
+
+    return _numeric_boundary("random-intercept cross-validation", calculate)
 
 
 def _prepare_clusters(
     outcome_name: str,
     observations: Sequence[ClusterObservation],
     missing_policy: ClusterMissingPolicy,
+    control_level: str,
+    treatment_level: str,
 ) -> tuple[dict[str, dict[str, tuple[float, ...]]], int]:
     """Validate and group observations, enforcing identifiability gates."""
 
@@ -606,18 +677,19 @@ def _prepare_clusters(
             )
         treatment_levels.add(item.treatment)
         raw.setdefault(item.cluster_id, {}).setdefault(item.treatment, []).append(item.value)
-    if len(treatment_levels) != 2:
+    expected_levels = {control_level, treatment_level}
+    if treatment_levels != expected_levels:
         raise HierarchicalFitError(
-            "the random-intercept model requires exactly two treatment levels"
+            "observations must use exactly two treatment levels (control and treatment)"
         )
-    levels = tuple(sorted(treatment_levels))
+    levels = (control_level, treatment_level)
 
     dropped = 0
     retained: dict[str, dict[str, tuple[float, ...]]] = {}
     for cluster_id, grouped in sorted(raw.items()):
         present = {level: tuple(grouped[level]) for level in levels if level in grouped}
         if len(present) != 2:
-            if missing_policy is ClusterMissingPolicy.FAIL:
+            if missing_policy == ClusterMissingPolicy.FAIL:
                 missing = ", ".join(sorted(set(levels) - set(present)))
                 raise ClusterIdentifiabilityError(
                     f"cluster {cluster_id} is missing treatment level(s): {missing}"
@@ -634,6 +706,8 @@ def _prepare_clusters(
 
 def _cluster_sums(
     clusters: dict[str, dict[str, tuple[float, ...]]],
+    control_level: str,
+    treatment_level: str,
 ) -> tuple[tuple[str, ...], tuple[int, ...], dict[str, tuple[float, float, float, float, float]]]:
     """Return sorted cluster ids, sizes, and per-cluster (n, sy, st, sty, sq)."""
 
@@ -641,9 +715,8 @@ def _cluster_sums(
     sizes: list[int] = []
     sums: dict[str, tuple[float, float, float, float, float]] = {}
     for cluster_id in ids:
-        levels = sorted(clusters[cluster_id])
-        baseline = clusters[cluster_id][levels[0]]
-        contrast = clusters[cluster_id][levels[1]]
+        baseline = clusters[cluster_id][control_level]
+        contrast = clusters[cluster_id][treatment_level]
         size = len(baseline) + len(contrast)
         sizes.append(size)
         total = sum(baseline) + sum(contrast)
@@ -657,13 +730,15 @@ def _cluster_sums(
 def _reml_fit(
     cluster_ids: tuple[str, ...],
     clusters: dict[str, dict[str, tuple[float, ...]]],
+    control_level: str,
+    treatment_level: str,
 ) -> tuple[float, float, float, float, float, bool, bool, tuple[str, ...]]:
     """Profile REML fit.
 
     Returns (beta, mu, sigma2_e, sigma2_u, se2, singular, boundary, warnings).
     """
 
-    _, sizes, sums = _cluster_sums(clusters)
+    _, sizes, sums = _cluster_sums(clusters, control_level, treatment_level)
     observation_count = sum(sizes)
     degrees = observation_count - 2
 
@@ -736,10 +811,12 @@ def _reml_fit(
 def _mom_fit(
     cluster_ids: tuple[str, ...],
     clusters: dict[str, dict[str, tuple[float, ...]]],
+    control_level: str,
+    treatment_level: str,
 ) -> tuple[float, float, float]:
     """Independent method-of-moments / ANOVA path (cross-validation only)."""
 
-    _, sizes, sums = _cluster_sums(clusters)
+    _, sizes, sums = _cluster_sums(clusters, control_level, treatment_level)
     observation_count = sum(sizes)
     cluster_count = len(cluster_ids)
     if cluster_count < 3:
@@ -809,46 +886,20 @@ def _mom_fit(
     )
     sigma2_u = max(0.0, (msb - sigma2_e) / m0)
 
-    lam = sigma2_u / sigma2_e
-    effect = _gls_effect(cluster_ids, sums, lam)
-    return effect, sigma2_u, sigma2_e
+    if not all(math.isfinite(value) for value in (within_beta, sigma2_u, sigma2_e)):
+        raise SingularFitError("MoM/ANOVA path produced non-finite statistics")
+    return within_beta, sigma2_u, sigma2_e
 
 
-def _gls_effect(
-    cluster_ids: tuple[str, ...],
-    sums: dict[str, tuple[float, float, float, float, float]],
-    lam: float,
-) -> float:
-    """Two-stage feasible GLS treatment effect for a given lambda."""
+def _is_balanced(
+    clusters: dict[str, dict[str, tuple[float, ...]]],
+    control_level: str,
+    treatment_level: str,
+) -> bool:
+    """Return true only when every cluster has the same treatment allocation/information."""
 
-    a00 = a01 = a11 = 0.0
-    b1 = 0.0
-    for cluster_id in cluster_ids:
-        size, total, treatment_count, treatment_total, _ = sums[cluster_id]
-        coeff = lam / (1.0 + size * lam)
-        a00 += size - coeff * size * size
-        a01 += treatment_count - coeff * size * treatment_count
-        a11 += treatment_count - coeff * treatment_count * treatment_count
-        b1 += treatment_total - coeff * treatment_count * total
-    determinant = a00 * a11 - a01 * a01
-    if determinant <= 0:
-        raise SingularFitError("two-stage GLS produced a singular design matrix")
-    return (a00 * b1 - a01 * _b0(cluster_ids, sums, lam)) / determinant
-
-
-def _b0(
-    cluster_ids: tuple[str, ...],
-    sums: dict[str, tuple[float, float, float, float, float]],
-    lam: float,
-) -> float:
-    value = 0.0
-    for cluster_id in cluster_ids:
-        size, total, _, _, _ = sums[cluster_id]
-        coeff = lam / (1.0 + size * lam)
-        value += total - coeff * size * total
-    return value
-
-
-def _is_balanced(clusters: dict[str, dict[str, tuple[float, ...]]]) -> bool:
-    sizes = {sum(len(values) for values in grouped.values()) for grouped in clusters.values()}
-    return len(sizes) == 1
+    allocations = {
+        (len(grouped[control_level]), len(grouped[treatment_level]))
+        for grouped in clusters.values()
+    }
+    return len(allocations) == 1
