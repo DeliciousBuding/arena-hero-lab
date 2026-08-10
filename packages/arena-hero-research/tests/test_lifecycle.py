@@ -6,6 +6,7 @@ import pytest
 
 from arena_hero_research.assignment import AssignmentUnit, generate_assignments
 from arena_hero_research.lifecycle import LifecycleError, ResearchLifecycle, ResearchPhase
+from arena_hero_sim.serialization import content_sha256
 
 from .research_fixtures import make_preregistration
 
@@ -105,3 +106,35 @@ def test_confirmatory_freeze_rejects_preregistration_or_plan_mutation() -> None:
             preregistration=changed_preregistration,
             assignment=changed_assignment,
         )
+
+
+def test_verify_against_rejects_coherently_rehashed_false_freeze() -> None:
+    preregistration = make_preregistration()
+    assignment = _assignment(preregistration)
+    confirmatory = (
+        ResearchLifecycle.create(
+            study_id="study-1", preregistration=preregistration, assignment=assignment
+        )
+        .transition(
+            ResearchPhase.EXPLORATORY,
+            preregistration=preregistration,
+            assignment=assignment,
+        )
+        .transition(
+            ResearchPhase.CONFIRMATORY,
+            preregistration=preregistration,
+            assignment=assignment,
+        )
+    )
+    provisional = replace(
+        confirmatory,
+        confirmatory_freeze_sha256="f" * 64,
+        canonical_sha256="0" * 64,
+    )
+    tampered = replace(provisional, canonical_sha256=content_sha256(provisional.payload()))
+
+    assert tampered.verify()
+    assert not tampered.verify_against(
+        preregistration=preregistration,
+        assignment=assignment,
+    )

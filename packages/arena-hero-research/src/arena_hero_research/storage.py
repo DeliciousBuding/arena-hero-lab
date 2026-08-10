@@ -290,6 +290,7 @@ class ResearchLedgerStorage(Protocol):
         operation_id: str,
         study_id: str,
         records: Sequence[FrozenResearchRecord],
+        expected_head_sha256: str | None,
     ) -> ResearchLedgerTransaction: ...
 
     def recover_torn_tail(self) -> TornTailRecovery: ...
@@ -323,6 +324,7 @@ class FilesystemResearchLedgerStorage:
         operation_id: str,
         study_id: str,
         records: Sequence[FrozenResearchRecord],
+        expected_head_sha256: str | None,
     ) -> ResearchLedgerTransaction:
         normalized_operation = require_identifier(operation_id, "operation_id")
         normalized_study = require_identifier(study_id, "study_id")
@@ -355,6 +357,12 @@ class FilesystemResearchLedgerStorage:
                         "operation id already exists with conflicting durable records"
                     )
                 return existing_operation
+
+            actual_head = state.transactions[-1].canonical_sha256 if state.transactions else None
+            if expected_head_sha256 != actual_head:
+                raise LedgerConflictError(
+                    "research ledger head changed before policy-checked commit"
+                )
 
             immutable_index = {
                 (item.study_id, item.kind, item.subject_id): item.canonical_sha256

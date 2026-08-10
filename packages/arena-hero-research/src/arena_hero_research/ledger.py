@@ -143,6 +143,23 @@ class DataUseClaim:
             self, "operation_id", require_identifier(self.operation_id, "operation_id")
         )
 
+    def to_dict(self) -> dict[str, JsonValue]:
+        return {
+            "dataset_sha256": self.dataset_sha256,
+            "study_id": self.study_id,
+            "role": self.role,
+            "operation_id": self.operation_id,
+        }
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, object]) -> DataUseClaim:
+        return cls(
+            dataset_sha256=str(value["dataset_sha256"]),
+            study_id=str(value["study_id"]),
+            role=str(value["role"]),
+            operation_id=str(value["operation_id"]),
+        )
+
 
 class DataUseLedger:
     """Reject pilot leakage and holdout reuse across confirmatory operations."""

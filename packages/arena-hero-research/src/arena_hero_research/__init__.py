@@ -39,6 +39,10 @@ from arena_hero_research.contracts import (
     ResearchQuestion,
     ResearchRunStatus,
 )
+from arena_hero_research.durable import (
+    DurableResearchLedger,
+    DurableResearchLedgerError,
+)
 from arena_hero_research.execution import (
     DataRole,
     DroppedPair,
@@ -112,6 +116,8 @@ __all__ = [
     "DataUseClaim",
     "DataUseLedger",
     "DroppedPair",
+    "DurableResearchLedger",
+    "DurableResearchLedgerError",
     "EffectEstimate",
     "EnvironmentProvenance",
     "EnvironmentSnapshot",

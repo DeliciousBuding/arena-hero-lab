@@ -190,6 +190,31 @@ class ResearchLifecycle:
             canonical_sha256=content_sha256(payload),
         )
 
+    def verify_against(
+        self,
+        *,
+        preregistration: Preregistration,
+        assignment: AssignmentManifest,
+    ) -> bool:
+        """Verify the lifecycle digest, frozen bindings, and confirmatory commitment."""
+
+        try:
+            self._validate_bindings(preregistration, assignment)
+        except (TypeError, ValueError):
+            return False
+        if not self.verify():
+            return False
+        if (
+            self.preregistration_sha256 != preregistration.canonical_sha256
+            or self.analysis_plan_sha256 != preregistration.design.analysis_plan.canonical_sha256()
+            or self.assignment_sha256 != assignment.canonical_sha256
+        ):
+            return False
+        if _PHASE_ORDER[self.phase] < _PHASE_ORDER[ResearchPhase.CONFIRMATORY]:
+            return self.confirmatory_freeze_sha256 is None
+        expected = content_sha256(self._freeze_payload(preregistration, assignment))
+        return self.confirmatory_freeze_sha256 == expected
+
     def payload(self) -> dict[str, JsonValue]:
         return {
             "schema_version": self.schema_version,

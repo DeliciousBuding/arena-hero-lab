@@ -152,3 +152,21 @@ verifies it again. Corruption in a committed line, hash-chain break, missing obj
 object digest mismatch is not auto-repaired. The adapter is a local single-writer reference,
 not a distributed transaction service, remote object store, signature system, or protection
 against an attacker who can coherently rewrite every local byte.
+
+## Durable scientific record service
+
+`DurableResearchLedger` is the application layer over the storage port. It freezes the
+preregistration, assignment manifest, analysis plan, and each lifecycle phase under stable
+immutable keys before evidence can be recorded. Replication commits atomically retain the
+held-out data-use claims, tasks, complete/partial/failed results, environment snapshot,
+minimal SBOM, and their provenance binding. Analysis commits retain result bundles whether
+the effect is favorable, null, adverse, partial, or failed. A conflicting rewrite of the
+same scientific subject or `operation_id` is rejected, and there is no deletion surface.
+
+Durable data-use claims are replayed on every restart, so pilot/exploratory leakage, holdout
+reuse by another study or operation, and post-hoc replacement remain blocked after process
+exit. Callers should invoke `replay_replication_results()` before executing an operation; a
+matching committed operation returns verified results without recomputation, while a changed
+task plan fails closed. The filesystem adapter provides an atomic durable commit, not
+distributed exactly-once execution: a crash before the journal commit may require compute to
+run again, but incomplete evidence is not accepted as committed.
