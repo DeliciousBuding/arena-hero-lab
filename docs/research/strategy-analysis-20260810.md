@@ -1,8 +1,8 @@
 # arena-hero v3.1 策略实测分析（35 场全量）
 
 > 评测日期：2026-08-10 · 数据源：`arena.bench.report.v3` · 35 场 = 7 场景 × 5 种子 × 8 玩家
-> ticks=2000 · workers=3 · 基于干净 main c58ad51（worktree eval-bench）
-> 本文仅基于实测数据，不含推测；killEvents 因并发落盘 bug 全空，击杀时序图待修复后补。
+> ticks=2000 · workers=4 · 基于干净 main c58ad51（worktree eval-bench）
+> 本文仅基于实测数据，不含推测；killEvents 并发落盘 bug 已修复（2026-08-10 续3，详见 §7），30/35 场 87 事件。
 
 ## 1. 榜单排名（综合分降序）
 
@@ -110,7 +110,10 @@ arena-evolve 人口峰值最高（动态产兵 + 资源充足）。farmer 系人
 ## 7. 可观测性建议
 
 基于本轮评测数据缺失，建议 arena-ts 评测层增强：
-1. **killEvents 并发落盘 bug 修复**（本轮发现：3 workers 并发时 killEvents 全空，单 worker 正常）——根因待定位（桥的 killEvents 收集在多 worker 下未正确聚合）
+1. **killEvents 并发落盘 bug 已修复**（2026-08-10 续3）：
+   - 根因：`WorkerMatchFile` 序列化三重缺失——接口无 killEvents 字段定义 + `runWorkerProcess` 写文件漏 + 主进程 `resolvePromise` 读回漏。**非并发竞态**，是 worker 序列化漏字段（之前会话"并发隔离"修复保留了价值但非此 bug 根因）
+   - 修复三处后 workers=4 全量 35 场验证：30/35 场有 killEvents 共 87 事件（85 有 victim）。5 场无事件为平局或时间到未摧毁核心
+   - 击杀时序图数据源就绪，网站 `KillTimeline` 组件可正常渲染（entry 详情页击杀时序 section）
 2. **per-tick 时序数据**：当前只有汇总指标，缺逐 tick 的资源/人口/部队曲线——建议落盘 perPlayer 时序快照（每 50 tick 采样）
 3. **决策日志采样**：agent 每场的关键决策（产兵/调度/信标）摘要，用于策略可解释性
 4. **战斗事件**：除 CORE_DESTROYED 外，记录 ARMY_DESTROYED/SIGNAL_ACTIVATED 等事件时序
@@ -122,4 +125,4 @@ arena-evolve 人口峰值最高（动态产兵 + 资源充足）。farmer 系人
 - **激进变体负收益**（waaiging-agg -26.6%），保守变体微正（core-mil +4.9%/farmer-eco +2.0%）
 - **场景专精有价值**：waaiging-agg 在 ffa-open 有效，但综合分大降
 - **tactic 完全失效**（综合分 0.4%），需根本性策略重构
-- **killEvents 并发落盘 bug** 是本轮评测基础设施发现，待 arena-ts 修复后重跑击杀时序数据
+- **killEvents 并发落盘 bug 已修复**（2026-08-10 续3）：根因为 worker 序列化漏字段（非并发竞态），修复后 30/35 场 87 事件，击杀时序图数据就绪
