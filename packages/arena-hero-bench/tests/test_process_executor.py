@@ -618,6 +618,36 @@ def test_oversized_output_fails_closed(tmp_path: Path) -> None:
     assert any("output exceeded" in error for error in result.errors)
 
 
+def test_worker_not_reading_stdin_bounded(tmp_path: Path) -> None:
+    """A child that never reads stdin must not block execute() forever."""
+    script = tmp_path / "never-reads-stdin.py"
+    script.write_text("import time\ntime.sleep(60)\n", encoding="utf-8")
+    scenario = replace(
+        scenario_for(seed=7, unit_id=UNIT_IDS[0], scenario_id="scenario-big"),
+        turns=tuple(
+            ReferenceTurn(tick, (ReferenceCommand(UNIT_IDS[0], ReferenceActionKind.HARVEST),))
+            for tick in range(1, 4001)
+        ),
+    )
+    executor = ProcessExecutor(
+        backend_specs={REFERENCE_BACKEND_ID: reference_spec(worker_script=str(script))},
+        artifact_store=InMemoryArtifactStore(),
+        ledger=InMemoryExecutionLedger(),
+        max_workers=1,
+        per_task_timeout=1.0,
+        scenario_provider=scenario_provider([scenario]),
+    )
+    started = time.monotonic()
+    result = executor.execute(plan_for([request_for(scenario)]))
+    elapsed = time.monotonic() - started
+    assert result.status is RunStatus.FAILED
+    assert result.publishable is False
+    assert any("read the work envelope" in error for error in result.errors)
+    assert elapsed < 15.0
+    with executor._lock:
+        assert not executor._active
+
+
 def test_envelope_dedup_scenarios() -> None:
     scenarios = make_scenarios(2)
     requests = [

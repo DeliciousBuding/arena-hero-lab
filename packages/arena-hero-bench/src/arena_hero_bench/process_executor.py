@@ -897,21 +897,43 @@ class ProcessExecutor:
         stderr_reader = _BoundedPipeReader(stderr, max_bytes=self.max_output_bytes)
         stdout_reader.start()
         stderr_reader.start()
-        timed_out = False
-        try:
+        # The per-task deadline covers both feeding the envelope and waiting for
+        # the worker. A child that never reads stdin would otherwise block the
+        # parent forever on a full pipe buffer, so the write runs in a bounded
+        # daemon thread and a stalled write fails closed with a tree kill.
+        deadline = time.monotonic() + self.per_task_timeout
+        stdin_target = stdin
+        write_error: list[BaseException] = []
+
+        def _write_input() -> None:
             try:
-                stdin.write(canonical_json_bytes(envelope) + b"\n")
+                stdin_target.write(canonical_json_bytes(envelope) + b"\n")
             except (BrokenPipeError, OSError):
                 pass
-            finally:
-                with suppress(OSError):
-                    stdin.close()
-            try:
-                proc.wait(timeout=self.per_task_timeout)
-            except subprocess.TimeoutExpired:
+            except Exception as exc:  # pragma: no cover - defensive
+                write_error.append(exc)
+
+        writer = threading.Thread(target=_write_input, name="arena-process-stdin", daemon=True)
+        writer.start()
+        timed_out = False
+        write_stalled = False
+        try:
+            writer.join(timeout=max(0.0, deadline - time.monotonic()))
+            if writer.is_alive():
                 timed_out = True
+                write_stalled = True
                 self._kill_tree(tracked)
                 self._bounded_wait(tracked)
+                writer.join(timeout=_REAP_TIMEOUT)
+            else:
+                with suppress(OSError):
+                    stdin.close()
+                try:
+                    proc.wait(timeout=max(0.0, deadline - time.monotonic()))
+                except subprocess.TimeoutExpired:
+                    timed_out = True
+                    self._kill_tree(tracked)
+                    self._bounded_wait(tracked)
             deadline = time.monotonic() + _REAP_TIMEOUT
             readers_finished = True
             for reader in (stdout_reader, stderr_reader):
@@ -920,11 +942,19 @@ class ProcessExecutor:
                     readers_finished = False
                     break
             if timed_out:
-                return ChunkOutcome(
-                    _failed_results(
-                        chunk,
-                        f"worker exceeded per-task timeout of {self.per_task_timeout:g} seconds",
+                if write_stalled:
+                    message = (
+                        f"worker did not read the work envelope within "
+                        f"{self.per_task_timeout:g} seconds"
                     )
+                else:
+                    message = (
+                        f"worker exceeded per-task timeout of {self.per_task_timeout:g} seconds"
+                    )
+                return ChunkOutcome(_failed_results(chunk, message))
+            if write_error:
+                return ChunkOutcome(
+                    _failed_results(chunk, f"worker input write failed: {write_error[0]}")
                 )
             if proc.returncode is None:
                 return ChunkOutcome(
