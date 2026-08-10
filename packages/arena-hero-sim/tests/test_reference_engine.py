@@ -391,7 +391,7 @@ def test_cross_player_contest_fails_for_all_arrivals() -> None:
     assert {event.reason_code for event in result.events} == {"MOVE_CONTESTED"}
 
 
-def test_unimplemented_movement_dependency_returns_unsupported() -> None:
+def test_registered_movement_dependency_scenario_is_supported() -> None:
     world = ReferenceWorld(
         tick=1,
         resolved_tick_count=0,
@@ -413,7 +413,7 @@ def test_unimplemented_movement_dependency_returns_unsupported() -> None:
         terrain=ReferenceTerrain(),
     )
     scenario = ReferenceScenario(
-        "movement-chain-unsupported",
+        "movement-chain-supported",
         world,
         ("alpha",),
         (
@@ -427,9 +427,9 @@ def test_unimplemented_movement_dependency_returns_unsupported() -> None:
         ),
     )
     result = registry_for(scenario).simulate(request_for(scenario))
-    assert result.status is SimulationStatus.UNSUPPORTED
-    assert result.publishable is False
-    assert "chains" in result.errors[0]
+    assert result.status is SimulationStatus.COMPLETE
+    assert result.publishable is True
+    assert result.errors == ()
 
 
 def test_full_world_hash_properties_without_incremental_claim() -> None:

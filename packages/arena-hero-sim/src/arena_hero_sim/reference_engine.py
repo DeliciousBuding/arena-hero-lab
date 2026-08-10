@@ -203,6 +203,25 @@ def _commands_for_turn(world: ReferenceWorld, turn: ReferenceTurn) -> dict[str, 
     return commands
 
 
+@dataclass(frozen=True, slots=True)
+class _MoveIntent:
+    actor_id: str
+    owner_id: str
+    source: Position
+    destination: Position
+
+
+def _arrival_groups(
+    intents: tuple[_MoveIntent, ...], failures: dict[str, str]
+) -> dict[Position, tuple[_MoveIntent, ...]]:
+    groups: dict[Position, list[_MoveIntent]] = {}
+    for intent in intents:
+        if intent.actor_id in failures:
+            continue
+        groups.setdefault(intent.destination, []).append(intent)
+    return {destination: tuple(arrivals) for destination, arrivals in sorted(groups.items())}
+
+
 def _movement_phase(
     world: ReferenceWorld,
     commands: dict[str, ReferenceCommand],
@@ -212,67 +231,147 @@ def _movement_phase(
     phase = "P05-global-movement"
     units = _unit_lookup(world)
     occupancy = _occupancy(world)
-    intents: list[tuple[str, str, Position, Position]] = []
-    for actor_id, command in commands.items():
-        if command.action is not ReferenceActionKind.MOVE:
-            continue
-        owner_id, unit = units[actor_id]
-        assert command.direction is not None
-        dx, dy = _DIRECTION_DELTA[command.direction]
-        destination = (unit.position[0] + dx, unit.position[1] + dy)
-        intents.append((actor_id, owner_id, unit.position, destination))
-    intents.sort(key=lambda item: uuid_sort_key(item[0]))
-
-    moving_sources = {source for _, _, source, _ in intents}
-    if any(destination in moving_sources for _, _, _, destination in intents):
-        raise UnsupportedReferenceSliceError(
-            "movement dependency chains, swaps, and cycles are outside the M4 reference slice"
+    intents = tuple(
+        sorted(
+            (
+                _MoveIntent(
+                    actor_id=actor_id,
+                    owner_id=units[actor_id][0],
+                    source=units[actor_id][1].position,
+                    destination=(
+                        units[actor_id][1].position[0] + _DIRECTION_DELTA[command.direction][0],
+                        units[actor_id][1].position[1] + _DIRECTION_DELTA[command.direction][1],
+                    ),
+                )
+                for actor_id, command in commands.items()
+                if command.action is ReferenceActionKind.MOVE and command.direction is not None
+            ),
+            key=lambda intent: uuid_sort_key(intent.actor_id),
         )
-
+    )
+    by_actor = {intent.actor_id: intent for intent in intents}
     failures: dict[str, str] = {}
-    groups: dict[Position, list[tuple[str, str, Position, Position]]] = {}
-    for intent in intents:
-        actor_id, owner_id, _source, destination = intent
-        if destination in world.terrain.obstacles:
-            failures[actor_id] = "MOVE_BLOCKED_TERRAIN"
-            continue
-        occupants = occupancy.get(destination, [])
-        if any(occupant_owner != owner_id for occupant_owner, _ in occupants):
-            failures[actor_id] = "MOVE_DESTINATION_OCCUPIED"
-            continue
-        groups.setdefault(destination, []).append(intent)
 
-    for destination in sorted(groups):
-        arrivals = [intent for intent in groups[destination] if intent[0] not in failures]
-        if len({intent[1] for intent in arrivals}) > 1:
-            for actor_id, _, _, _ in arrivals:
-                failures[actor_id] = "MOVE_CONTESTED"
-            continue
-        room = max(0, rules.cell_entity_capacity - len(occupancy.get(destination, [])))
-        for actor_id, _, _, _ in sorted(arrivals, key=lambda item: uuid_sort_key(item[0]))[room:]:
-            failures[actor_id] = "CELL_UNIT_LIMIT"
-
-    updated = world
-    for actor_id, owner_id, source, destination in intents:
+    def fail(actor_id: str, reason_code: str) -> bool:
         if actor_id in failures:
+            return False
+        failures[actor_id] = reason_code
+        return True
+
+    # Static failures are settled before dependencies. This precedence mirrors the
+    # read-only TypeScript S4 oracle and keeps upstream failure propagation explicit.
+    for intent in intents:
+        x, y = intent.destination
+        if abs(x) > 9_007_199_254_740_991 or abs(y) > 9_007_199_254_740_991:
+            fail(intent.actor_id, "MOVE_OUT_OF_BOUNDS")
+        elif intent.destination in world.terrain.obstacles:
+            fail(intent.actor_id, "MOVE_BLOCKED_TERRAIN")
+
+    # Hostile two-way swaps fail as a pair. Same-player swaps remain legal and are
+    # resolved atomically after the fixed point converges.
+    for intent in intents:
+        if intent.actor_id in failures:
+            continue
+        for occupant_owner, occupant_id in occupancy.get(intent.destination, ()):
+            if occupant_owner == intent.owner_id:
+                continue
+            occupant_intent = by_actor.get(occupant_id)
+            if occupant_intent is not None and occupant_intent.destination == intent.source:
+                fail(intent.actor_id, "MOVE_SWAP_BLOCKED")
+                fail(occupant_id, "MOVE_SWAP_BLOCKED")
+
+    # Resolve contests, occupancy dependencies, and capacity until no new failure
+    # can propagate. Pending dependency cycles are legal and commit simultaneously.
+    changed = True
+    while changed:
+        changed = False
+
+        for arrivals in _arrival_groups(intents, failures).values():
+            if len({intent.owner_id for intent in arrivals}) <= 1:
+                continue
+            for intent in arrivals:
+                changed = fail(intent.actor_id, "MOVE_CONTESTED") or changed
+
+        for intent in intents:
+            if intent.actor_id in failures:
+                continue
+            occupants = occupancy.get(intent.destination, ())
+
+            # A hostile occupant must have a still-valid departure. Spare cell
+            # capacity does not permit co-occupancy across players in this oracle.
+            for occupant_owner, occupant_id in occupants:
+                if occupant_owner == intent.owner_id:
+                    continue
+                occupant_intent = by_actor.get(occupant_id)
+                if occupant_intent is None or occupant_id in failures:
+                    changed = fail(intent.actor_id, "MOVE_DESTINATION_OCCUPIED") or changed
+                    break
+            if intent.actor_id in failures:
+                continue
+
+            # Entering an initially full cell requires every occupant to depart.
+            # A failed departure propagates through the dependency graph.
+            if len(occupants) >= rules.cell_entity_capacity:
+                for occupant_owner, occupant_id in occupants:
+                    occupant_intent = by_actor.get(occupant_id)
+                    if occupant_intent is None:
+                        reason = (
+                            "CELL_UNIT_LIMIT"
+                            if occupant_owner == intent.owner_id
+                            else "MOVE_DESTINATION_OCCUPIED"
+                        )
+                        changed = fail(intent.actor_id, reason) or changed
+                        break
+                    if occupant_id in failures:
+                        changed = fail(intent.actor_id, "MOVE_DEPENDENCY_FAILED") or changed
+                        break
+
+        for arrivals in _arrival_groups(intents, failures).values():
+            destination = arrivals[0].destination
+            staying = sum(
+                1
+                for _occupant_owner, occupant_id in occupancy.get(destination, ())
+                if occupant_id not in by_actor or occupant_id in failures
+            )
+            room = max(0, rules.cell_entity_capacity - staying)
+            ordered = sorted(arrivals, key=lambda intent: uuid_sort_key(intent.actor_id))
+            for loser in ordered[room:]:
+                changed = fail(loser.actor_id, "CELL_UNIT_LIMIT") or changed
+
+    destinations = {
+        intent.actor_id: intent.destination for intent in intents if intent.actor_id not in failures
+    }
+    players = tuple(
+        replace(
+            player,
+            units=tuple(
+                replace(unit, position=destinations[unit.id]) if unit.id in destinations else unit
+                for unit in player.units
+            ),
+        )
+        for player in world.players
+    )
+    updated = replace(world, players=players)
+
+    for intent in intents:
+        reason_code = failures.get(intent.actor_id)
+        if reason_code is not None:
             _event(
                 events,
                 phase=phase,
                 event_type="UNIT_MOVE_FAILED",
-                actor_id=actor_id,
-                reason_code=failures[actor_id],
-                position=source,
+                actor_id=intent.actor_id,
+                reason_code=reason_code,
+                position=intent.source,
             )
-            continue
-        unit = _unit_lookup(updated)[actor_id][1]
-        updated = _replace_unit(updated, owner_id, replace(unit, position=destination))
-        _event(
-            events,
-            phase=phase,
-            event_type="UNIT_MOVE_SUCCEEDED",
-            actor_id=actor_id,
-            position=destination,
-        )
+        else:
+            _event(
+                events,
+                phase=phase,
+                event_type="UNIT_MOVE_SUCCEEDED",
+                actor_id=intent.actor_id,
+                position=intent.destination,
+            )
     return updated
 
 
