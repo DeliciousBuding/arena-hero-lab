@@ -57,7 +57,7 @@ _REGEX_RULES = {
     "Windows absolute path": re.compile(r"\b[A-Za-z]:[\\/]"),
     "standalone private user name": re.compile(r"(?i)(?<![A-Za-z])" + "Di" + r"ng(?![A-Za-z])"),
     "credential-shaped token": re.compile(
-        r"(?i)(?:sk|ghp|github_pat|xox[baprs])[-_][A-Za-z0-9_-]{16,}"
+        r"(?i)(?<![A-Za-z0-9])(?:sk|ghp|github_pat|xox[baprs])[-_][A-Za-z0-9_-]{16,}"
     ),
     "specific tenant service": re.compile(r"arena-hero-" + r"t[1-4]\b", re.IGNORECASE),
     "internal continuation marker": re.compile(r"续[0-9]+"),
