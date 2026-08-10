@@ -1,0 +1,118 @@
+# Simulator platform
+
+## Purpose
+
+`arena-hero-sim` is the backend-neutral simulator platform. It defines immutable requests,
+results, rules identities, capability negotiation, backend registration, batch execution, and
+performance evidence without coupling the platform to one engine implementation.
+
+The built-in `reference-placeholder` backend validates integration contracts only. It always
+returns `unsupported` and is not a game-rules engine.
+
+## Components
+
+```mermaid
+graph TD
+    REQUEST["SimulationRequest"] --> REGISTRY["BackendRegistry"]
+    REGISTRY --> NEGOTIATE["Protocol and capability negotiation"]
+    NEGOTIATE --> REF["Reference placeholder"]
+    NEGOTIATE --> PY["Future deterministic Python backend"]
+    NEGOTIATE --> NATIVE["Future optimized/native backend"]
+    REF --> RESULT["SimulationResult"]
+    PY --> RESULT
+    NATIVE --> RESULT
+    RESULT --> ARTIFACTS["Content-addressed artifacts"]
+```
+
+### Immutable contracts
+
+- `RulesetRef` binds a portable rules name and version to a SHA-256 digest.
+- `SimulatorConfig` freezes backend id, engine version, deterministic seed, tick budget,
+  protocol version, requested features, and parameters.
+- `SimulationRequest` binds a request/episode identity to contestants and input digests.
+- `SimulationResult` records engine identity, rules digest, seed, status, world digest,
+  metrics, artifacts, and publication eligibility.
+- `BackendCapabilities` advertises batch size, execution modes, protocol versions,
+  incremental hashing, zero-copy support, and interchange formats.
+
+All incomplete, failed, and unsupported results are non-publishable.
+
+## Hot path design
+
+The contracts deliberately permit several replaceable hot-path implementations:
+
+1. **Structure-of-arrays or ECS storage** for dense unit state and cache-friendly phase loops.
+2. **Incremental world hashing** where a backend updates deterministic region/component
+   digests instead of serializing the complete world every tick.
+3. **Batch episode execution** through `simulate_batch`, with registry-controlled chunking.
+4. **Process-local parallelism** with deterministic request ordering and isolated RNG streams.
+5. **Optional zero-copy interchange** for stable buffers. Canonical JSON remains the baseline;
+   Arrow-compatible buffers may be negotiated by capability rather than required globally.
+
+NumPy, Pandas, Arrow, native extensions, and GPU runtimes are not core dependencies. A backend
+may add them behind capabilities and must pass the same conformance suite.
+
+## Capability negotiation
+
+A request selects exactly one backend id and engine version. The registry rejects:
+
+- unknown backends;
+- duplicate backend registrations;
+- unsupported protocol versions;
+- requested features absent from the backend capability set;
+- mixed-backend batches;
+- results whose request, rules, seed, or engine identity differs from the request.
+
+This prevents an optimized backend from silently dropping a rule or feature.
+
+## Microbenchmark harness
+
+Run the local contract-dispatch microbenchmark:
+
+```bash
+uv run arena-hero-sim-bench --episodes 10000 --repeats 5 --batch-size 256
+```
+
+Schema: `arena.sim.microbenchmark.v1`.
+
+The harness measures immutable request validation, registry negotiation, batch chunking, and
+placeholder result construction. It sets `production_claim=false`; it does not measure game
+simulation throughput. Reports contain durations, median, p95, throughput, Python version,
+platform family, backend id, and engine version without host identity.
+
+## Performance budgets
+
+Performance budgets are evidence gates, not marketing claims:
+
+| Surface | Foundation budget |
+|---|---|
+| Contract-dispatch median | No more than 15% regression against a same-machine pinned baseline |
+| Batch determinism | Identical result ordering and digests for batch sizes 1, 2, 4, and configured maximum |
+| Allocation policy | Hot-path state may be reused internally but public requests/results remain immutable |
+| World hashing | Full and incremental digests must match on conformance fixtures |
+| Parallel execution | Worker count must not alter episode or merged run digests |
+| Interchange | Canonical JSON is required; zero-copy/Arrow paths are optional negotiated accelerators |
+
+A real engine baseline will add ticks/second, p50/p95/p99 tick latency, peak RSS, world size,
+and artifact throughput using shared semantic fixtures.
+
+## Extension points
+
+- `SimulatorBackend` for Python, native, remote, or accelerator-backed engines.
+- `BackendCapabilities` for feature and data-boundary negotiation.
+- `BackendRegistry` for deterministic selection and validation.
+- `simulate_batch` for vectorized or multi-episode backends.
+- content-addressed inputs/results for replay, resume, and distributed execution.
+
+## M3-M7 evolution
+
+- **M3 — platform contracts:** immutable contracts, registry, placeholder, batch API, local
+  microbenchmark, and conformance tests. Implemented in this slice.
+- **M4 — deterministic reference engine:** official rule fixtures, immutable world model,
+  phase settlement, visibility, replay, and full/incremental hash equivalence.
+- **M5 — optimized backend:** SoA/ECS storage, profiling-driven kernels, bounded allocation,
+  and regression budgets against M4 semantics.
+- **M6 — local scale:** process executor, deterministic sharding, resume, optional Arrow
+  interchange, and resource isolation.
+- **M7 — distributed scale:** remote executor adapters, artifact stores, content-addressed
+  merge, failure injection, and reproducible release evidence.

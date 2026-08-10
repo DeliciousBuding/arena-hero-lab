@@ -1,10 +1,13 @@
 [project]
 name = "arena-hero-sim"
-version = "0.1.0"
+version = "0.2.0"
 description = "Deterministic simulation foundations for Arena Hero."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = []
+
+[project.scripts]
+arena-hero-sim-bench = "arena_hero_sim.microbenchmark:main"
 
 [build-system]
 requires = ["hatchling"]
