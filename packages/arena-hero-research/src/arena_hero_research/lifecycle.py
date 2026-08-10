@@ -100,9 +100,10 @@ class ResearchLifecycle:
         assignment: AssignmentManifest,
     ) -> ResearchLifecycle:
         cls._validate_bindings(preregistration, assignment)
+        normalized_study = require_identifier(study_id, "study_id")
         payload: dict[str, JsonValue] = {
             "schema_version": "arena.research.lifecycle.v1",
-            "study_id": study_id,
+            "study_id": normalized_study,
             "phase": ResearchPhase.PILOT.value,
             "preregistration_sha256": preregistration.canonical_sha256,
             "analysis_plan_sha256": preregistration.design.analysis_plan.canonical_sha256(),
@@ -112,7 +113,7 @@ class ResearchLifecycle:
         }
         return cls(
             schema_version="arena.research.lifecycle.v1",
-            study_id=study_id,
+            study_id=normalized_study,
             phase=ResearchPhase.PILOT,
             preregistration_sha256=preregistration.canonical_sha256,
             analysis_plan_sha256=preregistration.design.analysis_plan.canonical_sha256(),

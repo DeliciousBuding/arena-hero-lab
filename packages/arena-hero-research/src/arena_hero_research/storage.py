@@ -109,21 +109,23 @@ class FrozenResearchRecord:
         subject_id: str,
         payload: Mapping[str, JsonValue],
     ) -> FrozenResearchRecord:
+        normalized_study = require_identifier(study_id, "study_id")
+        normalized_subject = require_identifier(subject_id, "subject_id")
         frozen_payload = freeze_public_metadata(payload, "record payload")
         payload_sha256 = content_sha256(dict(frozen_payload))
         envelope: dict[str, JsonValue] = {
             "schema_version": "arena.research.frozen-record.v1",
-            "study_id": study_id,
+            "study_id": normalized_study,
             "kind": kind.value,
-            "subject_id": subject_id,
+            "subject_id": normalized_subject,
             "payload_sha256": payload_sha256,
             "payload": dict(frozen_payload),
         }
         return cls(
             schema_version="arena.research.frozen-record.v1",
-            study_id=study_id,
+            study_id=normalized_study,
             kind=kind,
-            subject_id=subject_id,
+            subject_id=normalized_subject,
             payload_sha256=payload_sha256,
             payload=frozen_payload,
             canonical_sha256=content_sha256(envelope),
@@ -208,19 +210,21 @@ class ResearchLedgerTransaction:
         record_sha256s: tuple[str, ...],
         previous_transaction_sha256: str | None,
     ) -> ResearchLedgerTransaction:
+        normalized_operation = require_identifier(operation_id, "operation_id")
+        normalized_study = require_identifier(study_id, "study_id")
         payload: dict[str, JsonValue] = {
             "schema_version": "arena.research.ledger-transaction.v1",
             "sequence": sequence,
-            "operation_id": operation_id,
-            "study_id": study_id,
+            "operation_id": normalized_operation,
+            "study_id": normalized_study,
             "record_sha256s": list(record_sha256s),
             "previous_transaction_sha256": previous_transaction_sha256,
         }
         return cls(
             schema_version="arena.research.ledger-transaction.v1",
             sequence=sequence,
-            operation_id=operation_id,
-            study_id=study_id,
+            operation_id=normalized_operation,
+            study_id=normalized_study,
             record_sha256s=record_sha256s,
             previous_transaction_sha256=previous_transaction_sha256,
             canonical_sha256=content_sha256(payload),
@@ -300,7 +304,7 @@ class FilesystemResearchLedgerStorage:
     """Reference local adapter using immutable objects plus a JSONL hash chain."""
 
     def __init__(self, root: str | Path) -> None:
-        self.root = Path(root)
+        self.root = Path(root).expanduser().resolve()
 
     @property
     def journal_path(self) -> Path:

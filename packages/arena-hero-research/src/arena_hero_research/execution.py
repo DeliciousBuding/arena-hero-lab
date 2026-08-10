@@ -151,13 +151,15 @@ class ReplicationTask:
         assignment_ids: tuple[str, ...],
         provenance: ExecutionProvenance,
     ) -> ReplicationTask:
+        normalized_study = require_identifier(study_id, "study_id")
+        normalized_environment = require_text(environment, "environment")
         identity = content_sha256(
             {
-                "study_id": study_id,
+                "study_id": normalized_study,
                 "data_role": data_role.value,
                 "replication_index": replication_index,
                 "seed": seed,
-                "environment": environment,
+                "environment": normalized_environment,
                 "assignment_sha256": assignment.canonical_sha256,
                 "provenance": provenance.to_dict(),
             }
@@ -166,11 +168,11 @@ class ReplicationTask:
         provisional = cls(
             schema_version="arena.research.replication-task.v1",
             task_id=task_id,
-            study_id=study_id,
+            study_id=normalized_study,
             data_role=data_role,
             replication_index=replication_index,
             seed=seed,
-            environment=environment,
+            environment=normalized_environment,
             preregistration_sha256=preregistration.canonical_sha256,
             design_id=preregistration.design.design_id,
             analysis_plan_sha256=preregistration.design.analysis_plan.canonical_sha256(),

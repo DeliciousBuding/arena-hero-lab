@@ -154,3 +154,33 @@ def test_data_use_claim_rejects_unknown_role() -> None:
             role="selected-after-results",
             operation_id="operation-1",
         )
+
+
+def test_replication_task_identity_uses_normalized_inputs() -> None:
+    preregistration, assignment, _, tasks = _context()
+    original = tasks[0]
+    padded = ReplicationTask.create(
+        study_id=" study-1 ",
+        data_role=original.data_role,
+        replication_index=original.replication_index,
+        seed=original.seed,
+        environment=" local-reference ",
+        preregistration=preregistration,
+        assignment=assignment,
+        assignment_ids=original.assignment_ids,
+        provenance=original.provenance,
+    )
+    canonical = ReplicationTask.create(
+        study_id="study-1",
+        data_role=original.data_role,
+        replication_index=original.replication_index,
+        seed=original.seed,
+        environment="local-reference",
+        preregistration=preregistration,
+        assignment=assignment,
+        assignment_ids=original.assignment_ids,
+        provenance=original.provenance,
+    )
+
+    assert padded == canonical
+    assert padded.verify()

@@ -20,6 +20,10 @@ _SENSITIVE_PARTS = (
     "secret",
     "token",
 )
+_SENSITIVE_FORMS = tuple(
+    (part, "".join(character for character in part if character.isalnum()))
+    for part in _SENSITIVE_PARTS
+)
 
 
 def require_text(value: str, field_name: str) -> str:
@@ -30,6 +34,8 @@ def require_text(value: str, field_name: str) -> str:
 
 
 def require_identifier(value: str, field_name: str) -> str:
+    """Return the stripped canonical form of a portable lowercase identifier."""
+
     normalized = require_text(value, field_name)
     if not _IDENTIFIER.fullmatch(normalized):
         raise ValueError(f"{field_name} must be a lowercase portable identifier")
@@ -51,11 +57,21 @@ def freeze_public_metadata(
     if not isinstance(normalized, dict):
         raise TypeError(f"{field_name} must be a mapping")
 
+    def normalized_key_forms(key: str) -> tuple[str, str]:
+        folded = key.casefold()
+        separated = "".join(character if character.isalnum() else "_" for character in folded)
+        separated = re.sub(r"_+", "_", separated).strip("_")
+        compact = "".join(character for character in folded if character.isalnum())
+        return separated, compact
+
     def visit(item: JsonValue, path: tuple[str, ...]) -> None:
         if isinstance(item, dict):
             for key, nested in item.items():
-                lowered = key.lower().replace("-", "_")
-                if any(part in lowered for part in _SENSITIVE_PARTS):
+                separated, compact = normalized_key_forms(key)
+                if any(
+                    separated_part in separated or compact_part in compact
+                    for separated_part, compact_part in _SENSITIVE_FORMS
+                ):
                     location = ".".join((*path, key))
                     raise ValueError(f"{field_name} contains sensitive key {location}")
                 visit(nested, (*path, key))

@@ -62,15 +62,16 @@ class OperationRecord:
     def create(
         cls, *, operation_id: str, plan_sha256: str, result_sha256s: tuple[str, ...]
     ) -> OperationRecord:
+        normalized_operation = require_identifier(operation_id, "operation_id")
         payload: dict[str, JsonValue] = {
             "schema_version": "arena.research.operation-record.v1",
-            "operation_id": operation_id,
+            "operation_id": normalized_operation,
             "plan_sha256": plan_sha256,
             "result_sha256s": list(result_sha256s),
         }
         return cls(
             schema_version="arena.research.operation-record.v1",
-            operation_id=operation_id,
+            operation_id=normalized_operation,
             plan_sha256=plan_sha256,
             result_sha256s=result_sha256s,
             canonical_sha256=content_sha256(payload),

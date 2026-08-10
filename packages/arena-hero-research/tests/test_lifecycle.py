@@ -138,3 +138,21 @@ def test_verify_against_rejects_coherently_rehashed_false_freeze() -> None:
         preregistration=preregistration,
         assignment=assignment,
     )
+
+
+def test_lifecycle_create_hashes_normalized_study_identity() -> None:
+    preregistration = make_preregistration()
+    assignment = _assignment(preregistration)
+    padded = ResearchLifecycle.create(
+        study_id=" study-1 ",
+        preregistration=preregistration,
+        assignment=assignment,
+    )
+    canonical = ResearchLifecycle.create(
+        study_id="study-1",
+        preregistration=preregistration,
+        assignment=assignment,
+    )
+
+    assert padded == canonical
+    assert padded.verify()

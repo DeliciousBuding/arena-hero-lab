@@ -24,6 +24,32 @@ def _record(*, value: int = 1, subject_id: str = "analysis-plan") -> FrozenResea
     )
 
 
+def test_relative_root_remains_stable_after_process_cwd_changes(tmp_path, monkeypatch) -> None:
+    original_cwd = tmp_path / "original-cwd"
+    changed_cwd = tmp_path / "changed-cwd"
+    original_cwd.mkdir()
+    changed_cwd.mkdir()
+    monkeypatch.chdir(original_cwd)
+    storage = FilesystemResearchLedgerStorage("relative-ledger")
+    expected_root = (original_cwd / "relative-ledger").resolve()
+
+    monkeypatch.chdir(changed_cwd)
+    record = _record()
+    storage.commit(
+        operation_id="freeze-plan",
+        study_id="study-1",
+        records=(record,),
+        expected_head_sha256=None,
+    )
+
+    assert storage.root == expected_root
+    assert storage.root.is_absolute()
+    assert storage.journal_path == expected_root / "journal" / "transactions.jsonl"
+    assert storage.object_path(record.canonical_sha256).is_file()
+    assert storage.load().records == (record,)
+    assert not (changed_cwd / "relative-ledger").exists()
+
+
 def test_filesystem_storage_commits_content_addressed_hash_chain(tmp_path) -> None:
     storage = FilesystemResearchLedgerStorage(tmp_path / "ledger")
     record = _record()
