@@ -1,8 +1,8 @@
 {
   "schema": "arena.bench.report.v3",
   "generatedAt": "2026-08-10T10:10:15.591Z",
-  "convertedAt": "2026-08-10T11:30:00.737Z",
-  "source": "scripts/input",
+  "convertedAt": "2026-08-10T11:33:06.811Z",
+  "source": "D:/Code/Projects/arena/data/runs/sim/arena-bench-v3.3-control10-2000t-43d0098c5ae3",
   "params": {
     "players": 10,
     "rulesVersion": "v0.14",

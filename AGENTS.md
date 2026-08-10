@@ -20,17 +20,17 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   → gh-pages 分支（legacy 模式）→ GitHub Pages
 ```
 
-## 一键发布（推荐）
+## 一键发布（推荐，Python）
 
-```powershell
-powershell -File scripts/release.ps1 -LatestRun    # 自动检测最新产物并发布
-powershell -File scripts/release.ps1 -Source <path> # 指定产物
-powershell -File scripts/release.ps1 -SkipDeploy    # 只转换+构建不部署
+```bash
+python scripts/release.py --latest        # 自动检测最新产物并发布
+python scripts/release.py --source <path> # 指定产物
+python scripts/release.py --skip-deploy   # 只转换+构建不部署
 ```
 
 - 流程：检测/校验产物 → convert → build → lint → 部署 gh-pages → 打印核对信息
-- 无更新检测：产物与当前 bench.json 的 generatedAt/schema 相同则跳过（-Force 强制）
-- 部署用 worktree 方式（gh-pages 分支），不要直接调 deploy-gh-pages.sh（bash 脚本在 PowerShell 会话下会挂起）
+- 无更新检测：产物与当前 bench.json 的 generatedAt/schema 相同则跳过（--force 强制）
+- 部署用 git worktree 方式（gh-pages 分支），不依赖 bash
 - 产物对比：`npx tsx scripts/compare-runs.mts <old.json> <new.json>`（榜单 Δ / 胜方 / 参数）
 
 ## 版本语义（三层，各管各的）
