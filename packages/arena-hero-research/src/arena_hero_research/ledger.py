@@ -18,6 +18,9 @@ class LedgerConflictError(ValueError):
     pass
 
 
+_DATA_USE_ROLES = frozenset({"pilot", "exploratory", "confirmatory", "replication"})
+
+
 @dataclass(frozen=True, slots=True)
 class OperationRecord:
     schema_version: str
@@ -138,7 +141,10 @@ class DataUseClaim:
             self, "dataset_sha256", require_sha256(self.dataset_sha256, "dataset_sha256")
         )
         object.__setattr__(self, "study_id", require_identifier(self.study_id, "study_id"))
-        object.__setattr__(self, "role", require_identifier(self.role, "role"))
+        role = require_identifier(self.role, "role")
+        if role not in _DATA_USE_ROLES:
+            raise LedgerConflictError("data-use role is not part of the research lifecycle")
+        object.__setattr__(self, "role", role)
         object.__setattr__(
             self, "operation_id", require_identifier(self.operation_id, "operation_id")
         )

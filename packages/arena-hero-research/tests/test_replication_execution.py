@@ -144,3 +144,13 @@ def test_nested_sensitive_result_metadata_is_rejected() -> None:
             observations=(PairedObservation("score", "pair-1", 0.0, 1.0),),
             metadata={"runtime": {"api_token": "forbidden"}},
         )
+
+
+def test_data_use_claim_rejects_unknown_role() -> None:
+    with pytest.raises(LedgerConflictError, match="research lifecycle"):
+        DataUseClaim(
+            dataset_sha256="a" * 64,
+            study_id="study-1",
+            role="selected-after-results",
+            operation_id="operation-1",
+        )
