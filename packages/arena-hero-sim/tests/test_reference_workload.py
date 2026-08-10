@@ -230,3 +230,71 @@ def test_comparator_rejects_metric_nan_reordering_duplicates_and_missing_episode
         mismatch.field for mismatch in compare_workload_runs(reference, missing).mismatches
     }
     assert {"episode_alignment", "missing_episode"} <= missing_fields
+
+
+def test_comparator_rejects_non_complete_and_unpublishable_candidate_run() -> None:
+    reference, candidate = _candidate_with_different_backend()
+
+    partial_status = replace(candidate.episodes[0], status=SimulationStatus.PARTIAL)
+    non_complete = replace(candidate, episodes=(partial_status, *candidate.episodes[1:]))
+    fields = {
+        mismatch.field for mismatch in compare_workload_runs(reference, non_complete).mismatches
+    }
+    assert "status" in fields
+
+    unpublishable = replace(
+        candidate,
+        publishable=False,
+        issues=("episode 0 is not publishable",),
+    )
+    fields = {
+        mismatch.field for mismatch in compare_workload_runs(reference, unpublishable).mismatches
+    }
+    assert {"candidate_run.publishable", "candidate_run.issues"} <= fields
+
+
+def test_comparator_rejects_unsupported_backend_partial_coverage() -> None:
+    reference, candidate = _candidate_with_different_backend()
+    partial = replace(
+        candidate,
+        episodes=candidate.episodes[:3],
+        publishable=False,
+        issues=("backend lacks capability to execute the full workload",),
+    )
+
+    fields = {mismatch.field for mismatch in compare_workload_runs(reference, partial).mismatches}
+    assert {"episode_alignment", "missing_episode", "candidate_run.publishable"} <= fields
+
+
+def test_comparator_rejects_wrong_ruleset_and_workload_identity() -> None:
+    reference, candidate = _candidate_with_different_backend()
+
+    wrong_rules = replace(reference.ruleset, rules_sha256="e" * 64)
+    wrong_ruleset_run = replace(candidate, ruleset=wrong_rules)
+    fields = {
+        mismatch.field
+        for mismatch in compare_workload_runs(reference, wrong_ruleset_run).mismatches
+    }
+    assert "ruleset" in fields
+
+    wrong_workload = replace(candidate, workload_id="unrelated-workload")
+    fields = {
+        mismatch.field for mismatch in compare_workload_runs(reference, wrong_workload).mismatches
+    }
+    assert "workload_id" in fields
+
+
+def test_comparator_accepts_different_protocol_and_backend_capabilities() -> None:
+    reference, candidate = _candidate_with_different_backend()
+    backend = replace(
+        candidate.backend,
+        protocol_version="999.0",
+        max_batch_size=1,
+        supports_batch=False,
+        supports_zero_copy=False,
+    )
+    candidate = replace(candidate, backend=backend)
+
+    report = compare_workload_runs(reference, candidate)
+
+    assert report.passed
