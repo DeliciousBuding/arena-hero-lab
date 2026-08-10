@@ -315,28 +315,47 @@ function main(): void {
     };
   });
 
-  /** 榜单：按综合分降序，附每场景平均名次与跨场景波动（由 perEntry.avgRank 派生） */
-  const sortedLeaderboard = [...raw.leaderboard].sort((a, b) => b.composite - a.composite);
-  const leaderboard = sortedLeaderboard.map((entry, index) => {
-    const scenarioRanks = Object.fromEntries(
-      scenarios.map((s) => [s.name, s.perEntry[entry.contestantId]?.avgRank ?? null]),
-    );
-    const rankValues = Object.values(scenarioRanks).filter((v): v is number => v != null);
-    return {
-      rank: index + 1,
-      contestantId: entry.contestantId,
-      composite: entry.composite,
-      avgRank: entry.avgRank,
-      rankStddev: stddev(rankValues),
-      killRate: entry.killRate,
-      killScore: entry.killScore,
-      rankScore: entry.rankScore,
-      economyScore: entry.economyScore,
-      survivalMedian: entry.survivalMedian,
-      survivalScore: entry.survivalScore,
-      scenarioRanks,
-    };
-  });
+  /** 榜单行：按综合分降序，附每场景平均名次与跨场景波动（由 perEntry.avgRank 派生）。
+   *  主榜与对照组榜（kind=builtin）共用同一结构，仅展示区分。 */
+  interface LeaderboardRow {
+    rank: number;
+    contestantId: string;
+    composite: number;
+    avgRank: number;
+    rankStddev: number;
+    killRate: number;
+    killScore: number;
+    rankScore: number;
+    economyScore: number;
+    survivalMedian: number;
+    survivalScore: number;
+    scenarioRanks: Record<string, number | null>;
+  }
+  function buildLeaderboard(rows: RawReport["leaderboard"]): LeaderboardRow[] {
+    return [...rows]
+      .sort((a, b) => b.composite - a.composite)
+      .map((entry, index) => {
+        const scenarioRanks = Object.fromEntries(
+          scenarios.map((s) => [s.name, s.perEntry[entry.contestantId]?.avgRank ?? null]),
+        );
+        const rankValues = Object.values(scenarioRanks).filter((v): v is number => v != null);
+        return {
+          rank: index + 1,
+          contestantId: entry.contestantId,
+          composite: entry.composite,
+          avgRank: entry.avgRank,
+          rankStddev: stddev(rankValues),
+          killRate: entry.killRate,
+          killScore: entry.killScore,
+          rankScore: entry.rankScore,
+          economyScore: entry.economyScore,
+          survivalMedian: entry.survivalMedian,
+          survivalScore: entry.survivalScore,
+          scenarioRanks,
+        };
+      });
+  }
+  const leaderboard = buildLeaderboard(raw.leaderboard);
 
   const output = {
     schema: raw.schema,
@@ -353,6 +372,10 @@ function main(): void {
       ...(CONTESTANT_LINUXDO_URL[c.id] !== undefined ? { linuxdoUrl: CONTESTANT_LINUXDO_URL[c.id] } : {}),
     })),
     leaderboard,
+    /** v3.3 对照组榜（kind=builtin 条目；旧产物缺失时为 undefined，前端按无对照组处理）。 */
+    ...(raw.leaderboardControl === undefined
+      ? {}
+      : { leaderboardControl: buildLeaderboard(raw.leaderboardControl) }),
     scenarios,
     entryScenarioStats,
     scenarioOrder: scenarioIds,
