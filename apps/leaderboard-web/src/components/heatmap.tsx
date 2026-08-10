@@ -18,7 +18,7 @@ export function Heatmap() {
   const [metricKey, setMetricKey] = useState<ScenarioMetricKey>("resourcesPerTick");
   const metric = HEATMAP_METRICS.find((m) => m.key === metricKey) ?? HEATMAP_METRICS[0];
 
-  /** 全部参赛条目（统一主榜，含 arena-ts 客户端）。 */
+  /** 全部参赛条目（统一主榜，含 legacy TypeScript contestant）。 */
   const entries = [...benchData.leaderboard].sort((a, b) => a.rank - b.rank);
   const scenarios = benchData.scenarioOrder
     .map((name) => benchData.scenarios.find((s) => s.name === name))

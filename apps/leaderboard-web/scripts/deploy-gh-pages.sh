@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Publish the static web export to the legacy gh-pages branch.
 # This script is intentionally manual and never runs as part of build or test.
+#
+# Windows note: run this script with an explicit Git Bash or WSL bash path instead of a
+# bare `bash`, which resolves to the WSL launcher on Windows and may behave differently.
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
@@ -26,6 +29,8 @@ fi
 git worktree add -B gh-pages "$WORKTREE" origin/gh-pages
 
 echo "==> sync static export"
+# Replace the previous export only inside the dedicated gh-pages worktree (never outside
+# it): the .git directory is preserved and every other entry is removed before copying.
 find "$WORKTREE" -mindepth 1 -maxdepth 1 ! -name ".git" -exec rm -rf {} +
 cp -r "$APP_DIR/out/." "$WORKTREE"/
 touch "$WORKTREE/.nojekyll"

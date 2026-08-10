@@ -15,7 +15,7 @@
  * - scenarios[]：perEntry[contestantId] 提供 killRate/resourcesPerTick/survivalMedian/
  *   populationPeak/avgRank/beaconTicks/firstKillTick/damagePerLoss
  * - matches[]：perPlayer 键形如 `<id>-s<seed>`，rank/winner 同键
- * - contestants[]：kind: python | builtin（builtin = 对照组）
+ * - contestants[]：kind: python | builtin（builtin = reference contestants）
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
@@ -58,7 +58,7 @@ const SCENARIO_LABELS: Record<string, string> = {
 
 /** 条目 id → GitHub 仓库（社区 agent 全部第三方，含 legacy TypeScript clients；
  *  展示用，不依赖评测产物）。
- *  来源：docs/reference/repository-classification.md 第三方表登记。 */
+ *  来源：本文件 CONTESTANT_REPO_URL 映射表登记。 */
 const CONTESTANT_REPO_URL: Record<string, string> = {
   farmer: "https://github.com/Drew-Z/arena-hero-agent",
   "farmer-eco": "https://github.com/Drew-Z/arena-hero-agent",
@@ -73,7 +73,7 @@ const CONTESTANT_REPO_URL: Record<string, string> = {
 };
 
 /** 条目 id → Linux DO 帖子（社区讨论来源；展示用，不依赖评测产物）。
- *  来源：docs/reference/repository-classification.md 第三方表登记。 */
+ *  来源：本文件 CONTESTANT_REPO_URL 映射表登记。 */
 const CONTESTANT_LINUXDO_URL: Record<string, string> = {
   farmer: "https://linux.do/t/topic/2703873",
   "farmer-eco": "https://linux.do/t/topic/2703873",
@@ -164,7 +164,7 @@ interface RawReport {
     survivalMedian: number;
     survivalScore: number;
   }[];
-  /** v3.3 对照组榜（kind=builtin 条目，如 ts-aggressive/ts-safety；旧产物缺失）。 */
+  /** v3.3 reference-contestant 榜（kind=builtin 条目，如 ts-aggressive/ts-safety；旧产物缺失）。 */
   leaderboardControl?: {
     contestantId: string;
     avgRank: number;
@@ -353,9 +353,9 @@ function main(): void {
     };
   });
 
-  /** 榜单行：主榜 + 对照组（v3.3 产物 leaderboardControl）合并为统一榜单——
+  /** 榜单行：主榜 + reference contestants（v3.3 产物 leaderboardControl）合并为统一榜单——
    *  legacy TypeScript clients and community agents are treated equally，不设特化；按 composite 降序。
-   *  （对照组分数为同基准外推量纲，排序如实反映评测产物，前端不干预。） */
+   *  （reference-contestant 分数为同基准外推量纲，排序如实反映评测产物，前端不干预。） */
   interface LeaderboardRow {
     rank: number;
     contestantId: string;
@@ -409,7 +409,7 @@ function main(): void {
     contestants: raw.contestants.map((c) => ({
       id: c.id,
       label: CONTESTANT_LABEL[c.id] ?? c.label,
-      /** 展示层统一为第三方 agent（arena-ts 客户端与社区实现同等待遇）。 */
+      /** 展示层统一为第三方 agent（legacy TypeScript contestant 与社区实现同等待遇）。 */
       kind: "python",
       configNote: CONTESTANT_CONFIG_NOTE[c.id] ?? c.configNote,
       ...(CONTESTANT_REPO_URL[c.id] !== undefined ? { repoUrl: CONTESTANT_REPO_URL[c.id] } : {}),

@@ -1,8 +1,13 @@
 # arena-hero v3.1 策略实测分析（35 场全量）
 
+> **历史快照声明（2026-08-10）**：本文是 v3.1 评测轮次的历史分析记录，**不代表当前 leaderboard**。
+> 当前站点数据见 `apps/leaderboard-web/src/data/bench.json`（v3，10 players，含 reference contestants），
+> 排名与本文件（8 players）不同。本文件数据来自历史评测提交，原提交因历史重写已不可独立复现，
+> 文中数字仅作为当时的历史证据保留，不构成当前可复现结果的声明。
+
 > 评测日期：2026-08-10 · 数据源：`arena.bench.report.v3` · 35 场 = 7 场景 × 5 种子 × 8 玩家
-> ticks=2000 · workers=4 · 基于历史干净提交 `c58ad51`（当时的 `eval-bench` worktree；2026-08-10 历史重写后已不可达）
-> 本文仅基于实测数据，不含推测；killEvents 并发落盘 bug 已修复（2026-08-10 续3，详见 §7），30/35 场 87 事件。
+> ticks=2000 · workers=4 · 基于历史评测提交（2026-08-10 历史重写后原提交已不可达）
+> 本文仅基于实测数据，不含推测；killEvents 落盘问题已于 2026-08-10 修复（详见 §7），30/35 场 87 事件。
 
 ## 1. 榜单排名（综合分降序）
 
@@ -184,12 +189,12 @@ ffa-defense-pressure（资源枯竭）击杀最多——压力逼出 Core 斩首
 
 ## 7. 可观测性建议
 
-基于本轮评测数据缺失，建议 arena-ts 评测层增强：
-1. **killEvents 并发落盘 bug 已修复**（2026-08-10 续3）：
+基于本轮评测数据缺失，建议评测层增强：
+1. **killEvents 落盘问题已修复**（2026-08-10）：
    - 根因：`WorkerMatchFile` 序列化三重缺失——接口无 killEvents 字段定义 + `runWorkerProcess` 写文件漏 + 主进程 `resolvePromise` 读回漏。**非并发竞态**，是 worker 序列化漏字段（并发隔离改进仍有价值，但不是此缺陷的根因）
    - 修复三处后 workers=4 全量 35 场验证：30/35 场有 killEvents 共 87 事件（85 有 victim）。5 场无事件为平局或时间到未摧毁核心
    - 击杀时序图数据源就绪，网站 `KillTimeline` 组件可正常渲染（entry 详情页击杀时序 section）
-2. **per-tick 时序数据已实现**（2026-08-10 续6）：`runFreeForAll` 注入 `onTickSettled` 回调每 50 tick 采样 per-player 资源/人口，全链路序列化（MatchResult → WorkerMatchFile → results.json → bench.json），网站 entry 详情页新增 Efficiency Timeline 资源/人口曲线面板。arena-ts `5cde993`
+2. **per-tick 时序数据已实现**（2026-08-10）：`runFreeForAll` 注入 `onTickSettled` 回调每 50 tick 采样 per-player 资源/人口，全链路序列化（MatchResult → WorkerMatchFile → results.json → bench.json），网站 entry 详情页新增 Efficiency Timeline 资源/人口曲线面板。
 3. **决策日志采样**：agent 每场的关键决策（产兵/调度/信标）摘要，用于策略可解释性
 4. **战斗事件**：除 CORE_DESTROYED 外，记录 ARMY_DESTROYED/SIGNAL_ACTIVATED 等事件时序
 
@@ -200,4 +205,4 @@ ffa-defense-pressure（资源枯竭）击杀最多——压力逼出 Core 斩首
 - **激进变体负收益**（waaiging-agg -26.6%），保守变体微正（core-mil +4.9%/farmer-eco +2.0%）
 - **场景专精有价值**：waaiging-agg 在 ffa-open 有效，但综合分大降
 - **tactic 完全失效**（综合分 0.4%），需根本性策略重构
-- **killEvents 并发落盘 bug 已修复**（2026-08-10 续3）：根因为 worker 序列化漏字段（非并发竞态），修复后 30/35 场 87 事件，击杀时序图数据就绪
+- **killEvents 落盘问题已修复**（2026-08-10）：根因为 worker 序列化漏字段（非并发竞态），修复后 30/35 场 87 事件，击杀时序图数据就绪

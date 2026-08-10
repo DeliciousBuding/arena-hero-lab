@@ -17,17 +17,17 @@ export function Footer() {
             rel="noreferrer"
             className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
           >
-            arena-hero-leaderboard
+            Arena Hero Lab
             <ExternalLink className="h-3 w-3" />
           </Link>
           <Separator orientation="vertical" className="h-3" />
           <Link
-            href="https://github.com/DeliciousBuding/arena"
+            href="https://github.com/DeliciousBuding/arena-hero-agent-ts"
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
           >
-            数据源 arena
+            数据源 arena-hero-agent-ts
             <ExternalLink className="h-3 w-3" />
           </Link>
         </div>

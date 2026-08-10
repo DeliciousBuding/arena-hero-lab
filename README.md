@@ -78,11 +78,16 @@ pnpm convert:oracle
 ```
 
 The release command validates locally by default and publishes only when `--deploy` is
-provided explicitly:
+provided explicitly (a manual legacy path that updates the `gh-pages` branch):
 
 ```bash
 python apps/leaderboard-web/scripts/release.py --force
 ```
+
+Note: pushing to `master` also triggers the existing GitHub Actions Pages workflow
+(`.github/workflows/deploy.yml`), which builds and deploys the static export to GitHub
+Pages automatically. The `--deploy` flag is an additional manual path and is not required
+for CI deployments.
 
 ## Public leaderboard
 
@@ -100,7 +105,7 @@ The current static site remains available at
 
 ## Attribution
 
-Arena Hero Lab builds on the public [Arena Hero](https://github.com/HenryXiaoYang/arena-hero)
+Arena Hero Lab builds on the public [Arena Hero](https://doc.arenahero.io/)
 ecosystem. Benchmark fixtures include references to community projects from
 [Drew-Z](https://github.com/Drew-Z/arena-hero-agent),
 [VelvetEvening](https://github.com/VelvetEvening/ArenaHero-nearly-perfect-guide),

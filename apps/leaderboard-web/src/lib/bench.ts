@@ -7,7 +7,7 @@ import rawBench from "@/data/bench.json";
 export interface Contestant {
   id: string;
   label: string;
-  /** 展示层统一为第三方 agent（arena-ts 客户端与社区实现同等待遇）。 */
+  /** 展示层统一为第三方 agent（legacy TypeScript contestant 与社区实现同等待遇）。 */
   kind: "python";
   configNote: string;
   /** GitHub 仓库（社区 agent 第三方来源；v3.1，convert 侧映射）。 */
@@ -153,7 +153,7 @@ export type NumericDimensionKey = Exclude<
 >;
 
 /** 维度分数在全体（主榜）中的排名（1-based；详情页画像参照系）。
- *  返回 null 表示该条目不在主榜（如对照组条目）。 */
+ *  返回 null 表示该条目不在主榜（如 reference-contestant 条目）。 */
 export function dimensionRankOf(id: string, key: NumericDimensionKey): number | null {
   const sorted = [...benchData.leaderboard].sort(
     (a, b) => (b[key] as number) - (a[key] as number),

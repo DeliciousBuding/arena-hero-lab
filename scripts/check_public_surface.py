@@ -38,6 +38,20 @@ _LITERAL_RULES = {
     "private Chinese task-brief term": "任务" + "书",
     "private Chinese approval narrative": "用户" + "审批",
     "private secret directory": "server" + "-secrets",
+    "user ruling term": "用户" + "裁定",
+    "user ruling alt": "用户" + "裁决",
+    "lead role term": "总" + "负责人",
+    "browser bridge": "codex" + "-browser",
+    "bridge channel": "桥端" + "通道",
+    "SDK injection": "SDK" + " 注入",
+    "config injection": "config" + "-injection",
+    "builtin control": "内置" + "对照",
+    "control group": "对照" + "组",
+    "internal eval bench": "eval" + "-bench",
+    "internal implementation line": "arena" + "-ts",
+    "config env var": "ARENA" + "_CFG",
+    "R1 wiring marker": "R1" + " 接线",
+    "pending R2 marker": "待" + " R2",
 }
 _REGEX_RULES = {
     "Windows absolute path": re.compile(r"\b[A-Za-z]:[\\/]"),
@@ -46,6 +60,7 @@ _REGEX_RULES = {
         r"(?i)(?:sk|ghp|github_pat|xox[baprs])[-_][A-Za-z0-9_-]{16,}"
     ),
     "specific tenant service": re.compile(r"arena-hero-" + r"t[1-4]\b", re.IGNORECASE),
+    "internal continuation marker": re.compile(r"续[0-9]+"),
 }
 
 

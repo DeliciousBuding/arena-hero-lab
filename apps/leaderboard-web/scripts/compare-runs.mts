@@ -8,7 +8,7 @@
  *   - 参数对比（players/ticks/seeds/scenarios/rulesVersion）
  *   - 榜单变化表（条目 | 旧 composite | 新 composite | Δ | 名次变化）
  *   - 胜方统计变化（每场景胜场 top3）
- * 主榜 + 对照组（leaderboardControl）合并比较，与站点展示口径一致。
+ * 主榜 + reference contestants（leaderboardControl）合并比较，与站点展示口径一致。
  */
 import { readFileSync } from "node:fs";
 
@@ -72,7 +72,7 @@ function main(): void {
   console.log(`  场景    : ${p1.scenarios.length} -> ${p2.scenarios.length}`);
   console.log(`  生成时间: ${oldReport.generatedAt} -> ${newReport.generatedAt}`);
 
-  console.log("\n=== 榜单变化（合并对照组，按新 composite 排序）===");
+  console.log("\n=== 榜单变化（合并 reference contestants，按新 composite 排序）===");
   const oldRows = new Map(mergedRows(oldReport).map((r) => [r.contestantId, r]));
   const newRows = mergedRows(newReport);
   const width = Math.max(...newRows.map((r) => r.contestantId.length), 14);

@@ -51020,7 +51020,7 @@
       "name": "ffa-resource-race",
       "label": "中央矿争夺",
       "template": {
-        "configNote": "中央矿争夺（v3，审计 §6.5）：radius 24，地图中心 [0,0] 加 4 盘共享矿，每玩家近距盘 4→2",
+        "configNote": "中央矿争夺（v3）：radius 24，地图中心 [0,0] 加 4 盘共享矿，每玩家近距盘 4→2",
         "radius": 24,
         "randomDrop": false,
         "resources": "center-race"
@@ -61177,7 +61177,7 @@
       "name": "ffa-defense-pressure",
       "label": "资源枯竭",
       "template": {
-        "configNote": "资源枯竭压力（v3，审计 §6.6 降级版）：radius 24，每玩家资源盘 4→1（定时红队引擎暂不支持，降级为持久枯竭压力）",
+        "configNote": "资源枯竭压力（v3）：radius 24，每玩家资源盘 4→1（定时红队引擎暂不支持，降级为持久枯竭压力）",
         "radius": 24,
         "randomDrop": false,
         "resources": "depletion"

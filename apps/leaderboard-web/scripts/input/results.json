@@ -31,34 +31,34 @@
       "label": "arena-evolve（进化冠军）"
     },
     {
-      "configNote": "SDK 注入（config-injection v3，R1 接线）：ARENA_CFG_MEMORY_MODE=aggress （TacticMemory.mode 点分路径——进攻模式开关，默认 develop→aggress；SDK 层探针验证有效，桥端通道待 R2，见 v3 文档 §条目）",
+      "configNote": "变体配置：mode=aggress（TacticMemory.mode 进攻模式开关，默认 develop→aggress）",
       "id": "waaiging-agg",
       "kind": "python",
       "label": "waaiging-agg（进攻变体）"
     },
     {
-      "configNote": "SDK 注入（config-injection v3）：ARENA_CFG_TARGET=20 + ARENA_CFG_MODE=harvest （提前结束经济扩张，省资源转兵力投入——mode 无 military 值，用 target 缩短发育期；SDK 层 decide_kwargs 覆盖验证有效，桥端通道待 R2，见 v3 文档 §条目）",
+      "configNote": "变体配置：target=20 + mode=harvest（提前结束经济扩张，省资源转兵力投入；mode 无 military 值，用 target 缩短发育期）",
       "id": "core-mil",
       "kind": "python",
       "label": "core-mil（军事变体）"
     },
     {
-      "configNote": "Configuration-injection benchmark: ARENA_CFG_WORKER_TARGET=8 (below the default 12; economy-focused comparison).",
+      "configNote": "经济变体基准：worker_target=8（低于默认 12；纯经济发育对照）",
       "id": "farmer-eco",
       "kind": "python",
-      "label": "farmer-eco（纯经济对照）"
+      "label": "farmer-eco（经济变体）"
     },
     {
-      "configNote": "内置对照：AGGRESSIVE_SAFETY_CONFIG + vanguardRatio=0.8 + accumulateThreshold=30（积累期只产 Worker，达标后全 Vanguard 爆兵前压）",
+      "configNote": "reference contestant：AGGRESSIVE_SAFETY_CONFIG + vanguardRatio=0.8 + accumulateThreshold=30（积累期只产 Worker，达标后全 Vanguard 爆兵前压）",
       "id": "ts-aggressive",
       "kind": "builtin",
-      "label": "ts-aggressive（内置军事压制）"
+      "label": "ts-aggressive（激进压制）"
     },
     {
-      "configNote": "内置对照：DEFAULT_SAFETY_CONFIG 保守配置（不主动前压，防守+发育）",
+      "configNote": "reference contestant：DEFAULT_SAFETY_CONFIG 保守配置（不主动前压，防守+发育）",
       "id": "ts-safety",
       "kind": "builtin",
-      "label": "ts-safety（内置保守发育）"
+      "label": "ts-safety（保守均衡）"
     }
   ],
   "errors": [],
@@ -178,11 +178,11 @@
     }
   ],
   "notes": [
-    "winner/排名同链：存活→击杀→deposited→资源→人口（审计 §1.4/§6.4，v3.3 补齐 deposited）",
-    "排名 tie-break 新增 deposited（累计存款）（审计 §6.4）",
-    "综合分：rank 60% + kill 30% + economy 10%；survivalMedian 20% 移除（恒 1.0，审计 §1.2）",
-    "击杀归属口径：destroyed_by 同 tick 集火多记/最后一击偏置保留（审计 §2d），聚合层注释",
-    "内置 ts-aggressive/ts-safety 为对照组：不参与主榜 composite（leaderboardControl）"
+    "winner/排名同链：存活→击杀→deposited→资源→人口（v3.3 补齐 deposited）",
+    "排名 tie-break 新增 deposited（累计存款）",
+    "综合分：rank 60% + kill 30% + economy 10%；survivalMedian 20% 移除（恒 1.0）",
+    "击杀归属口径：destroyed_by 同 tick 集火多记/最后一击偏置保留，聚合层注释",
+    "ts-aggressive / ts-safety 为 reference contestants：不参与主榜 composite（leaderboardControl）"
   ],
   "params": {
     "players": 10,
@@ -60900,7 +60900,7 @@
       },
       "seedCount": 5,
       "template": {
-        "configNote": "中央矿争夺（v3，审计 §6.5）：radius 24，地图中心 [0,0] 加 4 盘共享矿，每玩家近距盘 4→2",
+        "configNote": "中央矿争夺（v3）：radius 24，地图中心 [0,0] 加 4 盘共享矿，每玩家近距盘 4→2",
         "radius": 24,
         "randomDrop": false,
         "resources": "center-race"
@@ -70978,7 +70978,7 @@
       },
       "seedCount": 5,
       "template": {
-        "configNote": "资源枯竭压力（v3，审计 §6.6 降级版）：radius 24，每玩家资源盘 4→1（定时红队引擎暂不支持，降级为持久枯竭压力）",
+        "configNote": "资源枯竭压力（v3）：radius 24，每玩家资源盘 4→1（定时红队引擎暂不支持，降级为持久枯竭压力）",
         "radius": 24,
         "randomDrop": false,
         "resources": "depletion"
