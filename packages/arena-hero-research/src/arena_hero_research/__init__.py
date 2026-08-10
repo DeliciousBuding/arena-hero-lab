@@ -63,6 +63,13 @@ from arena_hero_research.planning import (
     PowerPlanningError,
     simulate_monte_carlo_power,
 )
+from arena_hero_research.provenance import (
+    EnvironmentProvenance,
+    EnvironmentSnapshot,
+    ProvenanceError,
+    SoftwareBillOfMaterials,
+    SoftwareComponent,
+)
 from arena_hero_research.replication import (
     MergedOutcomePairs,
     ReplicationDroppedPair,
@@ -94,6 +101,8 @@ __all__ = [
     "DataUseLedger",
     "DroppedPair",
     "EffectEstimate",
+    "EnvironmentProvenance",
+    "EnvironmentSnapshot",
     "ExecutionProvenance",
     "ExperimentDesign",
     "Factor",
@@ -114,6 +123,7 @@ __all__ = [
     "PairedObservation",
     "PowerPlanningError",
     "Preregistration",
+    "ProvenanceError",
     "ReplicationDroppedPair",
     "ReplicationError",
     "ReplicationExecutor",
@@ -134,6 +144,8 @@ __all__ = [
     "ResearchRun",
     "ResearchRunStatus",
     "ResultBundle",
+    "SoftwareBillOfMaterials",
+    "SoftwareComponent",
     "UndeclaredOutcomeError",
     "analyze_preregistered_paired_outcomes",
     "arithmetic_mean",

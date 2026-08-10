@@ -116,3 +116,19 @@ uv run ty check packages/arena-hero-research
 uv run pytest -q packages/arena-hero-research/tests
 uv build --package arena-hero-research
 ```
+
+## Public environment and SBOM provenance
+
+`EnvironmentSnapshot` captures only bounded runtime facts (Python implementation/version,
+OS family/release, machine class, executor id, and explicit metadata). It never reads
+process environment variables, hostnames, user names, executable paths, or credentials.
+`SoftwareBillOfMaterials` records an explicit allowlist of disclosed components. Both are
+canonical JSON artifacts with SHA-256 identities, and `EnvironmentProvenance` binds their
+digests for later verification. Recursive metadata validation rejects keys containing
+secret-, token-, password-, credential-, authorization-, API-key-, or private-key-like
+terms.
+
+This minimal SBOM is reproducibility evidence, not a complete CycloneDX/SPDX document,
+signature, vulnerability scan, build attestation, or proof that every transitive or native
+component was captured. Callers must disclose the components relevant to their execution
+and may layer stronger external supply-chain attestations on the same digests.
