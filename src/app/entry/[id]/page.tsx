@@ -7,6 +7,7 @@ import { KillTimelinePanel } from "@/components/kill-timeline-panel";
 import { MiniBars } from "@/components/mini-bars";
 import { RadarChart } from "@/components/radar-chart";
 import { RankBadge } from "@/components/rank-badge";
+import { ResourceTimelinePanel } from "@/components/resource-timeline";
 import { SectionHeader } from "@/components/section-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -394,6 +395,22 @@ export default async function EntryPage({
               </TableBody>
             </Table>
           </div>
+        </Card>
+      </section>
+
+      {/* ===== 效率时序 ===== */}
+      <section className="mt-6">
+        <SectionHeader
+          title="Efficiency Timeline"
+          enTitle="效率时序"
+          description="每 50 tick 采样的 per-player 资源/人口曲线（v3.1 可观测性；同场 8 玩家对比，可切换场景 × 种子）。"
+        />
+        <Card className="p-6">
+          <ResourceTimelinePanel
+            scenarios={benchData.scenarios}
+            roster={benchData.contestants.map((c) => ({ id: c.id, label: c.label }))}
+            ticks={benchData.params.ticks}
+          />
         </Card>
       </section>
 

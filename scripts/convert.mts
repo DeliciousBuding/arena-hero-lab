@@ -132,6 +132,8 @@ interface RawReport {
       perPlayer: Record<string, PerPlayerStats>;
       /** v3.1 击杀时序事件（旧产物缺失）。 */
       killEvents?: { tick: number; destroyedBy: string[]; victim?: string }[];
+      /** v3.1 per-tick 资源/人口采样（旧产物缺失）。 */
+      perTickSamples?: { tick: number; players: Record<string, { resources: number; population: number }> }[];
     }[];
   }[];
 }
@@ -252,6 +254,18 @@ function main(): void {
                   event.victim,
               }),
         })),
+        ...(match.perTickSamples === undefined
+          ? {}
+          : {
+              perTickSamples: match.perTickSamples.map((sample) => {
+                const remapped: Record<string, { resources: number; population: number }> = {};
+                for (const [key, data] of Object.entries(sample.players)) {
+                  const id = resolvePlayerId(key, match.seed, contestantIds);
+                  if (id !== null) remapped[id] = data;
+                }
+                return { tick: sample.tick, players: remapped };
+              }),
+            }),
       };
     });
 

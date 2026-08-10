@@ -67,6 +67,7 @@ arena.ai 实测 card **无阴影**（扁平）。`--shadow-xs: transparent`。ho
 | ScrollArea / ScrollBar | `scroll-area.tsx` | `orientation`: vertical/horizontal | `@radix-ui/react-scroll-area` |
 | Table / TableHeader / TableBody / TableRow / TableHead / TableCell | `table.tsx` | — | 原生 table 语义元素 |
 | Stat / StatLabel / StatValue / StatHint | `stat.tsx` | — | 原生 div（三段式数值展示） |
+| ResourceTimelinePanel | `resource-timeline.tsx` | — | client 组件（SVG 折线：资源/人口曲线，场景×种子切换，每 50 tick 采样） |
 
 ## 四、交互状态与可访问性（验收标准）
 

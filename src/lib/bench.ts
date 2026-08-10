@@ -92,6 +92,14 @@ export interface BenchmarkMatch {
   players: Record<string, MatchPlayerStats>;
   /** 击杀时序事件（v3.1；旧数据可能缺失）。 */
   killEvents?: KillEvent[];
+  /** per-tick 资源/人口采样（v3.1 可观测性；每 50 tick 一点；旧数据可能缺失）。 */
+  perTickSamples?: PerTickSample[];
+}
+
+/** 单个 per-tick 采样点（效率曲线数据源）。 */
+export interface PerTickSample {
+  tick: number;
+  players: Record<string, { resources: number; population: number }>;
 }
 
 export interface BenchmarkScenario {

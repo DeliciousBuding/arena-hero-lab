@@ -189,7 +189,7 @@ ffa-defense-pressure（资源枯竭）击杀最多——压力逼出 Core 斩首
    - 根因：`WorkerMatchFile` 序列化三重缺失——接口无 killEvents 字段定义 + `runWorkerProcess` 写文件漏 + 主进程 `resolvePromise` 读回漏。**非并发竞态**，是 worker 序列化漏字段（之前会话"并发隔离"修复保留了价值但非此 bug 根因）
    - 修复三处后 workers=4 全量 35 场验证：30/35 场有 killEvents 共 87 事件（85 有 victim）。5 场无事件为平局或时间到未摧毁核心
    - 击杀时序图数据源就绪，网站 `KillTimeline` 组件可正常渲染（entry 详情页击杀时序 section）
-2. **per-tick 时序数据**：当前只有汇总指标，缺逐 tick 的资源/人口/部队曲线——建议落盘 perPlayer 时序快照（每 50 tick 采样）
+2. **per-tick 时序数据已实现**（2026-08-10 续6）：`runFreeForAll` 注入 `onTickSettled` 回调每 50 tick 采样 per-player 资源/人口，全链路序列化（MatchResult → WorkerMatchFile → results.json → bench.json），网站 entry 详情页新增 Efficiency Timeline 资源/人口曲线面板。arena-ts `5cde993`
 3. **决策日志采样**：agent 每场的关键决策（产兵/调度/信标）摘要，用于策略可解释性
 4. **战斗事件**：除 CORE_DESTROYED 外，记录 ARMY_DESTROYED/SIGNAL_ACTIVATED 等事件时序
 
