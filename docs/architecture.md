@@ -29,7 +29,8 @@ graph TD
 
 Owns deterministic domain primitives, canonical serialization, world-state evolution,
 visibility, and replay projection. The package is dependency-light and excludes benchmark,
-research, web, agent, SciPy, and Pandas dependencies.
+research, web, agent, SciPy, and Pandas dependencies. Platform contracts and performance
+evolution are documented in [Simulator platform](simulator-platform.md).
 
 ### `arena-hero-bench`
 
@@ -39,9 +40,10 @@ reference only complete, publishable artifacts.
 
 ### `arena-hero-research`
 
-Owns statistics, evaluation methods, evolutionary experiments, offline-learning analysis,
-and figures. Research dependencies and exploratory methods never enter the simulation hot
-path.
+Owns preregistration, paired confirmatory analysis, replication evidence, and reproducible
+result bundles. Future evolutionary and offline-learning methods remain in this package,
+never in the simulation hot path. Analysis invariants and the scientific roadmap are
+documented in [Research platform](research-platform.md).
 
 ### `leaderboard-web`
 
