@@ -18,7 +18,7 @@
  * - contestants[]：kind: python | builtin（builtin = 对照组）
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -387,7 +387,8 @@ function main(): void {
     schema: raw.schema,
     generatedAt: raw.generatedAt,
     convertedAt: new Date().toISOString(),
-    source: dirname(sourcePath).replace(/\\/g, "/"),
+    /** 产物相对仓库的路径（不落盘本机绝对路径）。 */
+    source: dirname(sourcePath).replace(repoRoot + sep, "").replace(/\\/g, "/"),
     params: raw.params,
     contestants: raw.contestants.map((c) => ({
       id: c.id,
