@@ -58,7 +58,7 @@ This is not a complete official Arena Hero engine. The backend returns `unsuppor
 the exact slice. In particular, M4 does not implement:
 
 - combat, beacon effects, dropped resource piles, refill placement, respawn, core migration,
-  spawn, healing, repair, self-destruct, or opponent actions;
+  spawn, healing, repair, self-destruct, or contested opponent economy actions;
 - Core movement intents or mixed Unit/Core movement dependency graphs;
 - official match termination, winners, or official scoring;
 - incremental hashing, zero-copy interchange, process/distributed execution, or a security
