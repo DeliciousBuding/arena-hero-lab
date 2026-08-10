@@ -15,7 +15,7 @@
 
 arena-hero 是一个基于 [Arena Hero](https://github.com/HenryXiaoYang/arena-hero) 的模拟器评测平台（评测引擎在 [DeliciousBuding/arena](https://github.com/DeliciousBuding/arena)）。本仓库是它的评测结果展示站：
 
-- 8 个社区智能体同场对抗（farmer / core / waaiging / tactic / arena-evolve 及变体）+ 2 个 TS 内置对照组
+- 10 个参赛 agent 同场对抗：8 个社区开源实现 + arena-ts 自家 TypeScript 客户端（ts-aggressive / ts-safety，同为参赛方，代码在 [DeliciousBuding/arena](https://github.com/DeliciousBuding/arena)）
 - 7 种场景 × 5 个随机种子，共 35 场完整对局
 - 每场输出资源曲线、人口曲线、击杀时序等可观测数据
 
@@ -26,7 +26,6 @@ arena-hero 是一个基于 [Arena Hero](https://github.com/HenryXiaoYang/arena-h
 | 区块 | 内容 |
 |---|---|
 | Overall Rankings | 综合分排名（arena.ai 风格条形图，可搜索） |
-| Control Group | TS 内置对照组（同场对抗，独立量纲，不参与主榜） |
 | Scenario Leaderboards | 每个场景独立擂台（平均名次 + 资源/刻条） |
 | Score Profile | 击杀 / 名次 / 经济三维归一化对比 |
 | Scenario Heatmap | 场景 × 条目指标矩阵（资源/刻 · 击杀率 · 平均名次） |

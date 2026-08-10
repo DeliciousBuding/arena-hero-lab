@@ -7,7 +7,8 @@ import rawBench from "@/data/bench.json";
 export interface Contestant {
   id: string;
   label: string;
-  kind: "python" | "builtin";
+  /** 展示层统一为第三方 agent（arena-ts 客户端与社区实现同等待遇）。 */
+  kind: "python";
   configNote: string;
   /** GitHub 仓库（社区 agent 第三方来源；v3.1，convert 侧映射）。 */
   repoUrl?: string;
@@ -126,8 +127,6 @@ export interface BenchmarkData {
   };
   contestants: Contestant[];
   leaderboard: LeaderboardRow[];
-  /** v3.3 对照组榜（kind=builtin 条目；旧产物缺失时 undefined）。 */
-  leaderboardControl?: LeaderboardRow[];
   scenarios: BenchmarkScenario[];
   entryScenarioStats: Record<string, Record<string, EntryScenarioStat>>;
   scenarioOrder: string[];

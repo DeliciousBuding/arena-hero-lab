@@ -3,11 +3,8 @@ import { RankBars, type RankBarRow } from "@/components/rank-bars";
 import { ScenarioComparison } from "@/components/scenario-comparison";
 import { ScoreBars, type ScoreBarEntry } from "@/components/score-bars";
 import { SectionHeader } from "@/components/section-header";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 import { ACTIVE_SCORE_DIMENSIONS, benchData, contestantOf } from "@/lib/bench";
-import Link from "next/link";
 
 /** 综合排名图数据行（composite 升序绘制，榜首条最长）。 */
 function rankRows(): RankBarRow[] {
@@ -44,91 +41,8 @@ function scoreEntries(): ScoreBarEntry[] {
   });
 }
 
-/**
- * 对照组（内置基线）：与主榜同场对抗但独立排名。
- * composite/killScore 为同基准外推量纲（可 >1），不参与主榜 0–1 归一化，故独立展示。
- */
-function ControlGroup() {
-  const rows = benchData.leaderboardControl ?? [];
-  if (rows.length === 0) return null;
-  const players = benchData.params.players;
-  const barOf = (rank: number) =>
-    Math.max(0.04, Math.min(1, (players - rank) / Math.max(1, players - 1)));
-
-  return (
-    <section className="mt-10">
-      <SectionHeader
-        id="control"
-        title="Control Group"
-        enTitle="对照组（内置基线）"
-        description={`TS 内置实现与主榜同场对抗（v3.3 产物；分数为同基准外推量纲，不参与主榜归一化排名）。`}
-      />
-      <Card>
-        <CardContent className="divide-y divide-border-faint">
-          {rows.map((entry) => {
-            const contestant = contestantOf(entry.contestantId);
-            const rank = entry.avgRank;
-            return (
-              <Link
-                key={entry.contestantId}
-                href={`/entry/${entry.contestantId}`}
-                className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-secondary/40"
-              >
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "tnum",
-                    rank <= 3
-                      ? rank <= 1
-                        ? "border-rank-gold text-rank-gold"
-                        : rank <= 2
-                          ? "border-rank-silver text-rank-silver"
-                          : "border-rank-bronze text-rank-bronze"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  #{rank.toFixed(2)}
-                </Badge>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium text-foreground">
-                    {contestant?.label ?? entry.contestantId}
-                    <span className="ml-2 text-xs font-normal text-muted-foreground tnum">
-                      {entry.contestantId}
-                    </span>
-                  </div>
-                  <div className="mt-1.5 h-1.5 w-full max-w-[420px] overflow-hidden rounded-full bg-muted">
-                    <div
-                      className={cn(
-                        "h-full rounded-full",
-                        rank <= 1
-                          ? "bg-rank-gold"
-                          : rank <= 2
-                            ? "bg-rank-silver"
-                            : rank <= 3
-                              ? "bg-rank-bronze"
-                              : "bg-muted-foreground/40",
-                      )}
-                      style={{ width: `${barOf(rank) * 100}%` }}
-                    />
-                  </div>
-                </div>
-                <div className="shrink-0 text-right text-xs text-muted-foreground tnum">
-                  <div>外推综合分 {entry.composite.toFixed(3)}</div>
-                  <div>击杀/场 {entry.killRate.toFixed(2)}</div>
-                </div>
-              </Link>
-            );
-          })}
-        </CardContent>
-      </Card>
-    </section>
-  );
-}
-
 export default function HomePage() {
   const totalMatches = benchData.scenarios.reduce((n, s) => n + s.matches.length, 0);
-  const totalEntries =
-    benchData.leaderboard.length + (benchData.leaderboardControl?.length ?? 0);
   const generatedAt = new Date(benchData.generatedAt).toLocaleString("zh-CN", {
     year: "numeric",
     month: "2-digit",
@@ -150,7 +64,7 @@ export default function HomePage() {
         </p>
         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground tnum">
           <span>
-            {totalEntries} 条目同场 · {benchData.params.seeds.length} 种子 ×{" "}
+            {benchData.leaderboard.length} 条目同场 · {benchData.params.seeds.length} 种子 ×{" "}
             {benchData.params.ticks.toLocaleString("zh-CN")} ticks · {totalMatches} 场
           </span>
           <span className="hidden h-3 w-px bg-border-faint sm:block" />
@@ -173,9 +87,6 @@ export default function HomePage() {
           </CardContent>
         </Card>
       </section>
-
-      {/* ===== 1b. 对照组（内置基线，独立量纲） ===== */}
-      <ControlGroup />
 
       {/* ===== 2. 场景榜 ===== */}
       <section className="mb-16">

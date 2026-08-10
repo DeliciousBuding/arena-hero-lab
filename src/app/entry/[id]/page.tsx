@@ -31,13 +31,9 @@ import {
   type ScenarioEntryStat,
 } from "@/lib/bench";
 
-/** 静态导出：预渲染所有条目页（主榜 + 对照组）。 */
+/** 静态导出：预渲染所有条目页。 */
 export function generateStaticParams() {
-  const main = benchData.leaderboard.map((row) => ({ id: row.contestantId }));
-  const control = (benchData.leaderboardControl ?? []).map((row) => ({
-    id: row.contestantId,
-  }));
-  return [...main, ...control];
+  return benchData.leaderboard.map((row) => ({ id: row.contestantId }));
 }
 
 export const dynamicParams = false;
@@ -66,14 +62,11 @@ export default async function EntryPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const entry =
-    benchData.leaderboard.find((e) => e.contestantId === id) ??
-    benchData.leaderboardControl?.find((e) => e.contestantId === id);
+  const entry = benchData.leaderboard.find((e) => e.contestantId === id);
   const contestant = contestantOf(id);
   if (!entry || !contestant) {
     notFound();
   }
-  const inMainBoard = benchData.leaderboard.some((e) => e.contestantId === id);
 
   const radarValues = ACTIVE_SCORE_DIMENSIONS.map((dim) => ({
     key: dim.key as string,
@@ -90,7 +83,7 @@ export default async function EntryPage({
     }));
 
   const stats: [string, string][] = [
-    [inMainBoard ? "综合分" : "外推综合分", pct(entry.composite)],
+    ["综合分", pct(entry.composite)],
     ["平均名次", entry.avgRank.toFixed(2)],
     ["击杀/场", entry.killRate.toFixed(2)],
     ["场景名次波动", `±${entry.rankStddev.toFixed(2)}`],
@@ -115,18 +108,10 @@ export default async function EntryPage({
                 {contestant.label}
               </h1>
               <Badge variant="outline" className="tnum">{contestant.id}</Badge>
-              <Badge
-                variant={contestant.kind === "builtin" ? "gold" : "brand"}
-                className="gap-1"
-              >
+              <Badge variant="brand" className="gap-1">
                 <Trophy className="h-3 w-3" />
-                {contestant.kind === "builtin" ? "内置对照（校准基线）" : "社区第三方 agent"}
+                社区第三方 agent
               </Badge>
-              {!inMainBoard && (
-                <Badge variant="outline" className="gap-1 text-muted-foreground">
-                  对照组（不参与主榜排名）
-                </Badge>
-              )}
             </div>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
               {contestant.configNote}
@@ -172,8 +157,7 @@ export default async function EntryPage({
             <div className="space-y-4">
               {ACTIVE_SCORE_DIMENSIONS.map((dim) => {
                 const value = entry[dim.key] as number;
-                const dimRank = inMainBoard ? dimensionRankOf(id, dim.key) : null;
-                const isExtrapolated = !inMainBoard && value > 1;
+                const dimRank = dimensionRankOf(id, dim.key);
                 return (
                   <div key={dim.key}>
                     <div className="mb-1 flex items-baseline justify-between text-sm">
@@ -186,12 +170,7 @@ export default async function EntryPage({
                           </span>
                         )}
                       </span>
-                      <span className="tnum text-muted-foreground">
-                        {pct(value)}
-                        {isExtrapolated && (
-                          <span className="ml-1 text-[10px] text-rank-bronze">外推</span>
-                        )}
-                      </span>
+                      <span className="tnum text-muted-foreground">{pct(value)}</span>
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-muted">
                       <div

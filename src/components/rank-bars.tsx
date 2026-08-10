@@ -10,7 +10,7 @@ export interface RankBarRow {
   rank: number;
   id: string;
   label: string;
-  kind: "python" | "builtin";
+  kind: "python";
   /** 条形长度依据（归一化基准由全部行最大值决定）。 */
   value: number;
   /** 数值越大条形越长；false = 越小越好（如平均名次）。 */

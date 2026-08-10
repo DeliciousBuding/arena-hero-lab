@@ -44,7 +44,8 @@ const SCENARIO_LABELS: Record<string, string> = {
   "ffa-defense-pressure": "资源枯竭",
 };
 
-/** 条目 id → GitHub 仓库（社区 agent 全部第三方，无官方；展示用，不依赖评测产物）。
+/** 条目 id → GitHub 仓库（社区 agent 全部第三方，含 arena-ts 自家 TS 客户端；
+ *  展示用，不依赖评测产物）。
  *  来源：docs/reference/repository-classification.md 第三方表登记。 */
 const CONTESTANT_REPO_URL: Record<string, string> = {
   farmer: "https://github.com/Drew-Z/arena-hero-agent",
@@ -55,6 +56,8 @@ const CONTESTANT_REPO_URL: Record<string, string> = {
   "waaiging-agg": "https://github.com/Waaiging/ArenaHero",
   tactic: "https://github.com/feixingwawa/arena-hero-tactic",
   "arena-evolve": "https://github.com/Torther/arena-evolve",
+  "ts-aggressive": "https://github.com/DeliciousBuding/arena",
+  "ts-safety": "https://github.com/DeliciousBuding/arena",
 };
 
 /** 条目 id → Linux DO 帖子（社区讨论来源；展示用，不依赖评测产物）。
@@ -85,13 +88,16 @@ const CONTESTANT_LINUXDO_TITLE: Record<string, string> = {
 };
 
 /** 条目 id → 展示名（覆盖评测产物 label 的错误措辞——core 为 VelvetEvening
- *  社区指南 agent，非官方参考；其余标签经核对准确，仅纠正错误项）。 */
+ *  社区指南 agent，非官方参考；ts-* 为 arena-ts 自家 TS 客户端（去掉"内置对照"措辞，
+ *  与第三方 agent 同等对待）；其余标签经核对准确，仅纠正错误项）。 */
 const CONTESTANT_LABEL: Record<string, string> = {
   core: "core（双策略指南）",
+  "ts-aggressive": "ts-aggressive（激进压制）",
+  "ts-safety": "ts-safety（保守均衡）",
 };
 
-/** 条目 id → 展示用配置说明（覆盖评测产物 configNote 的"官方"措辞——
- *  这些 agent 全部是社区第三方实现，无官方 agent；文案对齐各仓库 README 定位）。 */
+/** 条目 id → 展示用配置说明（覆盖评测产物 configNote 的"内置对照"措辞——
+ *  arena-ts TS 客户端同样是参赛的第三方 agent；文案对齐仓库实际配置）。 */
 const CONTESTANT_CONFIG_NOTE: Record<string, string> = {
   farmer: "Drew-Z 社区实现：资源优先（resource-first），12W+4V+4R 基础舰队，v0.14 动态价格适配",
   "farmer-eco": "Drew-Z 社区实现变体（经济倾向：worker_target=16/beacon_policy=retreat）",
@@ -101,6 +107,8 @@ const CONTESTANT_CONFIG_NOTE: Record<string, string> = {
   "waaiging-agg": "Waaiging 社区战术变体（进攻倾向：mode=aggress，6 先锋 + 9 游侠前压）",
   tactic: "feixingwawa 社区战术客户端（资源优先 + 均衡防守，12W/4V/4R 爬坡、矿点智能调度、Beacon 导向探索）",
   "arena-evolve": "Torther 基因启发式策略 + GA 进化研究（evolve_v7_best 冠军快照）",
+  "ts-aggressive": "arena-ts TypeScript 客户端（AGGRESSIVE_SAFETY_CONFIG：vanguardRatio=0.8 + accumulateThreshold=30，激进前压）",
+  "ts-safety": "arena-ts TypeScript 客户端（DEFAULT_SAFETY_CONFIG：保守配置，前压与防守均衡）",
 };
 
 interface PerPlayerStats {
@@ -329,8 +337,9 @@ function main(): void {
     };
   });
 
-  /** 榜单行：按综合分降序，附每场景平均名次与跨场景波动（由 perEntry.avgRank 派生）。
-   *  主榜与对照组榜（kind=builtin）共用同一结构，仅展示区分。 */
+  /** 榜单行：主榜 + 对照组（v3.3 产物 leaderboardControl）合并为统一榜单——
+   *  arena-ts 客户端与社区 agent 同为参赛方，不设特化；按 composite 降序。
+   *  （对照组分数为同基准外推量纲，排序如实反映评测产物，前端不干预。） */
   interface LeaderboardRow {
     rank: number;
     contestantId: string;
@@ -369,7 +378,10 @@ function main(): void {
         };
       });
   }
-  const leaderboard = buildLeaderboard(raw.leaderboard);
+  const leaderboard = buildLeaderboard([
+    ...raw.leaderboard,
+    ...(raw.leaderboardControl ?? []),
+  ]);
 
   const output = {
     schema: raw.schema,
@@ -380,17 +392,14 @@ function main(): void {
     contestants: raw.contestants.map((c) => ({
       id: c.id,
       label: CONTESTANT_LABEL[c.id] ?? c.label,
-      kind: c.kind,
+      /** 展示层统一为第三方 agent（arena-ts 客户端与社区实现同等待遇）。 */
+      kind: "python",
       configNote: CONTESTANT_CONFIG_NOTE[c.id] ?? c.configNote,
       ...(CONTESTANT_REPO_URL[c.id] !== undefined ? { repoUrl: CONTESTANT_REPO_URL[c.id] } : {}),
       ...(CONTESTANT_LINUXDO_URL[c.id] !== undefined ? { linuxdoUrl: CONTESTANT_LINUXDO_URL[c.id] } : {}),
       ...(CONTESTANT_LINUXDO_TITLE[c.id] !== undefined ? { linuxdoTitle: CONTESTANT_LINUXDO_TITLE[c.id] } : {}),
     })),
     leaderboard,
-    /** v3.3 对照组榜（kind=builtin 条目；旧产物缺失时为 undefined，前端按无对照组处理）。 */
-    ...(raw.leaderboardControl === undefined
-      ? {}
-      : { leaderboardControl: buildLeaderboard(raw.leaderboardControl) }),
     scenarios,
     entryScenarioStats,
     scenarioOrder: scenarioIds,

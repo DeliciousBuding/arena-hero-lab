@@ -1,7 +1,7 @@
 {
   "schema": "arena.bench.report.v3",
   "generatedAt": "2026-08-10T10:01:06.464Z",
-  "convertedAt": "2026-08-10T10:38:40.593Z",
+  "convertedAt": "2026-08-10T11:02:51.165Z",
   "source": "D:/Code/Projects/arena/arena-hero-leaderboard/scripts/input",
   "params": {
     "players": 10,
@@ -99,196 +99,20 @@
     },
     {
       "id": "ts-aggressive",
-      "label": "ts-aggressive（内置军事压制）",
-      "kind": "builtin",
-      "configNote": "内置对照：AGGRESSIVE_SAFETY_CONFIG + vanguardRatio=0.8 + accumulateThreshold=30（积累期只产 Worker，达标后全 Vanguard 爆兵前压）"
+      "label": "ts-aggressive（激进压制）",
+      "kind": "python",
+      "configNote": "arena-ts TypeScript 客户端（AGGRESSIVE_SAFETY_CONFIG：vanguardRatio=0.8 + accumulateThreshold=30，激进前压）",
+      "repoUrl": "https://github.com/DeliciousBuding/arena"
     },
     {
       "id": "ts-safety",
-      "label": "ts-safety（内置保守发育）",
-      "kind": "builtin",
-      "configNote": "内置对照：DEFAULT_SAFETY_CONFIG 保守配置（不主动前压，防守+发育）"
+      "label": "ts-safety（保守均衡）",
+      "kind": "python",
+      "configNote": "arena-ts TypeScript 客户端（DEFAULT_SAFETY_CONFIG：保守配置，前压与防守均衡）",
+      "repoUrl": "https://github.com/DeliciousBuding/arena"
     }
   ],
   "leaderboard": [
-    {
-      "rank": 1,
-      "contestantId": "waaiging",
-      "composite": 0.7,
-      "avgRank": 2.6,
-      "rankStddev": 0.7708992893275453,
-      "killRate": 0,
-      "killScore": 0,
-      "rankScore": 1,
-      "economyScore": 1,
-      "survivalMedian": 1,
-      "survivalScore": 1,
-      "scenarioRanks": {
-        "ffa-dense": 3.2,
-        "ffa-std": 2.4,
-        "ffa-open": 1.2,
-        "ffa-scarce": 3.2,
-        "ffa-random": 1.8,
-        "ffa-resource-race": 3,
-        "ffa-defense-pressure": 3.4
-      }
-    },
-    {
-      "rank": 2,
-      "contestantId": "arena-evolve",
-      "composite": 0.6668982445989734,
-      "avgRank": 5.057142857142858,
-      "rankStddev": 1.0939536982329512,
-      "killRate": 0.08571428571428573,
-      "killScore": 1,
-      "rankScore": 0.5401069518716575,
-      "economyScore": 0.42834073475979034,
-      "survivalMedian": 1,
-      "survivalScore": 1,
-      "scenarioRanks": {
-        "ffa-dense": 3,
-        "ffa-std": 5.4,
-        "ffa-open": 5,
-        "ffa-scarce": 5.2,
-        "ffa-random": 7,
-        "ffa-resource-race": 4.6,
-        "ffa-defense-pressure": 5.2
-      }
-    },
-    {
-      "rank": 3,
-      "contestantId": "waaiging-agg",
-      "composite": 0.5895882763132044,
-      "avgRank": 3.3142857142857145,
-      "rankStddev": 0.5221619109284877,
-      "killRate": 0,
-      "killScore": 0,
-      "rankScore": 0.8663101604278074,
-      "economyScore": 0.6980218005652001,
-      "survivalMedian": 1,
-      "survivalScore": 1,
-      "scenarioRanks": {
-        "ffa-dense": 4.4,
-        "ffa-std": 3.4,
-        "ffa-open": 3,
-        "ffa-scarce": 2.8,
-        "ffa-random": 3.2,
-        "ffa-resource-race": 3.6,
-        "ffa-defense-pressure": 2.8
-      }
-    },
-    {
-      "rank": 4,
-      "contestantId": "core",
-      "composite": 0.4250501404363999,
-      "avgRank": 4.371428571428571,
-      "rankStddev": 1.071333329100153,
-      "killRate": 0,
-      "killScore": 0,
-      "rankScore": 0.6684491978609626,
-      "economyScore": 0.23980621719822365,
-      "survivalMedian": 1,
-      "survivalScore": 1,
-      "scenarioRanks": {
-        "ffa-dense": 5.8,
-        "ffa-std": 5,
-        "ffa-open": 4.2,
-        "ffa-scarce": 3.4,
-        "ffa-random": 5.2,
-        "ffa-resource-race": 2.4,
-        "ffa-defense-pressure": 4.6
-      }
-    },
-    {
-      "rank": 5,
-      "contestantId": "core-mil",
-      "composite": 0.2606447768669621,
-      "avgRank": 5.771428571428571,
-      "rankStddev": 1.4791061834908326,
-      "killRate": 0,
-      "killScore": 0,
-      "rankScore": 0.4064171122994651,
-      "economyScore": 0.16794509487283016,
-      "survivalMedian": 1,
-      "survivalScore": 1,
-      "scenarioRanks": {
-        "ffa-dense": 6.6,
-        "ffa-std": 6,
-        "ffa-open": 8.6,
-        "ffa-scarce": 5.6,
-        "ffa-random": 5.2,
-        "ffa-resource-race": 3.4,
-        "ffa-defense-pressure": 5
-      }
-    },
-    {
-      "rank": 6,
-      "contestantId": "tactic",
-      "composite": 0.15538720938516695,
-      "avgRank": 6.685714285714285,
-      "rankStddev": 0.9372125409632414,
-      "killRate": 0,
-      "killScore": 0,
-      "rankScore": 0.23529411764705865,
-      "economyScore": 0.14210738796931782,
-      "survivalMedian": 1,
-      "survivalScore": 1,
-      "scenarioRanks": {
-        "ffa-dense": 7.4,
-        "ffa-std": 7.4,
-        "ffa-open": 6.8,
-        "ffa-scarce": 7.8,
-        "ffa-random": 5.2,
-        "ffa-resource-race": 5.4,
-        "ffa-defense-pressure": 6.8
-      }
-    },
-    {
-      "rank": 7,
-      "contestantId": "farmer-eco",
-      "composite": 0.07714761905789948,
-      "avgRank": 7.285714285714286,
-      "rankStddev": 0.5221619109284875,
-      "killRate": 0,
-      "killScore": 0,
-      "rankScore": 0.12299465240641705,
-      "economyScore": 0.03350827614049258,
-      "survivalMedian": 1,
-      "survivalScore": 1,
-      "scenarioRanks": {
-        "ffa-dense": 7.4,
-        "ffa-std": 7,
-        "ffa-open": 7.6,
-        "ffa-scarce": 7.4,
-        "ffa-random": 7.4,
-        "ffa-resource-race": 8,
-        "ffa-defense-pressure": 6.2
-      }
-    },
-    {
-      "rank": 8,
-      "contestantId": "farmer",
-      "composite": 0,
-      "avgRank": 7.942857142857142,
-      "rankStddev": 0.930218319777126,
-      "killRate": 0,
-      "killScore": 0,
-      "rankScore": 0,
-      "economyScore": 0,
-      "survivalMedian": 1,
-      "survivalScore": 1,
-      "scenarioRanks": {
-        "ffa-dense": 9,
-        "ffa-std": 7.6,
-        "ffa-open": 8.2,
-        "ffa-scarce": 9.2,
-        "ffa-random": 6.6,
-        "ffa-resource-race": 8.2,
-        "ffa-defense-pressure": 6.8
-      }
-    }
-  ],
-  "leaderboardControl": [
     {
       "rank": 1,
       "contestantId": "ts-aggressive",
@@ -331,6 +155,182 @@
         "ffa-random": 5.6,
         "ffa-resource-race": 7.6,
         "ffa-defense-pressure": 5.6
+      }
+    },
+    {
+      "rank": 3,
+      "contestantId": "waaiging",
+      "composite": 0.7,
+      "avgRank": 2.6,
+      "rankStddev": 0.7708992893275453,
+      "killRate": 0,
+      "killScore": 0,
+      "rankScore": 1,
+      "economyScore": 1,
+      "survivalMedian": 1,
+      "survivalScore": 1,
+      "scenarioRanks": {
+        "ffa-dense": 3.2,
+        "ffa-std": 2.4,
+        "ffa-open": 1.2,
+        "ffa-scarce": 3.2,
+        "ffa-random": 1.8,
+        "ffa-resource-race": 3,
+        "ffa-defense-pressure": 3.4
+      }
+    },
+    {
+      "rank": 4,
+      "contestantId": "arena-evolve",
+      "composite": 0.6668982445989734,
+      "avgRank": 5.057142857142858,
+      "rankStddev": 1.0939536982329512,
+      "killRate": 0.08571428571428573,
+      "killScore": 1,
+      "rankScore": 0.5401069518716575,
+      "economyScore": 0.42834073475979034,
+      "survivalMedian": 1,
+      "survivalScore": 1,
+      "scenarioRanks": {
+        "ffa-dense": 3,
+        "ffa-std": 5.4,
+        "ffa-open": 5,
+        "ffa-scarce": 5.2,
+        "ffa-random": 7,
+        "ffa-resource-race": 4.6,
+        "ffa-defense-pressure": 5.2
+      }
+    },
+    {
+      "rank": 5,
+      "contestantId": "waaiging-agg",
+      "composite": 0.5895882763132044,
+      "avgRank": 3.3142857142857145,
+      "rankStddev": 0.5221619109284877,
+      "killRate": 0,
+      "killScore": 0,
+      "rankScore": 0.8663101604278074,
+      "economyScore": 0.6980218005652001,
+      "survivalMedian": 1,
+      "survivalScore": 1,
+      "scenarioRanks": {
+        "ffa-dense": 4.4,
+        "ffa-std": 3.4,
+        "ffa-open": 3,
+        "ffa-scarce": 2.8,
+        "ffa-random": 3.2,
+        "ffa-resource-race": 3.6,
+        "ffa-defense-pressure": 2.8
+      }
+    },
+    {
+      "rank": 6,
+      "contestantId": "core",
+      "composite": 0.4250501404363999,
+      "avgRank": 4.371428571428571,
+      "rankStddev": 1.071333329100153,
+      "killRate": 0,
+      "killScore": 0,
+      "rankScore": 0.6684491978609626,
+      "economyScore": 0.23980621719822365,
+      "survivalMedian": 1,
+      "survivalScore": 1,
+      "scenarioRanks": {
+        "ffa-dense": 5.8,
+        "ffa-std": 5,
+        "ffa-open": 4.2,
+        "ffa-scarce": 3.4,
+        "ffa-random": 5.2,
+        "ffa-resource-race": 2.4,
+        "ffa-defense-pressure": 4.6
+      }
+    },
+    {
+      "rank": 7,
+      "contestantId": "core-mil",
+      "composite": 0.2606447768669621,
+      "avgRank": 5.771428571428571,
+      "rankStddev": 1.4791061834908326,
+      "killRate": 0,
+      "killScore": 0,
+      "rankScore": 0.4064171122994651,
+      "economyScore": 0.16794509487283016,
+      "survivalMedian": 1,
+      "survivalScore": 1,
+      "scenarioRanks": {
+        "ffa-dense": 6.6,
+        "ffa-std": 6,
+        "ffa-open": 8.6,
+        "ffa-scarce": 5.6,
+        "ffa-random": 5.2,
+        "ffa-resource-race": 3.4,
+        "ffa-defense-pressure": 5
+      }
+    },
+    {
+      "rank": 8,
+      "contestantId": "tactic",
+      "composite": 0.15538720938516695,
+      "avgRank": 6.685714285714285,
+      "rankStddev": 0.9372125409632414,
+      "killRate": 0,
+      "killScore": 0,
+      "rankScore": 0.23529411764705865,
+      "economyScore": 0.14210738796931782,
+      "survivalMedian": 1,
+      "survivalScore": 1,
+      "scenarioRanks": {
+        "ffa-dense": 7.4,
+        "ffa-std": 7.4,
+        "ffa-open": 6.8,
+        "ffa-scarce": 7.8,
+        "ffa-random": 5.2,
+        "ffa-resource-race": 5.4,
+        "ffa-defense-pressure": 6.8
+      }
+    },
+    {
+      "rank": 9,
+      "contestantId": "farmer-eco",
+      "composite": 0.07714761905789948,
+      "avgRank": 7.285714285714286,
+      "rankStddev": 0.5221619109284875,
+      "killRate": 0,
+      "killScore": 0,
+      "rankScore": 0.12299465240641705,
+      "economyScore": 0.03350827614049258,
+      "survivalMedian": 1,
+      "survivalScore": 1,
+      "scenarioRanks": {
+        "ffa-dense": 7.4,
+        "ffa-std": 7,
+        "ffa-open": 7.6,
+        "ffa-scarce": 7.4,
+        "ffa-random": 7.4,
+        "ffa-resource-race": 8,
+        "ffa-defense-pressure": 6.2
+      }
+    },
+    {
+      "rank": 10,
+      "contestantId": "farmer",
+      "composite": 0,
+      "avgRank": 7.942857142857142,
+      "rankStddev": 0.930218319777126,
+      "killRate": 0,
+      "killScore": 0,
+      "rankScore": 0,
+      "economyScore": 0,
+      "survivalMedian": 1,
+      "survivalScore": 1,
+      "scenarioRanks": {
+        "ffa-dense": 9,
+        "ffa-std": 7.6,
+        "ffa-open": 8.2,
+        "ffa-scarce": 9.2,
+        "ffa-random": 6.6,
+        "ffa-resource-race": 8.2,
+        "ffa-defense-pressure": 6.8
       }
     }
   ],
