@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from types import MappingProxyType
 
 from arena_hero_sim.reference_contracts import (
     REFERENCE_RULES,
@@ -46,6 +47,16 @@ class ReferenceRng:
     seed: int
     position: int = 0
 
+    def __post_init__(self) -> None:
+        if isinstance(self.seed, bool) or not isinstance(self.seed, int) or self.seed < 0:
+            raise ValueError("RNG seed must be a non-negative integer")
+        if (
+            isinstance(self.position, bool)
+            or not isinstance(self.position, int)
+            or self.position < 0
+        ):
+            raise ValueError("RNG position must be a non-negative integer")
+
     def next_u64(self) -> tuple[int, ReferenceRng]:
         value = (self.seed + (self.position + 1) * 0x9E3779B97F4A7C15) & _MASK_64
         value = ((value ^ (value >> 30)) * 0xBF58476D1CE4E5B9) & _MASK_64
@@ -62,6 +73,9 @@ class ReferenceEpisodeResult:
     ticks_completed: int
     events: tuple[ReferenceEvent, ...]
     metrics: dict[str, float]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "metrics", MappingProxyType(dict(sorted(self.metrics.items()))))
 
 
 def _supercover_line(start: Position, end: Position) -> tuple[Position, ...]:

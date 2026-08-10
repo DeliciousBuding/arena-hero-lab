@@ -92,6 +92,18 @@ class ReferenceEpisodeStatus(StrEnum):
     PARTIAL = "partial"
 
 
+REFERENCE_EVENT_TYPES = frozenset(
+    {
+        "UNIT_MOVE_SUCCEEDED",
+        "UNIT_MOVE_FAILED",
+        "HARVEST_SUCCEEDED",
+        "HARVEST_FAILED",
+        "DEPOSIT_SUCCEEDED",
+        "DEPOSIT_FAILED",
+    }
+)
+
+
 @dataclass(frozen=True, slots=True)
 class ReferenceRules:
     """Only the publicly attributable rules implemented by this slice."""
@@ -211,8 +223,10 @@ class ReferencePlayer:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "id", _identifier(self.id, "player id"))
-        if not self.username.strip():
+        username = self.username.strip()
+        if not username:
             raise ValueError("username must not be empty")
+        object.__setattr__(self, "username", username)
         _safe_int(self.resources, "player resources", minimum=0)
         units = tuple(sorted(self.units, key=lambda unit: uuid_sort_key(unit.id)))
         if len({unit.id for unit in units}) != len(units):
@@ -381,6 +395,22 @@ class ReferenceObservation:
     visible_cells: tuple[Position, ...]
     legal_actions: tuple[tuple[str, tuple[str, ...]], ...]
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "player_id", _identifier(self.player_id, "player_id"))
+        cells = tuple(sorted({_position(cell, "visible cell") for cell in self.visible_cells}))
+        actions: list[tuple[str, tuple[str, ...]]] = []
+        for actor_id, allowed in self.legal_actions:
+            canonical_actor = _uuid4(actor_id, "legal action actor_id")
+            names = tuple(dict.fromkeys(str(item) for item in allowed))
+            if not set(names).issubset({action.value for action in ReferenceActionKind}):
+                raise ValueError("observation contains an unknown legal action")
+            actions.append((canonical_actor, names))
+        actions.sort(key=lambda item: uuid_sort_key(item[0]))
+        if len({actor_id for actor_id, _ in actions}) != len(actions):
+            raise ValueError("legal action actors must be unique")
+        object.__setattr__(self, "visible_cells", cells)
+        object.__setattr__(self, "legal_actions", tuple(actions))
+
     def to_dict(self) -> dict[str, object]:
         return {
             "playerId": self.player_id,
@@ -407,8 +437,10 @@ class ReferenceEvent:
     def __post_init__(self) -> None:
         _safe_int(self.sequence, "event sequence", minimum=0)
         _safe_int(self.tick, "event tick", minimum=1)
-        if not self.phase or not self.event_type:
-            raise ValueError("event phase and type must not be empty")
+        if self.phase not in REFERENCE_RULES.phase_order:
+            raise ValueError("event phase is not part of the reference pipeline")
+        if self.event_type not in REFERENCE_EVENT_TYPES:
+            raise ValueError("event type is not implemented by the reference slice")
         if self.actor_id is not None:
             object.__setattr__(self, "actor_id", _uuid4(self.actor_id, "event actor_id"))
         if self.position is not None:
@@ -486,17 +518,63 @@ class ReferenceReplay:
             raise ValueError("replay payload fields mismatch")
         for key in ("scenarioSha256", "rulesSha256", "initialWorldSha256", "finalWorldSha256"):
             _sha256(str(payload[key]), key)
+        if str(payload["status"]) not in {status.value for status in ReferenceEpisodeStatus}:
+            raise ValueError("unsupported replay status")
         frames = payload["frames"]
         if not isinstance(frames, list):
             raise ValueError("replay frames must be a list")
         previous = str(payload["initialWorldSha256"])
+        expected_tick: int | None = None
+        frame_fields = {
+            "tick",
+            "preWorldSha256",
+            "postWorldSha256",
+            "rngPositionBefore",
+            "rngPositionAfter",
+            "observations",
+            "events",
+        }
+        event_fields = {
+            "schemaVersion",
+            "sequence",
+            "tick",
+            "phase",
+            "eventType",
+            "actorId",
+            "reasonCode",
+            "position",
+            "values",
+        }
         for index, frame in enumerate(frames):
-            if not isinstance(frame, dict):
-                raise ValueError("replay frame entries must be objects")
-            pre_hash = _sha256(str(frame.get("preWorldSha256")), "frame pre hash")
-            post_hash = _sha256(str(frame.get("postWorldSha256")), "frame post hash")
+            if not isinstance(frame, dict) or set(frame) != frame_fields:
+                raise ValueError("replay frame fields mismatch")
+            tick = _safe_int(frame["tick"], "frame tick", minimum=1)
+            if expected_tick is not None and tick != expected_tick:
+                raise ValueError("replay frame ticks must be contiguous")
+            expected_tick = tick + 1
+            pre_hash = _sha256(str(frame["preWorldSha256"]), "frame pre hash")
+            post_hash = _sha256(str(frame["postWorldSha256"]), "frame post hash")
             if pre_hash != previous:
                 raise ValueError(f"replay frame hash chain breaks at index {index}")
+            before = _safe_int(frame["rngPositionBefore"], "rng before", minimum=0)
+            after = _safe_int(frame["rngPositionAfter"], "rng after", minimum=0)
+            if after < before:
+                raise ValueError("replay RNG position must be monotonic")
+            observations = frame["observations"]
+            events = frame["events"]
+            if not isinstance(observations, list) or not isinstance(events, list):
+                raise ValueError("replay observations/events must be lists")
+            for sequence, event in enumerate(events):
+                if not isinstance(event, dict) or set(event) != event_fields:
+                    raise ValueError("replay event fields mismatch")
+                if event["schemaVersion"] != "arena.reference.event.v1":
+                    raise ValueError("unsupported replay event schema")
+                if event["sequence"] != sequence or event["tick"] != tick:
+                    raise ValueError("replay event ordering is invalid")
+                if event["phase"] not in REFERENCE_RULES.phase_order:
+                    raise ValueError("replay event phase is invalid")
+                if event["eventType"] not in REFERENCE_EVENT_TYPES:
+                    raise ValueError("replay event type is invalid")
             previous = post_hash
         if previous != str(payload["finalWorldSha256"]):
             raise ValueError("replay final hash is not bound to the final frame")

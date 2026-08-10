@@ -445,3 +445,95 @@ def test_full_world_hash_properties_without_incremental_claim() -> None:
         assert changed.sha256 == content_sha256(changed.to_dict())
         assert changed.sha256 == changed.sha256
         assert changed.sha256 != base.sha256
+
+
+def test_command_input_order_is_canonical() -> None:
+    scenario = harvest_deposit_scenario()
+    world = replace(
+        scenario.initial_world,
+        players=(
+            replace(
+                scenario.initial_world.players[0],
+                units=(
+                    ReferenceUnit(UNIT_2, "alpha", (4, 0)),
+                    scenario.initial_world.players[0].units[0],
+                ),
+            ),
+        ),
+    )
+    forward = ReferenceScenario(
+        "command-order",
+        world,
+        ("alpha",),
+        (
+            ReferenceTurn(
+                1,
+                (
+                    ReferenceCommand(UNIT_1, ReferenceActionKind.HARVEST),
+                    ReferenceCommand(UNIT_2, ReferenceActionKind.WAIT),
+                ),
+            ),
+        ),
+    )
+    reverse = replace(
+        forward,
+        turns=(ReferenceTurn(1, tuple(reversed(forward.turns[0].commands))),),
+    )
+    assert forward.sha256 == reverse.sha256
+    left = run_reference_episode(forward, request_id="order", episode_id="order", max_ticks=1)
+    right = run_reference_episode(reverse, request_id="order", episode_id="order", max_ticks=1)
+    assert left.final_world.sha256 == right.final_world.sha256
+    assert left.replay.to_bytes() == right.replay.to_bytes()
+
+
+def test_replay_rejects_recomputed_event_tamper() -> None:
+    result = run_reference_episode(
+        harvest_deposit_scenario(),
+        request_id="tamper",
+        episode_id="tamper",
+        max_ticks=5,
+    )
+    raw = json.loads(result.replay.to_bytes())
+    raw["payload"]["frames"][0]["events"][0]["schemaVersion"] = "arena.reference.event.v99"
+    raw["payloadSha256"] = content_sha256(raw["payload"])
+    with pytest.raises(ValueError, match="event schema"):
+        ReferenceReplay.from_bytes(json.dumps(raw).encode())
+
+    raw = json.loads(result.replay.to_bytes())
+    raw["payload"]["frames"][1]["events"][0]["sequence"] = 7
+    raw["payloadSha256"] = content_sha256(raw["payload"])
+    with pytest.raises(ValueError, match="event ordering"):
+        ReferenceReplay.from_bytes(json.dumps(raw).encode())
+
+
+def test_backend_registration_and_capabilities_are_fail_closed() -> None:
+    scenario = harvest_deposit_scenario()
+    with pytest.raises(ValueError, match="duplicate reference scenario id"):
+        ReferenceEngineBackend((scenario, replace(scenario, turns=())))
+    with pytest.raises(ValueError, match="duplicate reference scenario digest"):
+        ReferenceEngineBackend((scenario, scenario))
+
+    capabilities = ReferenceEngineBackend((scenario,)).descriptor.capabilities
+    assert capabilities.supports_batch is True
+    assert capabilities.supports_incremental_world_hash is False
+    assert capabilities.supports_zero_copy is False
+    assert "reference-harvest-deposit-v1" in capabilities.features
+    assert "combat" not in capabilities.features
+
+
+def test_observation_legal_actions_and_hash_tamper_are_explicit() -> None:
+    scenario = harvest_deposit_scenario()
+    observation = observe_world(scenario.initial_world)[0]
+    assert observation.legal_actions == ((UNIT_1, ("WAIT", "MOVE", "HARVEST", "DEPOSIT")),)
+    changed = replace(
+        scenario.initial_world,
+        players=(replace(scenario.initial_world.players[0], resources=6),),
+    )
+    assert changed.sha256 != scenario.initial_world.sha256
+
+
+def test_reference_rng_and_rules_reject_invalid_state() -> None:
+    with pytest.raises(ValueError, match="RNG seed"):
+        ReferenceRng(-1)
+    with pytest.raises(ValueError, match="cell_entity_capacity"):
+        replace(REFERENCE_RULES, cell_entity_capacity=0)

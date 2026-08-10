@@ -112,10 +112,10 @@ class ReferenceEngineBackend:
         by_digest: dict[str, ReferenceScenario] = {}
         ids: set[str] = set()
         for scenario in scenarios:
-            if scenario.scenario_id in ids:
-                raise ValueError(f"duplicate reference scenario id: {scenario.scenario_id}")
             if scenario.sha256 in by_digest:
                 raise ValueError(f"duplicate reference scenario digest: {scenario.sha256}")
+            if scenario.scenario_id in ids:
+                raise ValueError(f"duplicate reference scenario id: {scenario.scenario_id}")
             ids.add(scenario.scenario_id)
             by_digest[scenario.sha256] = scenario
         self._scenarios = MappingProxyType(by_digest)
