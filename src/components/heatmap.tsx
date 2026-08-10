@@ -5,7 +5,7 @@ import { benchData, contestantOf, type BenchmarkScenario, type ScenarioEntryStat
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 
-type MetricKey = "resourcesPerTick" | "killRate" | "survivalMedian";
+type MetricKey = "resourcesPerTick" | "killRate" | "avgRank";
 
 const METRICS: {
   key: MetricKey;
@@ -13,10 +13,12 @@ const METRICS: {
   unit: string;
   digits: number;
   note: string;
+  /** 数值越小越好（如名次）→ 色阶反转（小值深色）。 */
+  invert?: boolean;
 }[] = [
   { key: "resourcesPerTick", label: "资源/刻", unit: "res/tick", digits: 3, note: "场景级平均资源采集速率" },
   { key: "killRate", label: "击杀率", unit: "kill/match", digits: 2, note: "场景级场均击杀" },
-  { key: "survivalMedian", label: "存活", unit: "v2 弃用", digits: 2, note: "v2 兼容字段：v3 恒 1.0（已弃用）" },
+  { key: "avgRank", label: "平均名次", unit: "rank", digits: 2, note: "场景级平均名次（越小越好，色阶反转）", invert: true },
 ];
 
 const CELL_W = 66;
@@ -51,7 +53,8 @@ export function Heatmap() {
     if (v == null) return 0;
     if (degenerate) return 3;
     const t = max === min ? 0 : (v - min) / (max - min);
-    return Math.min(6, Math.max(1, 1 + Math.round(t * 5)));
+    const normalized = metric.invert === true ? 1 - t : t;
+    return Math.min(6, Math.max(1, 1 + Math.round(normalized * 5)));
   };
 
   const fmt = (v: number | null): string => {

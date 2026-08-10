@@ -70,6 +70,12 @@ const CONTESTANT_LINUXDO_URL: Record<string, string> = {
   "arena-evolve": "https://linux.do/t/topic/2723397",
 };
 
+/** 条目 id → 展示名（覆盖评测产物 label 的错误措辞——core 为 VelvetEvening
+ *  社区指南 agent，非官方参考；其余标签经核对准确，仅纠正错误项）。 */
+const CONTESTANT_LABEL: Record<string, string> = {
+  core: "core（双策略指南）",
+};
+
 /** 条目 id → 展示用配置说明（覆盖评测产物 configNote 的"官方"措辞——
  *  这些 agent 全部是社区第三方实现，无官方 agent；文案对齐各仓库 README 定位）。 */
 const CONTESTANT_CONFIG_NOTE: Record<string, string> = {
@@ -328,7 +334,7 @@ function main(): void {
     params: raw.params,
     contestants: raw.contestants.map((c) => ({
       id: c.id,
-      label: c.label,
+      label: CONTESTANT_LABEL[c.id] ?? c.label,
       kind: c.kind,
       configNote: CONTESTANT_CONFIG_NOTE[c.id] ?? c.configNote,
       ...(CONTESTANT_REPO_URL[c.id] !== undefined ? { repoUrl: CONTESTANT_REPO_URL[c.id] } : {}),

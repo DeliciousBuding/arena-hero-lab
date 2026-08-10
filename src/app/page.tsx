@@ -1,8 +1,9 @@
 import { ArrowRight, GitBranch, Layers } from "lucide-react";
 import Link from "next/link";
 import { Heatmap } from "@/components/heatmap";
-import { OverallTable } from "@/components/overall-table";
+import { RankBars, type RankBarRow } from "@/components/rank-bars";
 import { ScenarioComparison } from "@/components/scenario-comparison";
+import { ScoreBars, type ScoreBarEntry } from "@/components/score-bars";
 import { SectionHeader } from "@/components/section-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -48,6 +49,47 @@ function PodiumRow({
       </div>
     </Link>
   );
+}
+
+/** 综合排名图数据行（composite 升序绘制，榜首条最长）。 */
+function rankRows(): RankBarRow[] {
+  return benchData.leaderboard.map((entry) => {
+    const contestant = contestantOf(entry.contestantId);
+    return {
+      rank: entry.rank,
+      id: entry.contestantId,
+      label: contestant?.label ?? entry.contestantId,
+      kind: contestant?.kind ?? "python",
+      value: entry.composite,
+      ascending: true,
+      primary: `${(entry.composite * 100).toFixed(1)}%`,
+      secondary: `均排 ${entry.avgRank.toFixed(2)} · rankScore ${(entry.rankScore * 100).toFixed(1)}%`,
+      href: `/entry/${entry.contestantId}`,
+    };
+  });
+}
+
+/** 四维分数对比图数据（击杀/名次/经济/生存 0–1 分）。 */
+const SCORE_KEYS = [
+  { key: "killScore" as const, label: "击杀" },
+  { key: "rankScore" as const, label: "名次" },
+  { key: "economyScore" as const, label: "经济" },
+  { key: "survivalScore" as const, label: "生存" },
+];
+
+function scoreEntries(): ScoreBarEntry[] {
+  return benchData.leaderboard.map((entry) => {
+    const contestant = contestantOf(entry.contestantId);
+    return {
+      id: entry.contestantId,
+      label: contestant?.label ?? entry.contestantId,
+      scores: SCORE_KEYS.map((d) => ({
+        key: d.key,
+        label: d.label,
+        value: entry[d.key],
+      })),
+    };
+  });
 }
 
 export default function HomePage() {
@@ -131,12 +173,12 @@ export default function HomePage() {
         })}
       </section>
 
-      {/* ===== 综合排名 ===== */}
+      {/* ===== 综合排名图 ===== */}
       <section className="mb-16">
         <SectionHeader
           id="rankings"
           title="Overall Rankings"
-          description="按综合分排序，列头可排序。点击条目进入详情页。"
+          description="综合分条形图（v3 composite 加权合成），可搜索过滤；点击条目进入详情页。"
           action={
             <Button asChild variant="ghost" size="sm" className="gap-1 text-xs text-brand hover:bg-brand-soft">
               <Link href="/leaderboard">
@@ -147,10 +189,21 @@ export default function HomePage() {
           }
         />
         <Card>
-          <CardContent className="thin-scroll overflow-x-auto p-2">
-            <OverallTable rows={benchData.leaderboard} />
+          <CardContent className="p-5">
+            <RankBars rows={rankRows()} valueLabel="综合分" />
           </CardContent>
         </Card>
+      </section>
+
+      {/* ===== 四维分数对比 ===== */}
+      <section className="mb-16">
+        <SectionHeader
+          id="scores"
+          title="Score Profile"
+          enTitle="四维对比"
+          description="各条目击杀 / 名次 / 经济 / 生存 四项归一化分数（0–100%），直观对比强弱项。"
+        />
+        <ScoreBars entries={scoreEntries()} />
       </section>
 
       {/* ===== 热图 ===== */}
@@ -159,7 +212,7 @@ export default function HomePage() {
           id="heatmap"
           title="Scenario Heatmap"
           enTitle="场景热图"
-          description="场景 × 条目指标矩阵，可切换资源/刻 · 击杀率 · 存活（弃用）。"
+          description="场景 × 条目指标矩阵，可切换资源/刻 · 击杀率 · 平均名次。"
         />
         <Heatmap />
       </section>
