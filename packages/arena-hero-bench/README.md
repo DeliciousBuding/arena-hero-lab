@@ -86,3 +86,24 @@ pre-registers only the deterministic `reference-engine` backend.
   from another thread. Concurrent `execute` calls on the same executor are
   safe for process bookkeeping, but the ledger and artifact store are
   single-writer contracts, so callers must serialize concurrent executions.
+
+## Performance evidence
+
+`arena_hero_bench.performance.measure_reference_workload` measures real reference-engine runs
+of the canonical content-addressed workload and returns a raw, content-addressed
+`PerformanceEvidence` artifact:
+
+- warmup rounds run outside the samples; measured durations come from the integer
+  `perf_counter_ns` clock with every raw sample retained. A clock that returns non-integer,
+  non-finite, boolean, or backwards values fails closed: the sample is discarded, an issue is
+  recorded, and the evidence is not publishable.
+- each measured round must reproduce the baseline semantic run digest; any drift makes the
+  evidence not publishable.
+- `median_ns`, `p95_ns`, and `p99_ns` are derived only from complete, credible raw samples.
+- `production_claim` is fixed to `false`; publishable evidence can never carry issues.
+
+The differential gate is recomputed inside the measurement from the current baseline run and,
+when supplied, a candidate run (`compare_workload_runs(baseline, candidate)`). An externally
+injected `DifferentialReport` is trusted only when it is byte-identical to that recomputed
+gate: the workload, reference run, candidate run, and content digests must all match. Stale,
+forged, or wrong-identity reports fail closed and never enter publishable evidence.

@@ -74,6 +74,13 @@ are expected to differ and are not semantic mismatches.
 The gate runs before performance aggregation. A faster result that fails semantic equivalence is
 recorded as a failed differential artifact, never as a benchmark improvement.
 
+The measurement entrypoint recomputes the gate from the current baseline run and, when
+supplied, a candidate run. An injected differential report is trusted only when it is
+byte-identical to that recomputed gate: workload, reference-run, candidate-run, and content
+digests must all match, so stale or forged reports cannot reach publishable evidence. Timer
+outputs are validated against the integer wall-clock contract (non-integer, non-finite,
+boolean, or backwards values fail closed and discard the sample).
+
 ## Ownership and extension path
 
 - `arena-hero-sim` owns workload semantics, identity, request expansion, backend capabilities, and
