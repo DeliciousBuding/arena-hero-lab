@@ -86,6 +86,18 @@ from arena_hero_research.results import (
 )
 from arena_hero_research.runner import ReplicationExecutor, ReplicationRunner
 from arena_hero_research.statistics import arithmetic_mean
+from arena_hero_research.storage import (
+    FilesystemResearchLedgerStorage,
+    FrozenResearchRecord,
+    LedgerCorruptionError,
+    LedgerStorageError,
+    ResearchLedgerState,
+    ResearchLedgerStorage,
+    ResearchLedgerTransaction,
+    ResearchRecordKind,
+    TornLedgerTailError,
+    TornTailRecovery,
+)
 
 __all__ = [
     "AnalysisPlan",
@@ -106,9 +118,13 @@ __all__ = [
     "ExecutionProvenance",
     "ExperimentDesign",
     "Factor",
+    "FilesystemResearchLedgerStorage",
+    "FrozenResearchRecord",
     "Hypothesis",
     "HypothesisDirection",
     "LedgerConflictError",
+    "LedgerCorruptionError",
+    "LedgerStorageError",
     "LifecycleError",
     "MergedOutcomePairs",
     "MissingDataPolicy",
@@ -138,14 +154,20 @@ __all__ = [
     "ResearchAnalysisError",
     "ResearchBundleError",
     "ResearchConclusion",
+    "ResearchLedgerState",
+    "ResearchLedgerStorage",
+    "ResearchLedgerTransaction",
     "ResearchLifecycle",
     "ResearchPhase",
     "ResearchQuestion",
+    "ResearchRecordKind",
     "ResearchRun",
     "ResearchRunStatus",
     "ResultBundle",
     "SoftwareBillOfMaterials",
     "SoftwareComponent",
+    "TornLedgerTailError",
+    "TornTailRecovery",
     "UndeclaredOutcomeError",
     "analyze_preregistered_paired_outcomes",
     "arithmetic_mean",

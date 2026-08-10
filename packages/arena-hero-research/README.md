@@ -132,3 +132,23 @@ This minimal SBOM is reproducibility evidence, not a complete CycloneDX/SPDX doc
 signature, vulnerability scan, build attestation, or proof that every transitive or native
 component was captured. Callers must disclose the components relevant to their execution
 and may layer stronger external supply-chain attestations on the same digests.
+
+## Durable ledger storage port
+
+`ResearchLedgerStorage` is the persistence port. The reference
+`FilesystemResearchLedgerStorage` adapter stores canonical public records under
+content-addressed SHA-256 object paths and commits operations as one canonical JSONL line
+in a sequence-checked, hash-chained journal. A process-scoped OS file lock enforces the
+single-writer section; objects are written through same-directory temporary files, `fsync`,
+and atomic replacement before the journal commit is appended and read back. Reusing an
+`operation_id` with identical record identities is idempotent; conflicting content fails
+closed. Immutable `(study, kind, subject)` keys cannot be rewritten and no delete API is
+provided.
+
+A final journal fragment without a newline is treated as uncommitted, never silently
+accepted. `recover_torn_tail()` must be called explicitly; it first verifies the complete
+prefix, quarantines the discarded bytes by SHA-256, atomically restores the prefix, and
+verifies it again. Corruption in a committed line, hash-chain break, missing object, or
+object digest mismatch is not auto-repaired. The adapter is a local single-writer reference,
+not a distributed transaction service, remote object store, signature system, or protection
+against an attacker who can coherently rewrite every local byte.
