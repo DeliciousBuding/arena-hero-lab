@@ -10,31 +10,51 @@ Design notes
 ------------
 - Work and result payloads use versioned envelope schemas
   (``arena.process.work.v1`` / ``arena.process.result.v1``) exchanged as one
-  canonical JSON line over the child's stdin/stdout.
+  canonical JSON line over the child's stdin/stdout. Scenarios are carried once
+  per envelope in a top-level map keyed by their content SHA-256; request
+  entries only reference the digest.
 - Requests are submitted in fixed plan order and results are reassembled in
   that same order, so worker count never changes shard or merged digests.
 - Each child is bounded by ``max_workers`` concurrency and a per-task timeout.
-  Crashes, non-zero exits, invalid payloads, and timeouts fail closed: the
-  affected requests become failed results and the shard is never publishable.
-- Cancellation terminates tracked child processes so blocked waits return.
-- This is a reference adapter, not a security sandbox: children inherit the
-  parent environment, run as the same user, and are not resource-isolated.
-  No shell, network, secrets, dynamic imports, or production data are used.
+  On timeout the whole process tree is reaped: POSIX uses a fresh session plus
+  ``killpg``; Windows assigns each child to a Job Object (stdlib ``ctypes``)
+  and terminates the job, falling back to terminate/kill with a bounded drain
+  and pipe close when job assignment is unavailable. ``execute`` always returns
+  a FAILED shard within a finite window, even when a worker spawns a
+  grandchild that inherits the output pipes.
+- ``stdout``/``stderr`` are streamed through bounded reader threads with a
+  configurable hard byte cap (``max_output_bytes``); exceeding the cap fails
+  closed instead of buffering unbounded output.
+- Cancellation terminates tracked children (and their trees) so blocked waits
+  return promptly; the spawn bookkeeping is lock-serialized so no new child can
+  be spawned after ``close``.
+- The allowlist constrains request routing only. Constructing a
+  ``BackendProcessSpec`` grants the code-execution authority of the child
+  process, so callers must treat specs as trusted configuration. This is a
+  reference adapter, not a security sandbox: children inherit the parent
+  environment, run as the same user, and are not resource-isolated. No shell,
+  network, secrets, dynamic imports, or production data are used.
 """
 
 from __future__ import annotations
 
+import ctypes
 import json
 import math
 import os
 import re
+import signal
 import subprocess
 import sys
 import threading
+import time
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import suppress
+from ctypes import wintypes
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from arena_hero_bench.orchestration import (
     ArtifactStore,
@@ -63,7 +83,127 @@ from arena_hero_sim.serialization import canonical_json_bytes
 WORK_ENVELOPE_VERSION = "arena.process.work.v1"
 RESULT_ENVELOPE_VERSION = "arena.process.result.v1"
 _REAP_TIMEOUT = 5.0
+_DEFAULT_MAX_OUTPUT_BYTES = 1_048_576
+_READ_CHUNK = 65536
 _IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9._-]{0,127}$")
+
+# --- Windows Job Object (stdlib ctypes; best effort) -------------------------
+# The structures mirror JOBOBJECT_EXTENDED_LIMIT_INFORMATION on x64; on 32-bit
+# Windows the layout differs, so job creation may fail and execution falls back
+# to terminate/kill plus a bounded drain. KILL_ON_JOB_CLOSE terminates the whole
+# process tree when the job handle is closed.
+
+
+class _JobIoCounters(ctypes.Structure):
+    _fields_ = [
+        ("ReadOperationCount", ctypes.c_uint64),
+        ("WriteOperationCount", ctypes.c_uint64),
+        ("OtherOperationCount", ctypes.c_uint64),
+        ("ReadTransferCount", ctypes.c_uint64),
+        ("WriteTransferCount", ctypes.c_uint64),
+        ("OtherTransferCount", ctypes.c_uint64),
+    ]
+
+
+class _JobBasicLimitInformation(ctypes.Structure):
+    _fields_ = [
+        ("PerProcessUserTimeLimit", ctypes.c_int64),
+        ("PerJobUserTimeLimit", ctypes.c_int64),
+        ("LimitFlags", wintypes.DWORD),
+        ("MinimumWorkingSetSize", ctypes.c_size_t),
+        ("MaximumWorkingSetSize", ctypes.c_size_t),
+        ("ActiveProcessLimit", wintypes.DWORD),
+        ("Affinity", ctypes.c_size_t),
+        ("PriorityClass", wintypes.DWORD),
+        ("SchedulingClass", wintypes.DWORD),
+    ]
+
+
+class _JobExtendedLimitInformation(ctypes.Structure):
+    _fields_ = [
+        ("BasicLimitInformation", _JobBasicLimitInformation),
+        ("IoInfo", _JobIoCounters),
+        ("ProcessMemoryLimit", ctypes.c_size_t),
+        ("JobMemoryLimit", ctypes.c_size_t),
+        ("PeakProcessMemoryUsed", ctypes.c_size_t),
+        ("PeakJobMemoryUsed", ctypes.c_size_t),
+    ]
+
+
+_JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000
+_JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9
+_PROCESS_SET_QUOTA = 0x0100
+_PROCESS_TERMINATE = 0x0001
+
+_kernel32: Any = None
+if os.name == "nt":  # pragma: no cover - exercised on Windows
+    _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    _kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+    _kernel32.CreateJobObjectW.argtypes = [wintypes.LPVOID, wintypes.LPCWSTR]
+    _kernel32.SetInformationJobObject.restype = wintypes.BOOL
+    _kernel32.SetInformationJobObject.argtypes = [
+        wintypes.HANDLE,
+        ctypes.c_int,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+    ]
+    _kernel32.AssignProcessToJobObject.restype = wintypes.BOOL
+    _kernel32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+    _kernel32.TerminateJobObject.restype = wintypes.BOOL
+    _kernel32.TerminateJobObject.argtypes = [wintypes.HANDLE, wintypes.UINT]
+    _kernel32.CloseHandle.restype = wintypes.BOOL
+    _kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    _kernel32.OpenProcess.restype = wintypes.HANDLE
+    _kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+
+
+class _WindowsJob:
+    """Best-effort Windows Job Object that kills a process tree on demand.
+
+    Falls back to terminating only the direct child when job creation or
+    assignment fails (for example when the parent already runs inside a
+    non-nestable job). On non-Windows platforms every operation is a no-op.
+    """
+
+    def __init__(self) -> None:
+        self._handle: int | None = None
+        if _kernel32 is None:
+            return
+        handle = _kernel32.CreateJobObjectW(None, None)
+        if not handle:
+            return
+        info = _JobExtendedLimitInformation()
+        info.BasicLimitInformation.LimitFlags = _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+        if not _kernel32.SetInformationJobObject(
+            handle,
+            _JOB_OBJECT_EXTENDED_LIMIT_INFORMATION,
+            ctypes.byref(info),
+            ctypes.sizeof(info),
+        ):
+            _kernel32.CloseHandle(handle)
+            return
+        self._handle = int(handle)
+
+    def assign(self, pid: int) -> bool:
+        if _kernel32 is None or self._handle is None:
+            return False
+        process = _kernel32.OpenProcess(_PROCESS_SET_QUOTA | _PROCESS_TERMINATE, False, pid)
+        if not process:
+            return False
+        try:
+            return bool(_kernel32.AssignProcessToJobObject(self._handle, process))
+        finally:
+            _kernel32.CloseHandle(process)
+
+    def terminate(self) -> bool:
+        if _kernel32 is None or self._handle is None:
+            return False
+        return bool(_kernel32.TerminateJobObject(self._handle, 1))
+
+    def close(self) -> None:
+        if _kernel32 is not None and self._handle is not None:
+            _kernel32.CloseHandle(self._handle)
+            self._handle = None
 
 
 class ProcessExecutorError(OrchestrationError):
@@ -134,6 +274,10 @@ class BackendProcessSpec:
     ``python -m <module>``) or ``worker_script`` (explicit absolute script path,
     invoked as ``python <path>``) must be set. ``worker_script`` exists for
     tests and embedded experiments; it is not a dynamic import.
+
+    The allowlist constrains request routing only: a spec is trusted
+    configuration, and whoever constructs it effectively grants the child
+    process code-execution authority. The executor is not a sandbox.
     """
 
     backend_id: str
@@ -182,12 +326,13 @@ def reference_engine_process_executor(
     *,
     max_workers: int = 1,
     per_task_timeout: float = 60.0,
+    max_output_bytes: int = _DEFAULT_MAX_OUTPUT_BYTES,
 ) -> ProcessExecutor:
     """Build a process executor whose only allowed backend is the reference engine.
 
     Scenarios are indexed by their canonical SHA-256 digest; the executor
-    embeds each required scenario in the work envelope so a stateless child
-    can reconstruct it and run the registered reference slice.
+    embeds each required scenario once in the work envelope so a stateless
+    child can reconstruct it and run the registered reference slice.
     """
     by_digest: dict[str, ReferenceScenario] = {}
     for scenario in scenarios:
@@ -209,6 +354,7 @@ def reference_engine_process_executor(
         ledger=ledger,
         max_workers=max_workers,
         per_task_timeout=per_task_timeout,
+        max_output_bytes=max_output_bytes,
         scenario_provider=lambda digest: by_digest.get(digest),
     )
 
@@ -345,6 +491,69 @@ class ChunkOutcome:
     results: tuple[SimulationResult, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class _TrackedChild:
+    """A spawned child plus its optional Windows Job Object."""
+
+    proc: subprocess.Popen[bytes]
+    job: _WindowsJob | None = None
+
+
+class _BoundedPipeReader(threading.Thread):
+    """Stream one child pipe with a hard memory cap; overflow discards.
+
+    Once the cap is reached the reader keeps draining and discarding so the
+    child never blocks on a full pipe, while memory stays bounded. Exceeding
+    the cap is reported through :attr:`overflow` and the executor fails closed.
+    """
+
+    def __init__(self, stream: Any, *, max_bytes: int) -> None:
+        super().__init__(daemon=True, name="arena-process-reader")
+        self._stream = stream
+        self._max_bytes = max_bytes
+        self._lock = threading.Lock()
+        self._chunks: list[bytes] = []
+        self._total = 0
+        self._overflow = False
+        self._finished = threading.Event()
+
+    def run(self) -> None:
+        try:
+            while True:
+                chunk = self._stream.read(_READ_CHUNK)
+                if not chunk:
+                    break
+                with self._lock:
+                    if self._total < self._max_bytes:
+                        remaining = self._max_bytes - self._total
+                        if len(chunk) > remaining:
+                            self._chunks.append(chunk[:remaining])
+                            self._total += remaining
+                            self._overflow = True
+                        else:
+                            self._chunks.append(chunk)
+                            self._total += len(chunk)
+                    else:
+                        self._overflow = True
+        except OSError:
+            # The executor closed the pipe after a bounded drain window.
+            pass
+        finally:
+            self._finished.set()
+
+    def collected(self) -> bytes:
+        with self._lock:
+            return b"".join(self._chunks)
+
+    @property
+    def overflow(self) -> bool:
+        with self._lock:
+            return self._overflow
+
+    def wait(self, timeout: float) -> bool:
+        return self._finished.wait(timeout)
+
+
 def _ordered_chunks(
     requests: Sequence[SimulationRequest], worker_count: int
 ) -> tuple[tuple[SimulationRequest, ...], ...]:
@@ -472,7 +681,15 @@ def _parse_result_envelope(
 
 
 class ProcessExecutor:
-    """Bounded local process executor with an explicit backend allowlist."""
+    """Bounded local process executor with an explicit backend allowlist.
+
+    Thread-safety contract: spawn bookkeeping (the active-child set and the
+    closed flag) is lock-serialized, and ``close`` may be called from another
+    thread to terminate active children. Concurrent ``execute`` calls on the
+    same executor are safe for process bookkeeping, but the ledger and artifact
+    store are single-writer contracts, so callers must serialize concurrent
+    executions of the same executor themselves.
+    """
 
     def __init__(
         self,
@@ -482,12 +699,15 @@ class ProcessExecutor:
         ledger: ExecutionLedger,
         max_workers: int = 1,
         per_task_timeout: float = 60.0,
+        max_output_bytes: int = _DEFAULT_MAX_OUTPUT_BYTES,
         scenario_provider: Callable[[str], ReferenceScenario | None] | None = None,
     ) -> None:
         if max_workers < 1:
             raise ValueError("max_workers must be positive")
         if per_task_timeout <= 0:
             raise ValueError("per_task_timeout must be positive")
+        if max_output_bytes < 1:
+            raise ValueError("max_output_bytes must be positive")
         specs = dict(backend_specs)
         if not specs:
             raise ValueError("at least one backend spec is required")
@@ -496,8 +716,9 @@ class ProcessExecutor:
         self.ledger = ledger
         self.max_workers = max_workers
         self.per_task_timeout = per_task_timeout
+        self.max_output_bytes = max_output_bytes
         self._scenario_provider = scenario_provider
-        self._active: set[subprocess.Popen[bytes]] = set()
+        self._active: set[_TrackedChild] = set()
         self._lock = threading.Lock()
         self._closed = False
 
@@ -531,14 +752,22 @@ class ProcessExecutor:
         return result
 
     def close(self) -> None:
-        """Terminate any live children so blocked waits return promptly."""
+        """Terminate active process trees so blocked waits return promptly.
+
+        The closed flag is set under the spawn lock, and the active set is
+        snapshotted under the same lock, so no child can be spawned after
+        ``close`` returns.
+        """
         if self._closed:
             return
-        self._closed = True
         with self._lock:
-            processes = list(self._active)
-        for proc in processes:
-            _terminate(proc)
+            self._closed = True
+            children = list(self._active)
+            self._active.clear()
+        for child in children:
+            self._kill_tree(child)
+            if child.job is not None:
+                child.job.close()
 
     def __enter__(self) -> ProcessExecutor:
         return self
@@ -600,55 +829,133 @@ class ProcessExecutor:
     ) -> tuple[int, ChunkOutcome]:
         try:
             outcome = self._execute_chunk(spec, plan, chunk)
-        except Exception as exc:
+        except Exception as exc:  # fail closed with diagnostics
             outcome = ChunkOutcome(_failed_results(chunk, f"process executor error: {exc}"))
         return index, outcome
+
+    def _spawn(self, spec: BackendProcessSpec) -> _TrackedChild:
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
+        with self._lock:
+            if self._closed:
+                raise ProcessExecutorClosedError("process executor is closed")
+            proc = subprocess.Popen(
+                spec.command(),
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                close_fds=True,
+                creationflags=creationflags,
+                start_new_session=os.name == "posix",
+            )
+            job = _WindowsJob()
+            if not job.assign(proc.pid):
+                job.close()
+                job = None
+            tracked = _TrackedChild(proc=proc, job=job)
+            self._active.add(tracked)
+        return tracked
+
+    def _kill_tree(self, tracked: _TrackedChild, *, force: bool = False) -> None:
+        proc = tracked.proc
+        if os.name == "posix":
+            with suppress(ProcessLookupError):
+                os.killpg(os.getpgid(proc.pid), signal.SIGKILL if force else signal.SIGTERM)
+            return
+        if tracked.job is not None and tracked.job.terminate():
+            return
+        if force:
+            proc.kill()
+        else:
+            _terminate(proc)
+
+    def _bounded_wait(self, tracked: _TrackedChild) -> None:
+        try:
+            tracked.proc.wait(timeout=_REAP_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            self._kill_tree(tracked, force=True)
+            with suppress(subprocess.TimeoutExpired):
+                tracked.proc.wait(timeout=_REAP_TIMEOUT)
 
     def _execute_chunk(
         self, spec: BackendProcessSpec, plan: ShardPlan, chunk: Sequence[SimulationRequest]
     ) -> ChunkOutcome:
         envelope = _work_envelope(spec, plan, chunk, self._scenario_provider)
-        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
-        proc = subprocess.Popen(
-            spec.command(),
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            close_fds=True,
-            creationflags=creationflags,
-        )
-        with self._lock:
-            self._active.add(proc)
+        tracked = self._spawn(spec)
+        proc = tracked.proc
+        stdout = proc.stdout
+        stderr = proc.stderr
+        stdin = proc.stdin
+        assert stdout is not None and stderr is not None and stdin is not None
+        stdout_reader = _BoundedPipeReader(stdout, max_bytes=self.max_output_bytes)
+        stderr_reader = _BoundedPipeReader(stderr, max_bytes=self.max_output_bytes)
+        stdout_reader.start()
+        stderr_reader.start()
+        timed_out = False
         try:
             try:
-                stdout, stderr = proc.communicate(
-                    canonical_json_bytes(envelope) + b"\n", timeout=self.per_task_timeout
-                )
+                stdin.write(canonical_json_bytes(envelope) + b"\n")
+            except (BrokenPipeError, OSError):
+                pass
+            finally:
+                with suppress(OSError):
+                    stdin.close()
+            try:
+                proc.wait(timeout=self.per_task_timeout)
             except subprocess.TimeoutExpired:
-                _terminate(proc)
-                try:
-                    stdout, stderr = proc.communicate(timeout=_REAP_TIMEOUT)
-                except subprocess.TimeoutExpired:
-                    proc.kill()
-                    stdout, stderr = proc.communicate()
+                timed_out = True
+                self._kill_tree(tracked)
+                self._bounded_wait(tracked)
+            deadline = time.monotonic() + _REAP_TIMEOUT
+            readers_finished = True
+            for reader in (stdout_reader, stderr_reader):
+                remaining = max(0.0, deadline - time.monotonic())
+                if not reader.wait(remaining):
+                    readers_finished = False
+                    break
+            if timed_out:
                 return ChunkOutcome(
                     _failed_results(
                         chunk,
                         f"worker exceeded per-task timeout of {self.per_task_timeout:g} seconds",
                     )
                 )
+            if proc.returncode is None:
+                return ChunkOutcome(
+                    _failed_results(
+                        chunk, "worker did not terminate within the bounded reap window"
+                    )
+                )
+            if not readers_finished:
+                return ChunkOutcome(
+                    _failed_results(
+                        chunk, "worker did not release output pipes within the bounded window"
+                    )
+                )
+            if stdout_reader.overflow or stderr_reader.overflow:
+                return ChunkOutcome(
+                    _failed_results(
+                        chunk,
+                        f"worker output exceeded the {self.max_output_bytes} byte limit",
+                    )
+                )
             if proc.returncode != 0:
                 return ChunkOutcome(
                     _failed_results(
                         chunk,
-                        f"worker exited with code {proc.returncode}: {_decode_stderr(stderr)}",
+                        f"worker exited with code {proc.returncode}: "
+                        f"{_decode_stderr(stderr_reader.collected())}",
                     )
                 )
             try:
-                results = _parse_result_envelope(stdout, envelope, chunk)
+                results = _parse_result_envelope(stdout_reader.collected(), envelope, chunk)
             except ProcessExecutorError as exc:
                 return ChunkOutcome(_failed_results(chunk, f"invalid worker payload: {exc}"))
             return ChunkOutcome(results)
         finally:
+            for stream in (stdin, stdout, stderr):
+                with suppress(OSError):
+                    stream.close()
+            if tracked.job is not None:
+                tracked.job.close()
             with self._lock:
-                self._active.discard(proc)
+                self._active.discard(tracked)

@@ -24,6 +24,7 @@ from arena_hero_bench.orchestration import (
     RunStatus,
     ShardId,
     ShardPlan,
+    ShardResult,
 )
 from arena_hero_bench.process_executor import (
     BackendProcessSpec,
@@ -485,19 +486,21 @@ def test_cancel_terminates_active_children(tmp_path: Path) -> None:
     thread = threading.Thread(target=run)
     thread.start()
     deadline = time.monotonic() + 15.0
-    proc = None
+    tracked = None
     while time.monotonic() < deadline:
         with executor._lock:
             active = list(executor._active)
         if active:
-            proc = active[0]
+            tracked = active[0]
             break
         time.sleep(0.05)
-    assert proc is not None
+    assert tracked is not None
     executor.close()
     thread.join(timeout=20.0)
     assert not thread.is_alive()
-    assert proc.poll() is not None
+    assert tracked.proc.poll() is not None
+    with executor._lock:
+        assert not executor._active
 
 
 def test_closed_executor_rejects_execution() -> None:
@@ -526,3 +529,87 @@ def test_scenario_roundtrip_preserves_digest() -> None:
     reconstructed = scenario_from_dict(scenario.to_dict())
     assert reconstructed.sha256 == scenario.sha256
     assert reconstructed == scenario
+
+
+def test_grandchild_pipe_hold_timeout_bounded(tmp_path: Path) -> None:
+    script = tmp_path / "grandchild.py"
+    script.write_text(
+        "import subprocess, sys, time\n"
+        "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])\n"
+        "time.sleep(60)\n",
+        encoding="utf-8",
+    )
+    scenarios = make_scenarios(1)
+    executor = ProcessExecutor(
+        backend_specs={REFERENCE_BACKEND_ID: reference_spec(worker_script=str(script))},
+        artifact_store=InMemoryArtifactStore(),
+        ledger=InMemoryExecutionLedger(),
+        max_workers=1,
+        per_task_timeout=0.5,
+        scenario_provider=scenario_provider(scenarios),
+    )
+    started = time.monotonic()
+    result = executor.execute(plan_for([request_for(scenarios[0])]))
+    elapsed = time.monotonic() - started
+    assert result.status is RunStatus.FAILED
+    assert result.publishable is False
+    assert any("timeout" in error for error in result.errors)
+    assert elapsed < 15.0
+    with executor._lock:
+        assert not executor._active
+
+
+def test_close_race_no_new_child_after_close(tmp_path: Path) -> None:
+    script = tmp_path / "stall-long.py"
+    script.write_text("import time\ntime.sleep(60)\n", encoding="utf-8")
+    scenarios = make_scenarios(1)
+    executor = ProcessExecutor(
+        backend_specs={REFERENCE_BACKEND_ID: reference_spec(worker_script=str(script))},
+        artifact_store=InMemoryArtifactStore(),
+        ledger=InMemoryExecutionLedger(),
+        max_workers=1,
+        per_task_timeout=60.0,
+        scenario_provider=scenario_provider(scenarios),
+    )
+    plan = plan_for([request_for(scenarios[0])])
+    outcomes: list[object] = []
+
+    def run() -> None:
+        try:
+            outcomes.append(executor.execute(plan))
+        except Exception as exc:
+            outcomes.append(exc)
+
+    thread = threading.Thread(target=run)
+    thread.start()
+    time.sleep(0.05)
+    executor.close()
+    thread.join(timeout=20.0)
+    assert not thread.is_alive()
+    assert len(outcomes) == 1
+    outcome = outcomes[0]
+    if isinstance(outcome, ProcessExecutorClosedError):
+        return
+    assert isinstance(outcome, ShardResult), type(outcome).__name__
+    assert outcome.status is RunStatus.FAILED
+    with executor._lock:
+        assert not executor._active
+
+
+def test_oversized_output_fails_closed(tmp_path: Path) -> None:
+    script = tmp_path / "noisy.py"
+    script.write_text("import sys\nsys.stdout.write('x' * (2 * 1024 * 1024))\n", encoding="utf-8")
+    scenarios = make_scenarios(1)
+    executor = ProcessExecutor(
+        backend_specs={REFERENCE_BACKEND_ID: reference_spec(worker_script=str(script))},
+        artifact_store=InMemoryArtifactStore(),
+        ledger=InMemoryExecutionLedger(),
+        max_workers=1,
+        per_task_timeout=10.0,
+        max_output_bytes=1024,
+        scenario_provider=scenario_provider(scenarios),
+    )
+    result = executor.execute(plan_for([request_for(scenarios[0])]))
+    assert result.status is RunStatus.FAILED
+    assert result.publishable is False
+    assert any("output exceeded" in error for error in result.errors)
