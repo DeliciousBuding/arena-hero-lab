@@ -1,0 +1,431 @@
+"""Tests for the derived artifact index and read-only GC plan."""
+
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+
+import pytest
+
+from arena_hero_bench.artifact_index import (
+    ArtifactIndexError,
+    GcCandidate,
+    GcPlan,
+    StaleScanError,
+    StoreScan,
+    build_gc_plan,
+)
+from arena_hero_bench.manifest import ArtifactManifest, ArtifactStatus, RunManifest
+from arena_hero_bench.storage import FilesystemArtifactStore
+from arena_hero_sim.serialization import canonical_json_bytes, content_sha256, to_json_value
+
+_SHA = "a" * 64
+
+
+def artifact_for(content: bytes, *, tag: str = "tests/index.json") -> ArtifactManifest:
+    return ArtifactManifest.for_content(
+        content=content,
+        schema_version="arena.lab.artifact.v1",
+        generator_version="0.1.0",
+        provenance={"source": tag},
+        source_build_sha256=_SHA,
+    )
+
+
+def put_artifact(
+    store: FilesystemArtifactStore, content: bytes, *, tag: str = "tests/index.json"
+) -> ArtifactManifest:
+    manifest = artifact_for(content, tag=tag)
+    store.store_artifact(manifest, content)
+    return manifest
+
+
+def manifest_digest(manifest: ArtifactManifest) -> str:
+    return content_sha256(to_json_value(manifest.to_dict()))
+
+
+def run_for(content: bytes, artifacts: tuple[ArtifactManifest, ...]) -> RunManifest:
+    return RunManifest(
+        schema_version="arena.lab.run.v1",
+        generator_version="0.1.0",
+        provenance={"source": "tests/run.json"},
+        source_build_sha256=_SHA,
+        content_sha256=content_sha256(content),
+        status=ArtifactStatus.COMPLETE,
+        publishable=True,
+        artifacts=artifacts,
+    )
+
+
+def put_run_record(store: FilesystemArtifactStore, run: RunManifest) -> str:
+    digest = run.canonical_digest()
+    (store.root / "manifests" / f"{digest}.json").write_bytes(canonical_json_bytes(run.to_dict()))
+    return digest
+
+
+def candidate_digests(plan: GcPlan) -> set[str]:
+    return {candidate.digest for candidate in plan.candidates}
+
+
+def test_reachable_and_unreferenced_objects(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    root_content = canonical_json_bytes({"run": "root"})
+    root = put_artifact(store, root_content)
+    orphan = store.put(canonical_json_bytes({"orphan": True}))
+
+    plan = build_gc_plan(store, [manifest_digest(root)])
+
+    assert plan.reachable_objects == frozenset({content_sha256(root_content)})
+    assert plan.unreferenced_objects == frozenset({orphan})
+    assert plan.candidates == (GcCandidate("object", orphan),)
+    assert plan.dry_run
+
+
+def test_shared_object_is_reachable_once(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    content = canonical_json_bytes({"shared": True})
+    first = put_artifact(store, content, tag="tests/shared-a.json")
+    second = put_artifact(store, content, tag="tests/shared-b.json")
+    assert manifest_digest(first) != manifest_digest(second)
+
+    plan = build_gc_plan(store, [manifest_digest(first), manifest_digest(second)])
+
+    assert plan.reachable_objects == frozenset({content_sha256(content)})
+    assert plan.unreferenced_objects == frozenset()
+    assert plan.candidates == ()
+
+
+def test_multiple_roots_union_reachability(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    content_a = canonical_json_bytes({"run": "a"})
+    content_b = canonical_json_bytes({"run": "b"})
+    root_a = put_artifact(store, content_a, tag="tests/a.json")
+    root_b = put_artifact(store, content_b, tag="tests/b.json")
+
+    plan = build_gc_plan(store, [manifest_digest(root_a), manifest_digest(root_b)])
+
+    assert plan.reachable_objects == frozenset(
+        {content_sha256(content_a), content_sha256(content_b)}
+    )
+    assert plan.unreferenced_objects == frozenset()
+
+
+def test_empty_roots_fail_closed(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    put_artifact(store, canonical_json_bytes({"run": "root"}))
+
+    with pytest.raises(ArtifactIndexError, match="root set is empty"):
+        build_gc_plan(store, [])
+    scan = StoreScan.scan(store)
+    with pytest.raises(ArtifactIndexError, match="root set is empty"):
+        scan.mark_roots([])
+
+
+def test_mark_roots_rejects_unknown_and_invalid_digests(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    scan = StoreScan.scan(store)
+
+    with pytest.raises(ArtifactIndexError, match="not a verified manifest"):
+        scan.mark_roots(["0" * 64])
+    with pytest.raises(ArtifactIndexError, match="lowercase SHA-256"):
+        scan.mark_roots(["not-a-digest"])
+
+
+def test_corrupt_object_is_never_unreferenced_or_candidate(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    root_content = canonical_json_bytes({"run": "root"})
+    root = put_artifact(store, root_content)
+    store._object_path(root.content_sha256).write_bytes(b"torn bytes")
+
+    plan = build_gc_plan(store, [manifest_digest(root)])
+
+    assert plan.corrupt_objects == frozenset({root.content_sha256})
+    assert root.content_sha256 not in plan.reachable_objects
+    assert root.content_sha256 not in plan.unreferenced_objects
+    assert root.content_sha256 not in candidate_digests(plan)
+    assert plan.missing_objects == frozenset()
+
+
+def test_missing_object_is_reported_but_never_deletable(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    root_content = canonical_json_bytes({"run": "root"})
+    root = put_artifact(store, root_content)
+    store._object_path(root.content_sha256).unlink()
+
+    plan = build_gc_plan(store, [manifest_digest(root)])
+
+    assert plan.missing_objects == frozenset({root.content_sha256})
+    assert root.content_sha256 not in plan.unreferenced_objects
+    assert root.content_sha256 not in candidate_digests(plan)
+
+
+def test_invalid_manifests_are_classified_and_do_not_participate(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    root = put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
+    manifests = store.root / "manifests"
+
+    body = {
+        "schema_version": "arena.lab.artifact.v1",
+        "generator_version": "0.1.0",
+        "provenance": {"source": "tests/tampered.json"},
+        "source_build_sha256": _SHA,
+        "content_sha256": "b" * 64,
+        "status": "complete",
+        "publishable": True,
+    }
+    (manifests / "not-a-digest.json").write_text(json.dumps(body), encoding="utf-8")
+    (manifests / f"{'c' * 64}.json").write_text("{not valid json", encoding="utf-8")
+    tampered_digest = content_sha256(to_json_value(body))
+    (manifests / f"{tampered_digest}.json").write_text(
+        json.dumps({**body, "publishable": False}), encoding="utf-8"
+    )
+    structurally_invalid = {"schema_version": "arena.lab.artifact.v1", "status": "complete"}
+    structural_digest = content_sha256(to_json_value(structurally_invalid))
+    (manifests / f"{structural_digest}.json").write_bytes(
+        canonical_json_bytes(structurally_invalid)
+    )
+
+    scan = StoreScan.scan(store)
+    reasons = {issue.reason for issue in scan.invalid_manifests}
+    assert reasons == {
+        "wrong-name",
+        "invalid-json",
+        "content-digest-mismatch",
+        "invalid-record",
+    }
+
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan()
+    for issue in scan.invalid_manifests:
+        assert issue.digest not in plan.unreferenced_manifests
+        assert issue.digest not in candidate_digests(plan)
+    assert plan.reachable_objects == frozenset({root.content_sha256})
+
+
+def test_live_writer_lock_blocks_plan_without_takeover(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    root = put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
+    store.put(b"orphan bytes")
+    lock = store.root / ".locks" / "writer.lock"
+    lock.write_text("live:owner\n", encoding="ascii")
+
+    scan = StoreScan.scan(store)
+    assert scan.blocked
+
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan()
+    assert plan.blocked
+    assert plan.candidates == ()
+    assert plan.unreferenced_objects == frozenset()
+    assert lock.exists()
+
+    direct = build_gc_plan(store, [manifest_digest(root)])
+    assert direct.blocked
+    assert direct.candidates == ()
+
+
+def test_non_digest_and_mislocated_object_entries_fail_closed(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    root = put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
+    objects = store.root / "objects"
+
+    (objects / "README.txt").write_text("hello", encoding="utf-8")
+    bad_prefix = objects / "zz"
+    bad_prefix.mkdir()
+    (bad_prefix / "whatever").write_text("x", encoding="utf-8")
+    prefix = objects / "aa"
+    prefix.mkdir(exist_ok=True)
+    (prefix / ("c" * 63)).write_text("short", encoding="utf-8")
+    deep = prefix / ("d" * 62)
+    deep.mkdir()
+    (deep / "inner.txt").write_text("nested", encoding="utf-8")
+
+    scan = StoreScan.scan(store)
+    reasons = {issue.reason for issue in scan.object_issues}
+    assert {"non-digest-name", "unexpected-entry"} <= reasons
+
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan()
+    assert plan.object_issues
+    assert root.content_sha256 in plan.reachable_objects
+    assert candidate_digests(plan) == set()
+
+
+def test_symlink_escape_fails_closed(tmp_path: Path) -> None:
+    target = tmp_path / "symlink-target"
+    link = tmp_path / "symlink-link"
+    target.write_bytes(b"x")
+    try:
+        os.symlink(target, link)
+    except OSError:
+        pytest.skip("symlink creation is not permitted on this platform")
+
+    store = FilesystemArtifactStore(tmp_path / "store")
+    root = put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
+    prefix = store.root / "objects" / "ab"
+    prefix.mkdir(exist_ok=True)
+    escaped_name = "e" * 62
+    os.symlink(target, prefix / escaped_name)
+
+    scan = StoreScan.scan(store)
+    assert any(issue.reason == "escaped-path" for issue in scan.object_issues)
+
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan()
+    assert "ab" + escaped_name not in candidate_digests(plan)
+    assert (prefix / escaped_name).is_symlink()
+
+
+def test_snapshot_and_plan_digests_are_stable(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    root = put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
+    store.put(b"orphan bytes")
+
+    first = StoreScan.scan(store)
+    second = StoreScan.scan(store)
+    assert first.snapshot_digest == second.snapshot_digest
+    assert first.objects_digest == second.objects_digest
+    assert first.manifests_digest == second.manifests_digest
+
+    plan_first = first.mark_roots([manifest_digest(root)]).build_plan()
+    plan_second = second.mark_roots([manifest_digest(root)]).build_plan()
+    assert plan_first.plan_digest == plan_second.plan_digest
+    assert plan_first.to_value() == plan_second.to_value()
+
+
+def test_root_order_and_duplicates_are_irrelevant(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    content_a = canonical_json_bytes({"run": "a"})
+    content_b = canonical_json_bytes({"run": "b"})
+    root_a = put_artifact(store, content_a, tag="tests/a.json")
+    root_b = put_artifact(store, content_b, tag="tests/b.json")
+    roots = [manifest_digest(root_a), manifest_digest(root_b)]
+
+    forward = build_gc_plan(store, roots)
+    backward = build_gc_plan(store, list(reversed(roots)))
+    duplicated = build_gc_plan(store, [roots[0], roots[1], roots[0]])
+
+    assert forward.plan_digest == backward.plan_digest == duplicated.plan_digest
+    assert forward.unreferenced_objects == backward.unreferenced_objects
+    assert forward.unreferenced_objects == duplicated.unreferenced_objects
+    assert forward.roots == backward.roots == duplicated.roots
+
+
+def test_stale_snapshot_is_detected(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    root = put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
+    snapshot = StoreScan.scan(store)
+    indexed = snapshot.mark_roots([manifest_digest(root)])
+
+    put_artifact(store, canonical_json_bytes({"run": "later"}), tag="tests/later.json")
+
+    assert not indexed.is_fresh(store)
+    with pytest.raises(StaleScanError, match="re-scan"):
+        indexed.build_plan(store)
+
+    fresh = StoreScan.scan(store)
+    assert fresh.snapshot_digest != snapshot.snapshot_digest
+    plan = fresh.mark_roots([manifest_digest(root)]).build_plan()
+    assert plan.plan_digest
+
+
+def test_fake_digest_object_is_corrupt_not_unreferenced(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    root = put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
+    fake_digest = "f" * 64
+    fake_path = store.root / "objects" / fake_digest[:2] / fake_digest[2:]
+    fake_path.parent.mkdir(parents=True, exist_ok=True)
+    fake_path.write_bytes(b"fake bytes that do not hash to the filename")
+
+    scan = StoreScan.scan(store)
+    assert fake_digest in scan.corrupt_objects
+
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan()
+    assert fake_digest not in plan.unreferenced_objects
+    assert fake_digest not in candidate_digests(plan)
+
+
+def test_tmp_orphans_are_ignored(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    root = put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
+    tmp = store.root / ".tmp"
+    (tmp / "tmp-orphan-1").write_bytes(b"leftover")
+    (tmp / "tmp-orphan-2").write_bytes(b"leftover")
+
+    scan = StoreScan.scan(store)
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan()
+
+    assert plan.candidates == ()
+    assert plan.unreferenced_objects == frozenset()
+    assert scan.snapshot_digest
+
+
+def test_run_manifest_artifact_reachability(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    content_a = canonical_json_bytes({"artifact": "a"})
+    content_b = canonical_json_bytes({"artifact": "b"})
+    artifact_a = put_artifact(store, content_a, tag="tests/a.json")
+    artifact_b = put_artifact(store, content_b, tag="tests/b.json")
+    run_content = canonical_json_bytes({"run": "aggregate"})
+    store.put(run_content)
+    run = run_for(run_content, (artifact_a, artifact_b))
+    root = put_run_record(store, run)
+    orphan = store.put(canonical_json_bytes({"orphan": True}))
+
+    plan = build_gc_plan(store, [root])
+
+    assert plan.reachable_objects == frozenset(
+        {
+            content_sha256(run_content),
+            artifact_a.content_sha256,
+            artifact_b.content_sha256,
+        }
+    )
+    assert manifest_digest(artifact_a) not in plan.unreferenced_manifests
+    assert manifest_digest(artifact_b) not in plan.unreferenced_manifests
+    assert plan.unreferenced_manifests == frozenset()
+    assert plan.unreferenced_objects == frozenset({orphan})
+    assert plan.candidates == (GcCandidate("object", orphan),)
+
+
+def test_unreferenced_manifest_record_is_candidate(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    root = put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
+    other = put_artifact(store, canonical_json_bytes({"run": "other"}), tag="tests/other.json")
+
+    plan = build_gc_plan(store, [manifest_digest(root)])
+
+    assert manifest_digest(other) in plan.unreferenced_manifests
+    assert GcCandidate("manifest", manifest_digest(other)) in plan.candidates
+    assert plan.unreferenced_objects == frozenset({other.content_sha256})
+    assert GcCandidate("object", other.content_sha256) in plan.candidates
+
+
+def test_scan_is_read_only(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
+
+    def snapshot() -> list[str]:
+        return sorted(path.relative_to(store.root).as_posix() for path in store.root.rglob("*"))
+
+    before = snapshot()
+    StoreScan.scan(store)
+    after = snapshot()
+
+    assert before == after
+
+
+def test_run_manifest_with_corrupt_artifact_object(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    content_a = canonical_json_bytes({"artifact": "a"})
+    artifact_a = put_artifact(store, content_a, tag="tests/a.json")
+    run_content = canonical_json_bytes({"run": "aggregate"})
+    store.put(run_content)
+    run = run_for(run_content, (artifact_a,))
+    root = put_run_record(store, run)
+    store._object_path(artifact_a.content_sha256).write_bytes(b"torn bytes")
+
+    plan = build_gc_plan(store, [root])
+
+    assert artifact_a.content_sha256 in plan.corrupt_objects
+    assert artifact_a.content_sha256 not in plan.reachable_objects
+    assert artifact_a.content_sha256 not in plan.missing_objects
+    assert artifact_a.content_sha256 not in candidate_digests(plan)
+    assert content_sha256(run_content) in plan.reachable_objects
