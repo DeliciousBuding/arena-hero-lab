@@ -142,23 +142,28 @@ receive canonical SHA-256 digests so a run can be reproduced without embedding c
 ### Execution and merge
 
 `ShardPlan` binds experiment, run, shard, operation, request identities, and a canonical plan
-digest. `LocalBatchExecutor` executes through the backend registry, writes content-addressed
-artifacts, and resumes identical operation ids through an execution ledger. Reusing an
-operation id with a different plan fails closed.
+digest. `LocalBatchExecutor` executes in-process through the backend registry. The bounded
+`ProcessExecutor` uses explicit backend specifications, spawn-safe versioned envelopes,
+timeouts, process-tree cleanup, output limits, and deterministic result ordering; it never
+silently falls back to in-process execution and is not a contestant security sandbox.
 
-`DistributedExecutor` and `ArtifactStore` are protocols, allowing process pools, schedulers,
-object stores, or filesystem stores without changing run contracts. Merge requires exact shard
-coverage, one result per shard, one run id, complete status, and publishable artifacts. Input
-order does not affect the merged digest.
+`FilesystemArtifactStore` is the local reference `ArtifactStore`: immutable bytes and manifest
+records are content-addressed, atomically written, verified on read, and protected by a
+fail-closed writer mutex. Identical operations resume through the execution ledger; reusing an
+operation id with a different plan fails closed. `DistributedExecutor` remains a protocol for
+future schedulers and remote stores. Merge requires exact shard coverage, one result per shard,
+one run id, complete status, and publishable artifacts. Input order does not affect the digest.
 ## M3-M7 evolution
 
 - **M3 — platform contracts:** immutable contracts, registry, placeholder, batch API, local
   microbenchmark, and conformance tests. Implemented in this slice.
-- **M4 — deterministic reference engine:** official rule fixtures, immutable world model,
-  phase settlement, visibility, replay, and full/incremental hash equivalence.
-- **M5 — optimized backend:** SoA/ECS storage, profiling-driven kernels, bounded allocation,
-  and regression budgets against M4 semantics.
-- **M6 — local scale:** process executor, deterministic sharding, resume, optional Arrow
-  interchange, and resource isolation.
-- **M7 — distributed scale:** remote executor adapters, artifact stores, content-addressed
-  merge, failure injection, and reproducible release evidence.
+- **M4 — deterministic reference engine:** immutable world, visibility, replay, harvest/deposit,
+  and simultaneous unit movement chains/swaps/cycles are implemented against pinned oracle
+  evidence. Combat, Beacon, Core movement, and official winner/score remain unsupported.
+- **M5 — optimized backend:** SoA/ECS storage, real-engine profiling, bounded allocation, and
+  differential regression budgets against M4 semantics remain planned.
+- **M6 — local scale:** deterministic sharding/resume, the filesystem artifact store, and a
+  bounded spawn-safe process executor are implemented as reference adapters. Arrow, resource
+  isolation, and contestant sandboxing remain planned.
+- **M7 — distributed scale:** remote executor adapters and stores, failure injection, and
+  reproducible distributed release evidence remain planned.

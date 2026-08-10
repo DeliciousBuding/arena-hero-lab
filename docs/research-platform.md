@@ -145,9 +145,11 @@ the quality report.
 - software bill of materials.
 
 `ResultBundle` adds preregistration and analysis-plan digests plus public provenance and
-environment metadata. Metadata must be JSON-compatible and rejects sensitive key names at
-any nesting depth. The package records environment and SBOM identities; generation and
-attestation of those documents remain external seams.
+environment metadata. Metadata is recursively immutable, JSON-compatible, and rejects
+credential-like key names at any nesting depth. The reference implementation can capture a
+bounded public environment snapshot and build a minimal explicit SBOM without reading ambient
+environment variables, hostnames, usernames, or executable paths. CycloneDX/SPDX export,
+vulnerability scanning, signatures, trusted timestamps, and external attestation remain seams.
 
 ## Publication and reproducibility
 
@@ -177,14 +179,12 @@ specified numerical tolerance.
 
 ## Extension points
 
-- benchmark `LocalExecutor` and future distributed executor for replication execution;
-- benchmark `ArtifactStore` for observation and result persistence;
-- assignment generation and pair-integrity validation;
-- simulated power and sensitivity analysis;
-- hierarchical, mixed-effects, survival, and sequential designs;
-- reproducible figure generation;
-- environment capture and SBOM generators;
-- signed publication and independent reproduction services.
+- benchmark local/process executors and future distributed execution for replications;
+- benchmark artifact stores for observation/result persistence;
+- alternative environment/SBOM exporters and external attestations;
+- sensitivity, hierarchical, mixed-effects, survival, and sequential designs;
+- independent numerical implementations with declared tolerances;
+- reproducible figure generation, signed publication, and reproduction services.
 
 ## Implementation status
 
@@ -196,20 +196,23 @@ specified numerical tolerance.
 | BH-FDR and normal-approximation sample-size planning | Implemented |
 | Missing-data enforcement and quality reports | Implemented |
 | Content-addressed run and result bundle | Implemented |
-| Assignment generation and replication execution | Interface boundary |
-| Simulated power and hierarchical methods | Planned extension |
-| Environment and SBOM generation | Interface boundary |
-| Distributed research execution and publication service | Planned extension |
+| Assignment generation, replication execution, and strict merge | Implemented |
+| Monte Carlo power and replication-aware conclusions | Implemented reference methods |
+| Durable lifecycle chronology and immutable evidence ledger | Implemented filesystem reference |
+| Public environment snapshot and minimal explicit SBOM | Implemented reference generators |
+| Hierarchical/mixed-effects and independent numerical backends | Planned extension |
+| Distributed verification, signed attestation, publication service | Planned extension |
 
 ## M3-M7 evolution
 
 - **M3 — Preregistered paired platform:** immutable contracts, canonical commitments,
   paired analysis, multiplicity, quality reports, and reproducible bundles.
-- **M4 — Reproduction evidence:** assignment generator, pair validator, environment capture,
-  SBOM production, and executable replication bundles.
-- **M5 — Scientific depth:** simulated power, sensitivity analysis, hierarchical designs,
-  and numerical-backend conformance tests.
-- **M6 — Parallel research:** replication-level process execution, deterministic research
-  merge, richer quality gates, and resumable analysis artifacts.
+- **M4 — Reproduction evidence:** assignment, strict replication merge, Monte Carlo power,
+  public environment/SBOM provenance, and a durable filesystem ledger with enforced pilot →
+  exploratory → confirmatory → replication → complete chronology are implemented.
+- **M5 — Scientific depth:** sensitivity analysis, hierarchical designs, and independent
+  numerical-backend conformance remain planned.
+- **M6 — Parallel research:** benchmark process execution is available; richer research-level
+  scheduling, resumable analysis artifacts, and resource isolation remain planned.
 - **M7 — Distributed verification:** distributed executor integration, remote artifact store,
   signed provenance, independent reproduction, and publication attestations.

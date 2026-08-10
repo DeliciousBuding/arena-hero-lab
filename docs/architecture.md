@@ -34,15 +34,16 @@ evolution are documented in [Simulator platform](simulator-platform.md).
 
 ### `arena-hero-bench`
 
-Owns benchmark execution contracts, content-addressed run and artifact manifests, shard and
-merge policy, contestant adapters, and generated report conversion. A publishable run may
-reference only complete, publishable artifacts.
+Owns benchmark execution contracts, in-process and bounded local-process execution, a
+filesystem content-addressed artifact store, shard/merge policy, contestant adapters, and
+generated report conversion. A publishable run may reference only complete, verified artifacts.
 
 ### `arena-hero-research`
 
-Owns preregistration, paired confirmatory analysis, replication evidence, and reproducible
-result bundles. Future evolutionary and offline-learning methods remain in this package,
-never in the simulation hot path. Analysis invariants and the scientific roadmap are
+Owns preregistration, durable lifecycle chronology, paired confirmatory analysis, replication
+evidence, public environment/SBOM provenance, and reproducible result bundles. Future
+evolutionary and offline-learning methods remain in this package, never in the simulation hot
+path. Analysis invariants and the scientific roadmap are
 documented in [Research platform](research-platform.md).
 
 ### `leaderboard-web`
