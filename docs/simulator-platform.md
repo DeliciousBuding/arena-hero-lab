@@ -104,6 +104,52 @@ and artifact throughput using shared semantic fixtures.
 - `simulate_batch` for vectorized or multi-episode backends.
 - content-addressed inputs/results for replay, resume, and distributed execution.
 
+## Benchmark platform control plane
+
+```mermaid
+graph LR
+    MANIFEST["ContestantManifest"] --> CREG["ContestantRegistry"]
+    LAYERS["defaults -> experiment -> contestant -> run"] --> SNAPSHOT["FrozenConfig"]
+    CREG --> PLAN["ShardPlan"]
+    SNAPSHOT --> PLAN
+    PLAN --> LOCAL["LocalExecutor"]
+    PLAN -. future .-> DIST["DistributedExecutor"]
+    LOCAL --> STORE["ArtifactStore"]
+    DIST --> STORE
+    STORE --> MERGE["Deterministic merge"]
+    MERGE --> PUBLISH["Publishable complete run"]
+```
+
+### Contestant registry
+
+A contestant is registered by a versioned manifest containing entry point, language,
+runtime, protocol version, artifact SHA-256, configuration schema, resource requirements,
+capabilities, and isolation policy. The registry rejects duplicate id/version pairs and
+artifact digest mismatches. Core packages do not contain a fixed contestant or model catalog.
+
+### Configuration snapshots
+
+Configuration resolution is strict and ordered:
+
+```text
+schema defaults -> defaults layer -> experiment -> contestant -> run overrides
+```
+
+Every layer rejects unknown keys and type/range violations. Secret-designated fields are
+runtime-only and rejected from frozen snapshots. The resolved snapshot and each source layer
+receive canonical SHA-256 digests so a run can be reproduced without embedding credentials.
+
+### Execution and merge
+
+`ShardPlan` binds experiment, run, shard, operation, request identities, and a canonical plan
+digest. `LocalBatchExecutor` executes through the backend registry, writes content-addressed
+artifacts, and resumes identical operation ids through an execution ledger. Reusing an
+operation id with a different plan fails closed.
+
+`DistributedExecutor` and `ArtifactStore` are protocols, allowing process pools, schedulers,
+object stores, or filesystem stores without changing run contracts. Merge requires exact shard
+coverage, one result per shard, one run id, complete status, and publishable artifacts. Input
+order does not affect the merged digest.
 ## M3-M7 evolution
 
 - **M3 — platform contracts:** immutable contracts, registry, placeholder, batch API, local
