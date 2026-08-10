@@ -6,8 +6,7 @@ import { ScenarioComparison } from "@/components/scenario-comparison";
 import { ScoreBars, type ScoreBarEntry } from "@/components/score-bars";
 import { SectionHeader } from "@/components/section-header";
 import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { benchData, contestantOf } from "@/lib/bench";
+import { benchData, contestantOf, SCORE_DIMENSIONS } from "@/lib/bench";
 
 /** 综合排名图数据行（composite 升序绘制，榜首条最长）。 */
 function rankRows(): RankBarRow[] {
@@ -81,24 +80,17 @@ function scenarioRows(): RankBarRow[] {
   });
 }
 
-/** 四维分数对比图数据（击杀/名次/经济/生存 0–1 分）。 */
-const SCORE_KEYS = [
-  { key: "killScore" as const, label: "击杀" },
-  { key: "rankScore" as const, label: "名次" },
-  { key: "economyScore" as const, label: "经济" },
-  { key: "survivalScore" as const, label: "生存" },
-];
-
+/** 四维分数对比图数据（击杀/名次/经济/生存 0–1 分；维度定义见 lib/bench SCORE_DIMENSIONS）。 */
 function scoreEntries(): ScoreBarEntry[] {
   return benchData.leaderboard.map((entry) => {
     const contestant = contestantOf(entry.contestantId);
     return {
       id: entry.contestantId,
       label: contestant?.label ?? entry.contestantId,
-      scores: SCORE_KEYS.map((d) => ({
-        key: d.key,
-        label: d.label,
-        value: entry[d.key],
+      scores: SCORE_DIMENSIONS.map((dim) => ({
+        key: dim.key as string,
+        label: dim.label,
+        value: entry[dim.key] as number,
       })),
     };
   });
@@ -153,27 +145,29 @@ export default function HomePage() {
     <div className="container-page px-4 py-10 sm:px-6">
       {/* ===== Hero ===== */}
       <header className="mb-14">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-          <div>
-            <h1 className="font-serif text-4xl font-normal leading-tight tracking-tight text-foreground sm:text-5xl">
-              Arena Hero
-              <span className="ml-3 text-brand">Leaderboard</span>
-            </h1>
-          </div>
-          <div className="flex flex-col items-start gap-1.5 text-xs text-muted-foreground sm:items-end sm:text-right">
-            <div className="flex items-center gap-2">
-              <Layers className="h-3.5 w-3.5" />
-              <span className="tnum">{benchData.schema}</span>
-              <Separator orientation="vertical" className="h-3" />
-              <span>run {runId}</span>
-              <Separator orientation="vertical" className="h-3" />
-              <time className="tnum">{generatedDate}</time>
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <h1 className="font-serif text-4xl font-normal leading-tight tracking-tight text-foreground sm:text-5xl">
+            Arena Hero
+            <span className="ml-3 text-brand">Leaderboard</span>
+          </h1>
+          <div className="flex flex-col items-start gap-1.5 text-xs text-muted-foreground sm:items-end">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                <Layers className="h-3.5 w-3.5" />
+                <span className="tnum">{benchData.schema}</span>
+              </span>
+              <span className="text-border">·</span>
+              <span className="tnum break-words" title={`run ${runId}`}>
+                run {runId.slice(-12)}
+              </span>
+              <span className="text-border">·</span>
+              <time className="tnum whitespace-nowrap">{generatedDate}</time>
             </div>
             <a
               href="https://github.com/DeliciousBuding/arena"
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 text-foreground transition-colors hover:text-brand"
+              className="inline-flex items-center gap-1 whitespace-nowrap text-foreground transition-colors hover:text-brand"
             >
               <GitHubIcon className="h-3 w-3" />
               DeliciousBuding/arena

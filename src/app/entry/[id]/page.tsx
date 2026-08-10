@@ -29,6 +29,7 @@ import {
   type BenchmarkScenario,
   type ScenarioEntryStat,
 } from "@/lib/bench";
+import { SCENARIO_METRICS, metricValueOf } from "@/lib/metrics";
 
 /** 静态导出：预渲染所有条目页 */
 export function generateStaticParams() {
@@ -84,13 +85,6 @@ export default async function EntryPage({
       scenario,
       stat: scenario.perEntry[id] ?? null,
     }));
-
-  const miniMetrics: { title: string; note: string; digits: number; unit: string; pick: (s: ScenarioEntryStat) => number }[] = [
-    { title: "资源/刻", note: "场景级平均资源采集速率", digits: 3, unit: "res/tick", pick: (s) => s.resourcesPerTick },
-    { title: "人口峰值", note: "场景级平均人口峰值", digits: 1, unit: "units", pick: (s) => s.populationPeak },
-    { title: "场均击杀", note: "场景级击杀率", digits: 2, unit: "kills", pick: (s) => s.killRate },
-    { title: "平均名次", note: "场景级平均名次（越低越好）", digits: 1, unit: "rank", pick: (s) => s.avgRank },
-  ];
 
   const stats: [string, string][] = [
     ["综合分", pct(entry.composite)],
@@ -203,20 +197,20 @@ export default async function EntryPage({
         />
         <Card className="p-6">
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
-            {miniMetrics.map((m) => (
-              <div key={m.title}>
+            {SCENARIO_METRICS.map((metric) => (
+              <div key={metric.key}>
                 <div className="mb-1 text-sm font-medium text-foreground">
-                  {m.title}
-                  <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">{m.note}</span>
+                  {metric.label}
+                  <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">{metric.note}</span>
                 </div>
                 <MiniBars
                   items={scenarioStats.map(({ scenario, stat }) => ({
                     key: scenario.name,
                     label: scenario.label,
-                    value: stat == null ? null : m.pick(stat),
+                    value: metricValueOf(stat, metric.key),
                   }))}
-                  unit={m.unit}
-                  digits={m.digits}
+                  unit={metric.unit}
+                  digits={metric.digits}
                 />
               </div>
             ))}
@@ -325,8 +319,7 @@ export default async function EntryPage({
         <SectionHeader
           title="Match Details"
           enTitle="单场明细"
-          description={`每场对局 ${benchData.params.players} 条目同场对抗，胜方为资源结算最高者。`}
-        />
+          description={`每场对局 ${benchData.params.players} 条目同场对抗，胜方为资源结算最高者。`}        />
         <Card>
           <div className="thin-scroll overflow-x-auto">
             <Table className="min-w-[900px] text-xs">
@@ -403,7 +396,7 @@ export default async function EntryPage({
         <SectionHeader
           title="Efficiency Timeline"
           enTitle="效率时序"
-          description="每 50 tick 采样的 per-player 资源/人口曲线（v3.1 可观测性；同场 8 玩家对比，可切换场景 × 种子）。"
+          description={`每 50 tick 采样的 per-player 资源/人口曲线（v3.1 可观测性；同场 ${benchData.params.players} 玩家对比，可切换场景 × 种子）。`}
         />
         <Card className="p-6">
           <ResourceTimelinePanel

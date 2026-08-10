@@ -126,6 +126,18 @@ interface RawReport {
     survivalMedian: number;
     survivalScore: number;
   }[];
+  /** v3.3 对照组榜（kind=builtin 条目，如 ts-aggressive/ts-safety；旧产物缺失）。 */
+  leaderboardControl?: {
+    contestantId: string;
+    avgRank: number;
+    composite: number;
+    economyScore: number;
+    killRate: number;
+    killScore: number;
+    rankScore: number;
+    survivalMedian: number;
+    survivalScore: number;
+  }[];
   scenarios: {
     name: string;
     seedCount: number;

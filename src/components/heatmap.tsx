@@ -1,25 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { benchData, contestantOf, type BenchmarkScenario, type ScenarioEntryStat } from "@/lib/bench";
+import { benchData, contestantOf, type BenchmarkScenario } from "@/lib/bench";
+import { HEATMAP_METRICS, metricValueOf, type ScenarioMetricKey } from "@/lib/metrics";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
-
-type MetricKey = "resourcesPerTick" | "killRate" | "avgRank";
-
-const METRICS: {
-  key: MetricKey;
-  label: string;
-  unit: string;
-  digits: number;
-  note: string;
-  /** 数值越小越好（如名次）→ 色阶反转（小值深色）。 */
-  invert?: boolean;
-}[] = [
-  { key: "resourcesPerTick", label: "资源/刻", unit: "res/tick", digits: 3, note: "场景级平均资源采集速率" },
-  { key: "killRate", label: "击杀率", unit: "kill/match", digits: 2, note: "场景级场均击杀" },
-  { key: "avgRank", label: "平均名次", unit: "rank", digits: 2, note: "场景级平均名次（越小越好，色阶反转）", invert: true },
-];
 
 const CELL_W = 66;
 const CELL_H = 44;
@@ -28,10 +13,10 @@ const ROW_LABEL_W = 132;
 const PAD = 12;
 const LEGEND_H = 30;
 
-/** 场景 × 条目热图：资源/杀率/存活 三选切换，纯 SVG 渲染。颜色全取设计 token。 */
+/** 场景 × 条目热图：资源/杀率/名次 切换，纯 SVG 渲染。颜色全取设计 token。 */
 export function Heatmap() {
-  const [metricKey, setMetricKey] = useState<MetricKey>("resourcesPerTick");
-  const metric = METRICS.find((m) => m.key === metricKey)!;
+  const [metricKey, setMetricKey] = useState<ScenarioMetricKey>("resourcesPerTick");
+  const metric = HEATMAP_METRICS.find((m) => m.key === metricKey) ?? HEATMAP_METRICS[0];
 
   const entries = [...benchData.leaderboard].sort((a, b) => a.rank - b.rank);
   const scenarios = benchData.scenarioOrder
@@ -39,10 +24,7 @@ export function Heatmap() {
     .filter((s): s is BenchmarkScenario => Boolean(s));
 
   const values: (number | null)[][] = scenarios.map((scenario) =>
-    entries.map((entry) => {
-      const stat: ScenarioEntryStat | null | undefined = scenario.perEntry[entry.contestantId];
-      return stat?.[metricKey] ?? null;
-    }),
+    entries.map((entry) => metricValueOf(scenario.perEntry[entry.contestantId], metric.key)),
   );
   const flat = values.flat().filter((v): v is number => v != null);
   const min = flat.length ? Math.min(...flat) : 0;
@@ -69,7 +51,7 @@ export function Heatmap() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <div className="inline-flex rounded-md border border-border bg-secondary/50 p-1">
-          {METRICS.map((m) => (
+          {HEATMAP_METRICS.map((m) => (
             <button
               key={m.key}
               type="button"
