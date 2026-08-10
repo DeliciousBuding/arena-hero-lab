@@ -56,8 +56,8 @@ const CONTESTANT_REPO_URL: Record<string, string> = {
   "waaiging-agg": "https://github.com/Waaiging/ArenaHero",
   tactic: "https://github.com/feixingwawa/arena-hero-tactic",
   "arena-evolve": "https://github.com/Torther/arena-evolve",
-  "ts-aggressive": "https://github.com/DeliciousBuding/arena",
-  "ts-safety": "https://github.com/DeliciousBuding/arena",
+  "ts-aggressive": "https://github.com/DeliciousBuding/arena-hero-ts",
+  "ts-safety": "https://github.com/DeliciousBuding/arena-hero-ts",
 };
 
 /** 条目 id → Linux DO 帖子（社区讨论来源；展示用，不依赖评测产物）。

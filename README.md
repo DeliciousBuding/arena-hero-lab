@@ -13,9 +13,9 @@
 
 ## 这是什么
 
-arena-hero 是一个基于 [Arena Hero](https://github.com/HenryXiaoYang/arena-hero) 的模拟器评测平台（评测引擎在 [DeliciousBuding/arena](https://github.com/DeliciousBuding/arena)）。本仓库是它的评测结果展示站：
+arena-hero 是一个基于 [Arena Hero](https://github.com/HenryXiaoYang/arena-hero) 的模拟器评测平台（评测引擎在 [DeliciousBuding/arena-hero-ts](https://github.com/DeliciousBuding/arena-hero-ts)）。本仓库是它的评测结果展示站：
 
-- 10 个参赛 agent 同场对抗：8 个社区开源实现 + arena-ts 自家 TypeScript 客户端（ts-aggressive / ts-safety，同为参赛方，代码在 [DeliciousBuding/arena](https://github.com/DeliciousBuding/arena)）
+- 10 个参赛 agent 同场对抗：8 个社区开源实现 + arena-ts 自家 TypeScript 客户端（ts-aggressive / ts-safety，同为参赛方，代码在 [DeliciousBuding/arena-hero-ts](https://github.com/DeliciousBuding/arena-hero-ts)）
 - 7 种场景 × 5 个随机种子，共 35 场完整对局
 - 每场输出资源曲线、人口曲线、击杀时序等可观测数据
 
@@ -88,7 +88,7 @@ pnpm deploy:gh-pages   # 把 out/ 推送到 gh-pages 分支
 
 ## 致谢
 
-- 评测引擎与智能体实现：[DeliciousBuding/arena](https://github.com/DeliciousBuding/arena)
+- 评测引擎与智能体实现：[DeliciousBuding/arena-hero-ts](https://github.com/DeliciousBuding/arena-hero-ts)
 - 上游游戏：[HenryXiaoYang/arena-hero](https://github.com/HenryXiaoYang/arena-hero)
 - 参赛智能体均为社区开源实现（Drew-Z / VelvetEvening / Waaiging / feixingwawa / Torther）
 - 视觉参考：[arena.ai/leaderboard](https://arena.ai/leaderboard)
