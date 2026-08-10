@@ -14,11 +14,13 @@ function matchEndTick(match: BenchmarkMatch): number {
 /**
  * 场景对比图：每场景一张 Card，展示该场景内条目排名与指标条。
  * 资源/刻横向条 + 人口峰值副条；颜色取 token（brand-gradient）。
+ * limit = 只渲染前 N 个场景（用于首页收敛，默认全部）。
  */
-export function ScenarioComparison() {
+export function ScenarioComparison({ limit }: { limit?: number }) {
+  const scenarios = limit === undefined ? benchData.scenarios : benchData.scenarios.slice(0, limit);
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-      {benchData.scenarios.map((scenario) => {
+      {scenarios.map((scenario) => {
         /** 全部参赛条目（统一主榜，含 arena-ts 客户端），按场景内平均名次排序。 */
         const entries = [...benchData.leaderboard]
           .map((row) => ({ row, stat: scenario.perEntry[row.contestantId] }))

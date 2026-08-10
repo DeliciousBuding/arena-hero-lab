@@ -1,29 +1,11 @@
+import Link from "next/link";
 import { Heatmap } from "@/components/heatmap";
-import { RankBars, type RankBarRow } from "@/components/rank-bars";
-import { ScenarioComparison } from "@/components/scenario-comparison";
+import { Methodology } from "@/components/methodology";
+import { RankingsSection } from "@/components/rankings-section";
+import { ScenarioSection } from "@/components/scenario-section";
 import { ScoreBars, type ScoreBarEntry } from "@/components/score-bars";
 import { SectionHeader } from "@/components/section-header";
-import { Card, CardContent } from "@/components/ui/card";
 import { ACTIVE_SCORE_DIMENSIONS, benchData, contestantOf } from "@/lib/bench";
-
-/** 综合排名图数据行（composite 升序绘制，榜首条最长）。 */
-function rankRows(): RankBarRow[] {
-  return benchData.leaderboard.map((entry) => {
-    const contestant = contestantOf(entry.contestantId);
-    return {
-      rank: entry.rank,
-      id: entry.contestantId,
-      label: contestant?.label ?? entry.contestantId,
-      kind: contestant?.kind ?? "python",
-      value: entry.composite,
-      ascending: true,
-      primary: `${(entry.composite * 100).toFixed(1)}%`,
-      secondary: `均排 ${entry.avgRank.toFixed(2)} · rankScore ${(entry.rankScore * 100).toFixed(1)}%`,
-      href: `/entry/${entry.contestantId}`,
-      repoUrl: contestant?.repoUrl,
-    };
-  });
-}
 
 /** 三维画像图数据（击杀/名次/经济；生存维度 v3 恒 1.0 无区分度，已弃用不展示）。 */
 function scoreEntries(): ScoreBarEntry[] {
@@ -61,6 +43,9 @@ export default function HomePage() {
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
           社区智能体 × 场景 × 种子对抗评测，多维指标可视化
+          <Link href="#methodology" className="link-hover ml-2 text-brand">
+            评测方法
+          </Link>
         </p>
         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground tnum">
           <span>
@@ -74,30 +59,11 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* ===== 1. 综合排名榜 ===== */}
-      <section className="mb-16">
-        <SectionHeader
-          id="rankings"
-          title="Overall Rankings"
-          description="综合分（v3 composite 加权合成）总榜，点击条目进入详情页。"
-        />
-        <Card>
-          <CardContent className="p-5">
-            <RankBars rows={rankRows()} valueLabel="综合分" />
-          </CardContent>
-        </Card>
-      </section>
+      {/* ===== 1. 综合排名榜（维度可切换） ===== */}
+      <RankingsSection />
 
-      {/* ===== 2. 场景榜 ===== */}
-      <section className="mb-16">
-        <SectionHeader
-          id="scenarios"
-          title="Scenario Leaderboards"
-          enTitle="场景榜"
-          description="每个场景一场独立擂台：按平均名次排序，金银铜徽章 + 资源/刻条。"
-        />
-        <ScenarioComparison />
-      </section>
+      {/* ===== 2. 场景榜（前 4 卡 + 展开） ===== */}
+      <ScenarioSection />
 
       {/* ===== 3. 三维画像 ===== */}
       <section className="mb-16">
@@ -120,6 +86,9 @@ export default function HomePage() {
         />
         <Heatmap />
       </section>
+
+      {/* ===== 5. 评测方法（收尾闭环） ===== */}
+      <Methodology />
     </div>
   );
 }
