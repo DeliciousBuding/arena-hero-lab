@@ -23,6 +23,7 @@ function rankRows(): RankBarRow[] {
       primary: `${(entry.composite * 100).toFixed(1)}%`,
       secondary: `均排 ${entry.avgRank.toFixed(2)} · rankScore ${(entry.rankScore * 100).toFixed(1)}%`,
       href: `/entry/${entry.contestantId}`,
+      repoUrl: contestant?.repoUrl,
     };
   });
 }
@@ -49,6 +50,7 @@ function dimensionRows(
       primary: picked.primary,
       secondary: picked.secondary,
       href: `/entry/${entry.contestantId}`,
+      repoUrl: contestant?.repoUrl,
     };
   });
 }
@@ -151,29 +153,32 @@ export default function HomePage() {
     <div className="container-page px-4 py-10 sm:px-6">
       {/* ===== Hero ===== */}
       <header className="mb-14">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Layers className="h-3.5 w-3.5" />
-          <span className="tnum">{benchData.schema}</span>
-          <Separator orientation="vertical" className="h-3" />
-          <span>run {runId}</span>
-          <Separator orientation="vertical" className="h-3" />
-          <time className="tnum">{generatedDate}</time>
-        </div>
-        <h1 className="mt-3 font-serif text-4xl font-normal leading-tight tracking-tight text-foreground sm:text-5xl">
-          Arena Hero
-          <span className="ml-3 text-brand">Leaderboard</span>
-        </h1>
-        <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          <span>数据源</span>
-          <a
-            href="https://github.com/DeliciousBuding/arena"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 text-foreground transition-colors hover:text-brand"
-          >
-            <GitHubIcon className="h-3 w-3" />
-            DeliciousBuding/arena
-          </a>
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+          <div>
+            <h1 className="font-serif text-4xl font-normal leading-tight tracking-tight text-foreground sm:text-5xl">
+              Arena Hero
+              <span className="ml-3 text-brand">Leaderboard</span>
+            </h1>
+          </div>
+          <div className="flex flex-col items-start gap-1.5 text-xs text-muted-foreground sm:items-end sm:text-right">
+            <div className="flex items-center gap-2">
+              <Layers className="h-3.5 w-3.5" />
+              <span className="tnum">{benchData.schema}</span>
+              <Separator orientation="vertical" className="h-3" />
+              <span>run {runId}</span>
+              <Separator orientation="vertical" className="h-3" />
+              <time className="tnum">{generatedDate}</time>
+            </div>
+            <a
+              href="https://github.com/DeliciousBuding/arena"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-foreground transition-colors hover:text-brand"
+            >
+              <GitHubIcon className="h-3 w-3" />
+              DeliciousBuding/arena
+            </a>
+          </div>
         </div>
       </header>
 

@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { GitHubIcon } from "@/components/app-chrome";
 
 /** 排名条形图数据行（任意数值维度通用：综合分/经济/击杀/平均名次）。 */
 export interface RankBarRow {
@@ -21,6 +22,8 @@ export interface RankBarRow {
   /** 副指标文案（如 "均排 1.20"）。 */
   secondary?: string;
   href?: string;
+  /** GitHub 仓库链接（社区 agent 有，官方内置无）。 */
+  repoUrl?: string;
 }
 
 const RANK_BADGE_CLASS = [
@@ -143,8 +146,32 @@ function RankRowLeft({ row }: { row: RankBarRow }) {
         {row.rank}
       </span>
       <div className="min-w-0">
-        <span className="line-clamp-1 break-words text-sm font-medium text-foreground group-hover:text-brand">
-          {row.label}
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="line-clamp-1 break-words text-sm font-medium text-foreground group-hover:text-brand">
+            {row.label}
+          </span>
+          {row.repoUrl !== undefined ? (
+            <span
+              role="link"
+              tabIndex={0}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.open(row.repoUrl, "_blank", "noreferrer");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  window.open(row.repoUrl, "_blank", "noreferrer");
+                }
+              }}
+              aria-label={`${row.label} 的 GitHub 仓库`}
+              className="shrink-0 cursor-pointer text-muted-foreground opacity-60 transition-colors hover:text-foreground hover:opacity-100"
+            >
+              <GitHubIcon className="h-3 w-3" />
+            </span>
+          ) : null}
         </span>
         {row.secondary !== undefined ? (
           <span className="mt-0.5 block text-[11px] text-muted-foreground tnum">
