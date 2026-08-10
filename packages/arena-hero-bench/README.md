@@ -27,9 +27,11 @@ object and repeated `put` calls are idempotent.
   content, requiring the bytes to match `content_sha256`. `partial` and
   `failed` artifacts are retained for diagnostics but can never be stored as
   publishable and never report `is_publishable`.
-- A cross-process writer lock (atomic exclusive create with timeout and stale
-  takeover) serializes check-then-write sections; digest-derived paths are
-  hex-only, so traversal and Windows separator inputs are rejected before any
-  filesystem operation.
+- A writer lock (atomic exclusive create with timeout) serializes
+  check-then-write sections and is fail-closed: an old lock file is never
+  stolen automatically, so a crash-left lock blocks writers until it is
+  removed explicitly (`StoreLock.recover`); digest-derived paths are hex-only,
+  so traversal and Windows separator inputs are rejected before any filesystem
+  operation.
 
 No database, network, or external service is used.
