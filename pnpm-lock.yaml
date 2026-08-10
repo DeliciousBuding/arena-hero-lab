@@ -6,7 +6,9 @@ settings:
 
 importers:
 
-  .:
+  .: {}
+
+  apps/leaderboard-web:
     dependencies:
       '@radix-ui/react-scroll-area':
         specifier: ^1.2.18

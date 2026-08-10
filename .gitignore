@@ -39,3 +39,20 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+# Git worktrees and local tool caches
+/.worktrees/
+
+# Python
+/.venv/
+**/__pycache__/
+*.py[cod]
+/.pytest_cache/
+/.ruff_cache/
+/.mypy_cache/
+/.ty/
+
+# Monorepo build output
+/apps/*/.next/
+/apps/*/out/
+/packages/*/dist/
+**/node_modules/

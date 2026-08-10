@@ -34,7 +34,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build static export
-        run: pnpm build
+        run: pnpm --filter @arena-hero/leaderboard-web build
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -42,7 +42,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./out
+          path: ./apps/leaderboard-web/out
 
   deploy:
     needs: build

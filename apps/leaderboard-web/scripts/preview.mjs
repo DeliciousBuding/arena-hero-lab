@@ -10,7 +10,7 @@ import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../out/", import.meta.url));
-const BASE_PATH = "/arena-hero-leaderboard";
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "/arena-hero-leaderboard";
 const PORT = Number(process.env.PORT ?? 4173);
 
 const MIME = {

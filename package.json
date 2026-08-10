@@ -1,42 +1,15 @@
 {
-  "name": "arena-hero-leaderboard",
+  "name": "arena-hero-lab",
   "version": "0.1.0",
   "private": true,
+  "description": "Deterministic simulation, benchmarking, research, replay, and leaderboard tooling for Arena Hero.",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "preview": "node scripts/preview.mjs",
-    "deploy:gh-pages": "bash scripts/deploy-gh-pages.sh",
-    "lint": "eslint",
-    "convert": "tsx scripts/convert.mts"
-  },
-  "dependencies": {
-    "@radix-ui/react-scroll-area": "^1.2.18",
-    "@radix-ui/react-separator": "^1.1.15",
-    "@radix-ui/react-slot": "^1.3.3",
-    "@radix-ui/react-switch": "^1.3.7",
-    "@radix-ui/react-tabs": "^1.1.21",
-    "@radix-ui/react-tooltip": "^1.2.16",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "lucide-react": "^1.31.0",
-    "next": "16.3.0",
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "tailwind-merge": "^3.6.0",
-    "tw-animate-css": "^1.4.0"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.3.0",
-    "tailwindcss": "^4",
-    "tsx": "^4.23.11",
-    "typescript": "^5"
+    "dev": "pnpm --filter @arena-hero/leaderboard-web dev",
+    "build": "pnpm --filter @arena-hero/leaderboard-web build",
+    "preview": "pnpm --filter @arena-hero/leaderboard-web preview",
+    "lint": "pnpm --filter @arena-hero/leaderboard-web lint",
+    "deploy:gh-pages": "pnpm --filter @arena-hero/leaderboard-web deploy:gh-pages",
+    "convert:oracle": "pnpm --filter @arena-hero/leaderboard-web convert:oracle"
   },
   "packageManager": "pnpm@10.32.1"
 }
