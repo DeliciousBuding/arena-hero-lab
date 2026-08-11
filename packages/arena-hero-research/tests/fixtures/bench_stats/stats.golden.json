@@ -6,7 +6,7 @@
     "unit": "每条目在每场的 rank（同场同条件 = 配对设计）"
   },
   "source": {
-    "dir": "D:\\Code\\Projects\\arena\\arena-hero-lab\\.worktrees\\w13-p3-11\\packages\\arena-hero-research\\tests\\fixtures\\bench_stats",
+    "dir": "tests/fixtures/bench_stats",
     "matches": 10
   },
   "pairwise": {
