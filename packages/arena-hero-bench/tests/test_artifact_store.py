@@ -412,3 +412,23 @@ def test_filesystem_store_drives_existing_local_executor(tmp_path: Path) -> None
     assert first is second
     assert store.get(first.content_sha256)
     assert store.verify(first.content_sha256)
+
+
+def test_writer_generation_advances_after_transactions(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    assert store.generation_token() == "0\n"
+
+    store.put(b"first")
+    assert store.generation_token() == "1\n"
+
+    content = canonical_json_bytes({"artifact": "second"})
+    store.store_artifact(artifact_for(content), content)
+    assert store.generation_token() == "2\n"
+
+
+def test_writer_generation_corruption_fails_closed(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    (store.root / ".state" / "generation").write_bytes(b"corrupt")
+
+    with pytest.raises(ArtifactStoreError, match="generation marker"):
+        store.put(b"blocked")

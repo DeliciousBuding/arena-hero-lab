@@ -16,6 +16,12 @@ Design notes
   a lock file, however old, blocks a second writer until the timeout, and a
   lock left behind by a crashed writer is never stolen automatically. Crash
   recovery is explicit and manual (``StoreLock.recover``).
+- Every admitted writer transaction atomically advances a persistent
+  ``.state/generation`` counter after acquiring the writer lock and before any
+  store mutation. Read-only
+  index scans compare this monotonic marker before and after enumeration, so a
+  writer that acquires and releases the ephemeral lock entirely during a scan
+  is still detected.
 - Digest-derived paths are hex-only; traversal, Windows separator, and
   absolute-path identifiers are rejected by validation before any filesystem
   operation.
@@ -156,10 +162,13 @@ class FilesystemArtifactStore:
         self._manifests = self.root / "manifests"
         self._tmp = self.root / ".tmp"
         self._locks = self.root / ".locks"
+        self._state = self.root / ".state"
+        self._generation = self._state / "generation"
         self._lock = StoreLock(self._locks / "writer.lock", timeout=lock_timeout)
         self._local = threading.Lock()
-        for directory in (self._objects, self._manifests, self._tmp, self._locks):
+        for directory in (self._objects, self._manifests, self._tmp, self._locks, self._state):
             directory.mkdir(parents=True, exist_ok=True)
+        self._initialize_generation()
 
     def _object_path(self, digest: str) -> Path:
         validated = _validated_digest(digest)
@@ -181,6 +190,7 @@ class FilesystemArtifactStore:
         if expected_sha256 is not None and expected_sha256 != digest:
             raise ArtifactStoreError("artifact payload does not match expected SHA-256")
         with self._local, self._lock:
+            self._advance_generation()
             self._store_bytes(digest, payload)
         return digest
 
@@ -223,6 +233,7 @@ class FilesystemArtifactStore:
                 f"{manifest.status.value} artifacts cannot be stored as publishable"
             )
         with self._local, self._lock:
+            self._advance_generation()
             self._store_bytes(digest, content)
             self._store_manifest_record(manifest)
 
@@ -269,6 +280,41 @@ class FilesystemArtifactStore:
             and record.publishable
             for record in self.manifest_records()
         )
+
+    def generation_token(self) -> str:
+        """Return the canonical persistent writer generation token."""
+        return f"{self._read_generation()}\n"
+
+    def _initialize_generation(self) -> None:
+        payload = b"0\n"
+        try:
+            fd = os.open(self._generation, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        except FileExistsError:
+            self._read_generation()
+            return
+        try:
+            with os.fdopen(fd, "wb", closefd=True) as handle:
+                handle.write(payload)
+                handle.flush()
+                os.fsync(handle.fileno())
+            self._fsync_directory(self._state)
+        except BaseException:
+            with suppress(FileNotFoundError):
+                self._generation.unlink()
+            raise
+
+    def _read_generation(self) -> int:
+        try:
+            raw = self._generation.read_bytes()
+        except OSError as error:
+            raise ArtifactStoreError("writer generation marker is unreadable") from error
+        if not re.fullmatch(rb"(?:0|[1-9][0-9]*)\n", raw):
+            raise ArtifactStoreError("writer generation marker is not canonical")
+        return int(raw[:-1])
+
+    def _advance_generation(self) -> None:
+        current = self._read_generation()
+        self._atomic_write(self._generation, f"{current + 1}\n".encode("ascii"))
 
     def _store_bytes(self, digest: str, payload: bytes) -> None:
         path = self._object_path(digest)

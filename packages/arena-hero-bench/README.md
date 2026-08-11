@@ -29,10 +29,17 @@ object and repeated `put` calls are idempotent.
   publishable and never report `is_publishable`.
 - A writer lock (atomic exclusive create with timeout) serializes
   check-then-write sections and is fail-closed: an old lock file is never
-  stolen automatically, so a crash-left lock blocks writers until it is
-  removed explicitly (`StoreLock.recover`); digest-derived paths are hex-only,
-  so traversal and Windows separator inputs are rejected before any filesystem
-  operation.
+  stolen automatically. Every admitted writer also advances the persistent
+  `.state/generation` counter before mutation. Read-only index scans compare
+  this monotonic token around enumeration, so a writer whose ephemeral lock is
+  acquired and released entirely during a scan is still detected. Digest-derived
+  paths are hex-only, so traversal and Windows separator inputs are rejected
+  before any filesystem operation.
+- Artifact-index GC output is dry-run only. Candidate-bearing plans require
+  `StoreScan.build_plan(store)`, which always re-scans the store; no omitted-store
+  or `recheck=false` freshness bypass exists. Strict artifact/run records must
+  round-trip byte-for-byte without trimming or coercion, and snapshot identity
+  includes every manifest entry's raw SHA-256 and lstat metadata.
 
 Power-loss durability: file bytes are fsynced before the atomic rename on every
 platform. On POSIX the parent directory is fsynced after the rename (and the

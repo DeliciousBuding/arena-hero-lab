@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
+import arena_hero_bench.artifact_index as artifact_index_module
 from arena_hero_bench.artifact_index import (
     ArtifactIndexError,
     GcCandidate,
@@ -18,7 +20,12 @@ from arena_hero_bench.artifact_index import (
 )
 from arena_hero_bench.manifest import ArtifactManifest, ArtifactStatus, RunManifest
 from arena_hero_bench.storage import FilesystemArtifactStore
-from arena_hero_sim.serialization import canonical_json_bytes, content_sha256, to_json_value
+from arena_hero_sim.serialization import (
+    JsonValue,
+    canonical_json_bytes,
+    content_sha256,
+    to_json_value,
+)
 
 _SHA = "a" * 64
 
@@ -190,7 +197,7 @@ def test_invalid_manifests_block_the_plan(tmp_path: Path) -> None:
     reasons = {issue.reason for issue in scan.invalid_manifests}
     assert reasons == {"wrong-name", "raw-hash-mismatch", "invalid-record"}
 
-    plan = scan.mark_roots([manifest_digest(root)]).build_plan()
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan(store)
     assert plan.blocked
     assert plan.candidates == ()
     assert plan.unreferenced_objects == frozenset()
@@ -211,7 +218,7 @@ def test_live_writer_lock_blocks_plan_without_takeover(tmp_path: Path) -> None:
     scan = StoreScan.scan(store)
     assert scan.blocked
 
-    plan = scan.mark_roots([manifest_digest(root)]).build_plan()
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan(store)
     assert plan.blocked
     assert plan.candidates == ()
     assert plan.unreferenced_objects == frozenset()
@@ -242,7 +249,7 @@ def test_non_digest_and_mislocated_object_entries_fail_closed(tmp_path: Path) ->
     reasons = {issue.reason for issue in scan.object_issues}
     assert {"non-digest-name", "unexpected-entry"} <= reasons
 
-    plan = scan.mark_roots([manifest_digest(root)]).build_plan()
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan(store)
     assert plan.object_issues
     assert root.content_sha256 in plan.reachable_objects
     assert candidate_digests(plan) == set()
@@ -267,7 +274,7 @@ def test_symlink_escape_fails_closed(tmp_path: Path) -> None:
     scan = StoreScan.scan(store)
     assert any(issue.reason == "escaped-path" for issue in scan.object_issues)
 
-    plan = scan.mark_roots([manifest_digest(root)]).build_plan()
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan(store)
     assert "ab" + escaped_name not in candidate_digests(plan)
     assert (prefix / escaped_name).is_symlink()
 
@@ -283,8 +290,8 @@ def test_snapshot_and_plan_digests_are_stable(tmp_path: Path) -> None:
     assert first.objects_digest == second.objects_digest
     assert first.manifests_digest == second.manifests_digest
 
-    plan_first = first.mark_roots([manifest_digest(root)]).build_plan()
-    plan_second = second.mark_roots([manifest_digest(root)]).build_plan()
+    plan_first = first.mark_roots([manifest_digest(root)]).build_plan(store)
+    plan_second = second.mark_roots([manifest_digest(root)]).build_plan(store)
     assert plan_first.plan_digest == plan_second.plan_digest
     assert plan_first.to_value() == plan_second.to_value()
 
@@ -321,7 +328,7 @@ def test_stale_snapshot_is_detected(tmp_path: Path) -> None:
 
     fresh = StoreScan.scan(store)
     assert fresh.snapshot_digest != snapshot.snapshot_digest
-    plan = fresh.mark_roots([manifest_digest(root)]).build_plan()
+    plan = fresh.mark_roots([manifest_digest(root)]).build_plan(store)
     assert plan.plan_digest
 
 
@@ -336,7 +343,7 @@ def test_fake_digest_object_is_corrupt_not_unreferenced(tmp_path: Path) -> None:
     scan = StoreScan.scan(store)
     assert fake_digest in scan.corrupt_objects
 
-    plan = scan.mark_roots([manifest_digest(root)]).build_plan()
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan(store)
     assert fake_digest not in plan.unreferenced_objects
     assert fake_digest not in candidate_digests(plan)
 
@@ -349,7 +356,7 @@ def test_tmp_orphans_are_ignored(tmp_path: Path) -> None:
     (tmp / "tmp-orphan-2").write_bytes(b"leftover")
 
     scan = StoreScan.scan(store)
-    plan = scan.mark_roots([manifest_digest(root)]).build_plan()
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan(store)
 
     assert plan.candidates == ()
     assert plan.unreferenced_objects == frozenset()
@@ -439,6 +446,48 @@ def test_check_lock_bypass_is_removed(tmp_path: Path) -> None:
         build_gc_plan(store, ["0" * 64], check_lock=False)  # type: ignore
 
 
+def test_build_plan_has_no_freshness_bypass(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    root = put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
+    marked = StoreScan.scan(store).mark_roots([manifest_digest(root)])
+
+    with pytest.raises(TypeError):
+        cast(Any, marked.build_plan)()
+    with pytest.raises(TypeError):
+        cast(Any, marked.build_plan)(store, recheck=False)
+
+
+def test_transient_writer_generation_blocks_scan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
+    original = artifact_index_module._scan_objects
+
+    def scan_then_write(objects_root: Path, objects_root_resolved: Path):
+        result = original(objects_root, objects_root_resolved)
+        store.put(b"writer-completed-entirely-during-scan")
+        return result
+
+    monkeypatch.setattr(artifact_index_module, "_scan_objects", scan_then_write)
+    scan = StoreScan.scan(store)
+
+    assert scan.blocked
+    assert scan.generation_digest
+
+
+def test_invalid_generation_marker_blocks_scan(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    root = put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
+    (store.root / ".state" / "generation").write_text("not-canonical", encoding="ascii")
+
+    scan = StoreScan.scan(store)
+    assert scan.blocked
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan(store)
+    assert plan.blocked
+    assert plan.candidates == ()
+
+
 def test_lock_symlink_blocks_without_takeover(tmp_path: Path) -> None:
     store = FilesystemArtifactStore(tmp_path / "store")
     root = put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
@@ -452,7 +501,7 @@ def test_lock_symlink_blocks_without_takeover(tmp_path: Path) -> None:
 
     scan = StoreScan.scan(store)
     assert scan.blocked
-    plan = scan.mark_roots([manifest_digest(root)]).build_plan()
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan(store)
     assert plan.blocked
     assert plan.candidates == ()
     assert lock_path.is_symlink()
@@ -470,7 +519,7 @@ def test_dangling_lock_symlink_blocks(tmp_path: Path) -> None:
 
     scan = StoreScan.scan(store)
     assert scan.blocked
-    plan = scan.mark_roots([manifest_digest(root)]).build_plan()
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan(store)
     assert plan.blocked
     assert plan.candidates == ()
 
@@ -526,7 +575,7 @@ def test_objects_root_symlink_blocks_and_never_scans_outside(tmp_path: Path) -> 
     assert any(issue.reason == "symlink-root" for issue in scan.object_issues)
     assert scan.objects == frozenset()
     assert scan.corrupt_objects == frozenset()
-    plan = scan.build_plan()
+    plan = scan.build_plan(store)
     assert plan.blocked
     assert plan.candidates == ()
     assert (outside / "ab" / ("c" * 62)).read_bytes() == b"outside bytes"
@@ -546,7 +595,7 @@ def test_objects_root_inside_symlink_blocks(tmp_path: Path) -> None:
     scan = StoreScan.scan(store)
     assert scan.blocked
     assert any(issue.reason == "symlink-root" for issue in scan.object_issues)
-    plan = scan.build_plan()
+    plan = scan.build_plan(store)
     assert plan.blocked
     assert plan.candidates == ()
 
@@ -564,7 +613,7 @@ def test_manifests_root_dangling_symlink_blocks(tmp_path: Path) -> None:
     assert scan.blocked
     assert any(issue.reason == "symlink-root" for issue in scan.invalid_manifests)
     assert scan.manifests == frozenset()
-    plan = scan.build_plan()
+    plan = scan.build_plan(store)
     assert plan.blocked
     assert plan.candidates == ()
 
@@ -585,7 +634,7 @@ def test_object_prefix_symlink_is_classified_and_not_scanned(tmp_path: Path) -> 
 
     scan = StoreScan.scan(store)
     assert any(issue.reason == "symlink-entry" for issue in scan.object_issues)
-    plan = scan.mark_roots([manifest_digest(root)]).build_plan()
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan(store)
     assert not plan.blocked
     assert other_prefix + ("f" * 62) not in candidate_digests(plan)
 
@@ -601,7 +650,7 @@ def test_pretty_json_manifest_is_invalid_and_blocks(tmp_path: Path) -> None:
 
     scan = StoreScan.scan(store)
     assert any(issue.reason == "raw-hash-mismatch" for issue in scan.invalid_manifests)
-    plan = scan.mark_roots([manifest_digest(root)]).build_plan()
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan(store)
     assert plan.blocked
     assert plan.candidates == ()
 
@@ -617,7 +666,7 @@ def test_trailing_newline_manifest_is_invalid_and_blocks(tmp_path: Path) -> None
 
     scan = StoreScan.scan(store)
     assert any(issue.reason == "raw-hash-mismatch" for issue in scan.invalid_manifests)
-    plan = scan.mark_roots([manifest_digest(root)]).build_plan()
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan(store)
     assert plan.blocked
     assert plan.candidates == ()
 
@@ -631,7 +680,7 @@ def test_txt_pseudo_manifest_is_invalid_and_blocks(tmp_path: Path) -> None:
 
     scan = StoreScan.scan(store)
     assert any(issue.reason == "wrong-name" for issue in scan.invalid_manifests)
-    plan = scan.mark_roots([manifest_digest(root)]).build_plan()
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan(store)
     assert plan.blocked
     assert plan.candidates == ()
 
@@ -647,7 +696,7 @@ def test_raw_hash_mismatch_manifest_is_invalid_and_blocks(tmp_path: Path) -> Non
 
     scan = StoreScan.scan(store)
     assert any(issue.reason == "raw-hash-mismatch" for issue in scan.invalid_manifests)
-    plan = scan.mark_roots([manifest_digest(root)]).build_plan()
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan(store)
     assert plan.blocked
     assert plan.candidates == ()
 
@@ -670,7 +719,7 @@ def test_pseudo_run_missing_and_extra_fields_are_invalid_and_block(tmp_path: Pat
     scan = StoreScan.scan(store)
     assert len(scan.invalid_manifests) == 2
     assert all(issue.reason == "invalid-record" for issue in scan.invalid_manifests)
-    plan = scan.mark_roots([manifest_digest(root)]).build_plan()
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan(store)
     assert plan.blocked
     assert plan.candidates == ()
 
@@ -693,6 +742,81 @@ def test_invalid_manifest_referencing_verified_object_blocks_plan(tmp_path: Path
     assert plan.reachable_objects == frozenset()
 
 
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("schema_version", ""),
+        ("generator_version", "   "),
+        ("provenance", {}),
+        ("source_build_sha256", "not-a-digest"),
+    ],
+)
+def test_run_manifest_rejects_invalid_shared_scalars(
+    tmp_path: Path, field: str, value: JsonValue
+) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    root = put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
+    run = run_for(canonical_json_bytes({"run": "strict"}), (root,)).to_dict()
+    run[field] = value
+    digest = content_sha256(to_json_value(run))
+    (store.root / "manifests" / f"{digest}.json").write_bytes(canonical_json_bytes(run))
+
+    scan = StoreScan.scan(store)
+    assert any(
+        issue.digest == digest and issue.reason == "invalid-record"
+        for issue in scan.invalid_manifests
+    )
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan(store)
+    assert plan.blocked
+    assert plan.candidates == ()
+
+
+def test_artifact_manifest_rejects_normalized_padded_payload(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    root = put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
+    payload = root.to_dict()
+    payload["schema_version"] = "  arena.lab.artifact.v1  "
+    payload["generator_version"] = "  0.1.0  "
+    payload["provenance"] = {" source ": " tests/padded.json "}
+    digest = content_sha256(to_json_value(payload))
+    (store.root / "manifests" / f"{digest}.json").write_bytes(canonical_json_bytes(payload))
+
+    scan = StoreScan.scan(store)
+    assert any(
+        issue.digest == digest and issue.reason == "invalid-record"
+        for issue in scan.invalid_manifests
+    )
+
+
+def test_invalid_manifest_raw_change_changes_snapshot_digest(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    root = put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
+    path = store.root / "manifests" / f"{'f' * 64}.json"
+    path.write_bytes(b"A")
+    first = StoreScan.scan(store)
+    path.write_bytes(b"B")
+    second = StoreScan.scan(store)
+
+    assert first.invalid_manifests == second.invalid_manifests
+    assert first.snapshot_digest != second.snapshot_digest
+    assert first.manifests_digest != second.manifests_digest
+    assert manifest_digest(root) in first.manifests
+
+
+def test_verified_manifest_metadata_change_changes_snapshot_digest(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    root = put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
+    path = store.root / "manifests" / f"{manifest_digest(root)}.json"
+    first = StoreScan.scan(store)
+    current = path.stat()
+    os.utime(path, ns=(current.st_atime_ns, current.st_mtime_ns + 10_000_000))
+    second = StoreScan.scan(store)
+
+    assert first.manifests == second.manifests
+    assert first.snapshot_digest != second.snapshot_digest
+    assert first.manifests_digest != second.manifests_digest
+
+
 def test_manifest_symlink_and_directory_entries_are_invalid(tmp_path: Path) -> None:
     store = FilesystemArtifactStore(tmp_path / "store")
     root = put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
@@ -710,7 +834,7 @@ def test_manifest_symlink_and_directory_entries_are_invalid(tmp_path: Path) -> N
     scan = StoreScan.scan(store)
     reasons = {issue.reason for issue in scan.invalid_manifests}
     assert {"symlink-entry", "unexpected-entry", "wrong-name"} <= reasons
-    plan = scan.mark_roots([manifest_digest(root)]).build_plan()
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan(store)
     assert plan.blocked
     assert plan.candidates == ()
 
