@@ -9,6 +9,14 @@ from arena_hero_sim.contracts import (
     SimulationStatus,
     SimulatorConfig,
 )
+from arena_hero_sim.microbenchmark import (
+    MICROBENCHMARK_SCHEMA,
+    REFERENCE_WORKLOAD_BENCHMARK_SCHEMA,
+    MicrobenchmarkReport,
+    ReferenceWorkloadBenchmarkReport,
+    run_contract_dispatch_microbenchmark,
+    run_reference_workload_benchmark,
+)
 from arena_hero_sim.reference import (
     REFERENCE_BACKEND_ID,
     REFERENCE_ENGINE_VERSION,
@@ -81,6 +89,7 @@ __all__ = [
     "CANONICAL_REFERENCE_WORKLOAD_SHA256",
     "CANONICAL_REFERENCE_WORKLOAD_VERSION",
     "DIFFERENTIAL_REPORT_SCHEMA",
+    "MICROBENCHMARK_SCHEMA",
     "REFERENCE_BACKEND_ID",
     "REFERENCE_ENGINE_VERSION",
     "REFERENCE_FEATURES",
@@ -88,6 +97,7 @@ __all__ = [
     "REFERENCE_PROTOCOL_VERSION",
     "REFERENCE_RULES",
     "REFERENCE_RULESET",
+    "REFERENCE_WORKLOAD_BENCHMARK_SCHEMA",
     "REFERENCE_WORKLOAD_RUN_SCHEMA",
     "WORKLOAD_MANIFEST_SCHEMA",
     "BackendCapabilities",
@@ -96,6 +106,7 @@ __all__ = [
     "DifferentialMismatch",
     "DifferentialReport",
     "KnownAnswer",
+    "MicrobenchmarkReport",
     "ReferenceActionKind",
     "ReferenceBackendPlaceholder",
     "ReferenceCommand",
@@ -116,6 +127,7 @@ __all__ = [
     "ReferenceTerrain",
     "ReferenceTurn",
     "ReferenceUnit",
+    "ReferenceWorkloadBenchmarkReport",
     "ReferenceWorkloadError",
     "ReferenceWorkloadRunner",
     "ReferenceWorld",
@@ -139,7 +151,9 @@ __all__ = [
     "content_sha256",
     "observe_world",
     "run_canonical_reference_workload",
+    "run_contract_dispatch_microbenchmark",
     "run_reference_episode",
+    "run_reference_workload_benchmark",
     "settle_reference_turn",
     "verify_reference_replay",
 ]
