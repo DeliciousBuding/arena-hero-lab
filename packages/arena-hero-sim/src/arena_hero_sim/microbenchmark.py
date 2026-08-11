@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import platform
 import statistics
 import sys
@@ -40,6 +41,40 @@ class MicrobenchmarkReport:
     python_version: str
     platform: str
     production_claim: bool = False
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "durations_ns", tuple(self.durations_ns))
+        if self.schema_version != MICROBENCHMARK_SCHEMA:
+            raise ValueError("unsupported microbenchmark report schema")
+        for field_name in ("episodes_per_repeat", "repeats", "batch_size"):
+            value = getattr(self, field_name)
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                raise ValueError(f"{field_name} must be a positive integer")
+        if len(self.durations_ns) != self.repeats:
+            raise ValueError("durations_ns must contain exactly one sample per repeat")
+        if any(
+            isinstance(duration, bool) or not isinstance(duration, int) or duration <= 0
+            for duration in self.durations_ns
+        ):
+            raise ValueError("durations_ns must contain positive integer nanoseconds")
+        expected_median = int(statistics.median(self.durations_ns))
+        expected_p95 = _percentile(self.durations_ns, 0.95)
+        if self.median_ns != expected_median or self.p95_ns != expected_p95:
+            raise ValueError("microbenchmark summaries must match raw durations")
+        expected_throughput = self.episodes_per_repeat / (expected_median / 1_000_000_000)
+        if (
+            not math.isfinite(self.episodes_per_second)
+            or self.episodes_per_second <= 0
+            or not math.isclose(
+                self.episodes_per_second,
+                expected_throughput,
+                rel_tol=1e-12,
+                abs_tol=0.0,
+            )
+        ):
+            raise ValueError("episodes_per_second must match the raw-duration median")
+        if self.production_claim is not False:
+            raise ValueError("microbenchmark reports cannot claim production performance")
 
     def to_dict(self) -> dict[str, object]:
         value = asdict(self)
