@@ -74,7 +74,8 @@ def test_comparative_measurement_executes_real_candidate_and_binds_all_identitie
 
     assert candidate_runs == [4]  # baseline + one warmup + two measured rounds
     assert evidence.schema_version == COMPARATIVE_PERFORMANCE_EVIDENCE_SCHEMA
-    assert evidence.publishable
+    assert not evidence.publishable
+    assert evidence.protocol.clock == "injected-test-clock"
     assert evidence.production_claim is False
     assert evidence.reference.backend.backend_id == "reference-engine"
     assert evidence.candidate.backend.backend_id == "optimized-python-v1"

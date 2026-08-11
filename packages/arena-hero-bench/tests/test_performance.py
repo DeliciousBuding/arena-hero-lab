@@ -56,7 +56,9 @@ def test_measurement_excludes_warmups_and_retains_exact_raw_samples() -> None:
     assert evidence.median_ns == 3_000
     assert evidence.p95_ns == 5_000
     assert evidence.p99_ns == 5_000
-    assert evidence.publishable
+    assert not evidence.publishable
+    assert evidence.protocol.clock == "injected-test-clock"
+    assert any("test clock" in issue for issue in evidence.issues)
     assert evidence.production_claim is False
     assert len(evidence.observed_run_sha256s) == 3
     assert all(
@@ -80,7 +82,8 @@ def test_measurement_supports_worker_count_without_semantic_drift() -> None:
         clock=_clock(0, 10_000, 20_000, 40_000),
     )
 
-    assert evidence.publishable
+    assert not evidence.publishable
+    assert evidence.protocol.clock == "injected-test-clock"
     assert evidence.raw_durations_ns == (10_000, 20_000)
     assert all(
         round_digests == (evidence.semantic_run_sha256, evidence.semantic_run_sha256)
@@ -132,7 +135,7 @@ def test_short_non_positive_and_failed_differential_are_not_publishable() -> Non
         clock=_clock(10, 10, 20, 21),
     )
     assert not short.publishable
-    assert short.raw_durations_ns == (0, 1)
+    assert short.raw_durations_ns == ()
     assert short.median_ns is None
     assert short.p95_ns is None
     assert short.p99_ns is None
@@ -206,7 +209,7 @@ def test_protocol_and_evidence_are_content_addressed_and_production_claim_is_fix
     assert evidence.to_dict()["production_claim"] is False
     with pytest.raises(ValueError, match="production_claim=false"):
         replace(evidence, production_claim=True)
-    with pytest.raises(ValueError, match="every measured raw sample"):
+    with pytest.raises(ValueError, match="complete and issue-free"):
         PerformanceEvidence(
             protocol=protocol,
             environment=_environment(),
@@ -298,7 +301,8 @@ def test_injected_differential_report_binds_to_current_measurement_context() -> 
         clock=_clock(100, 2_100),
     )
 
-    assert evidence.publishable
+    assert not evidence.publishable
+    assert evidence.protocol.clock == "injected-test-clock"
     assert evidence.differential_report_sha256 == gate.sha256
 
 
@@ -371,3 +375,71 @@ def test_differential_report_rejects_wrong_candidate_identity() -> None:
 
     assert not evidence.publishable
     assert any("candidate run digest mismatch" in issue for issue in evidence.issues)
+
+
+def test_performance_evidence_rejects_forged_samples_summaries_and_schema() -> None:
+    protocol = MeasurementProtocol(
+        warmup_rounds=0,
+        measured_rounds=2,
+        batch_size=1,
+        worker_count=1,
+        timeout_seconds=1.0,
+        minimum_sample_ns=1_000,
+    )
+    baseline = measure_reference_workload(
+        protocol, environment=_environment(), clock=_clock(0, 2_000, 3_000, 6_000)
+    )
+    assert baseline.raw_durations_ns == (2_000, 3_000)
+    with pytest.raises(ValueError, match=r">= 1000"):
+        replace(baseline, raw_durations_ns=(-1, 3_000))
+    with pytest.raises(ValueError, match=r">= 1000"):
+        replace(baseline, raw_durations_ns=(0, 3_000))
+    with pytest.raises(ValueError, match=r">= 1000"):
+        replace(baseline, raw_durations_ns=(999, 3_000))
+    with pytest.raises(ValueError, match="median"):
+        replace(baseline, median_ns=123_456_789)
+    with pytest.raises(ValueError, match="percentiles"):
+        replace(baseline, p95_ns=2_000)
+    with pytest.raises(ValueError, match="schema"):
+        replace(baseline, schema_version="arena.bench.performance-evidence.v999")
+
+
+def test_performance_evidence_strict_round_trip_and_digest_verification() -> None:
+    evidence = measure_reference_workload(
+        MeasurementProtocol(
+            warmup_rounds=0,
+            measured_rounds=1,
+            batch_size=1,
+            worker_count=1,
+            timeout_seconds=1.0,
+        ),
+        environment=_environment(),
+        clock=_clock(100, 2_100),
+    )
+    restored = PerformanceEvidence.from_dict(evidence.to_dict())
+    assert restored == evidence
+    restored.verify(evidence.sha256)
+    with pytest.raises(ValueError, match="digest mismatch"):
+        restored.verify("0" * 64)
+    malformed = evidence.to_dict()
+    malformed["measured_rounds_completed"] = 0
+    with pytest.raises(ValueError, match="does not match"):
+        PerformanceEvidence.from_dict(malformed)
+
+
+def test_injected_clock_is_named_and_cannot_be_publishable() -> None:
+    evidence = measure_reference_workload(
+        MeasurementProtocol(
+            warmup_rounds=0,
+            measured_rounds=1,
+            batch_size=1,
+            worker_count=1,
+            timeout_seconds=1.0,
+        ),
+        environment=_environment(),
+        clock=_clock(0, 2_000),
+    )
+    assert evidence.to_dict()["protocol"]["clock"] == "injected-test-clock"
+    assert not evidence.publishable
+    with pytest.raises(ValueError, match="perf_counter_ns"):
+        replace(evidence, publishable=True, issues=())

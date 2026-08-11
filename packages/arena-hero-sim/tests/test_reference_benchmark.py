@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import socket
 import statistics
+from dataclasses import replace
 from pathlib import Path
 from typing import cast
 
@@ -19,6 +20,7 @@ from arena_hero_sim import (
     ReferenceWorkloadBenchmarkReport,
 )
 from arena_hero_sim.microbenchmark import (
+    _run_reference_workload_benchmark_for_testing,
     main,
     run_reference_workload_benchmark,
 )
@@ -30,7 +32,7 @@ def test_report_shape_and_frozen_identity() -> None:
     report = run_reference_workload_benchmark(batch_size=1, repeats=2)
 
     assert report.schema_version == REFERENCE_WORKLOAD_BENCHMARK_SCHEMA
-    assert report.schema_version == "arena.sim.reference-workload-benchmark.v1"
+    assert report.schema_version == "arena.sim.reference-workload-benchmark.v2"
     assert report.benchmark == "reference-workload"
     assert report.workload_id == CANONICAL_REFERENCE_WORKLOAD_ID
     assert report.workload_version == CANONICAL_REFERENCE_WORKLOAD_VERSION
@@ -46,6 +48,9 @@ def test_report_shape_and_frozen_identity() -> None:
     assert len(report.durations_ns) == 2
     assert report.median_ns == int(statistics.median(report.durations_ns))
     assert report.p95_ns == max(report.durations_ns)
+    assert report.p99_ns == max(report.durations_ns)
+    assert report.clock == "perf_counter_ns"
+    assert report.publishable
     assert report.production_claim is False
 
 
@@ -65,7 +70,7 @@ def test_raw_samples_and_summary_match_injected_timer() -> None:
     def clock() -> int:
         return next(readings)
 
-    report = run_reference_workload_benchmark(batch_size=1, repeats=3, timer=clock)
+    report = _run_reference_workload_benchmark_for_testing(batch_size=1, repeats=3, timer=clock)
 
     assert report.durations_ns == (10_000_000, 20_000_000, 30_000_000)
     assert report.median_ns == 20_000_000
@@ -89,7 +94,7 @@ def test_bool_timer_reading_fails_closed() -> None:
         return cast(int, True)
 
     with pytest.raises(ValueError, match="integer"):
-        run_reference_workload_benchmark(batch_size=1, repeats=1, timer=clock)
+        _run_reference_workload_benchmark_for_testing(batch_size=1, repeats=1, timer=clock)
 
 
 def test_float_timer_reading_fails_closed() -> None:
@@ -97,7 +102,7 @@ def test_float_timer_reading_fails_closed() -> None:
         return cast(int, 1.5)
 
     with pytest.raises(ValueError, match="integer"):
-        run_reference_workload_benchmark(batch_size=1, repeats=1, timer=clock)
+        _run_reference_workload_benchmark_for_testing(batch_size=1, repeats=1, timer=clock)
 
 
 def test_backwards_timer_reading_fails_closed() -> None:
@@ -107,7 +112,7 @@ def test_backwards_timer_reading_fails_closed() -> None:
         return next(readings)
 
     with pytest.raises(ValueError, match="backwards"):
-        run_reference_workload_benchmark(batch_size=1, repeats=1, timer=clock)
+        _run_reference_workload_benchmark_for_testing(batch_size=1, repeats=1, timer=clock)
 
 
 def test_production_claim_is_always_false() -> None:
@@ -118,7 +123,7 @@ def test_production_claim_is_always_false() -> None:
 def test_report_rejects_explicit_production_claim() -> None:
     with pytest.raises(ValueError, match="production"):
         ReferenceWorkloadBenchmarkReport(
-            schema_version="arena.sim.reference-workload-benchmark.v1",
+            schema_version="arena.sim.reference-workload-benchmark.v2",
             benchmark="reference-workload",
             workload_id="workload",
             workload_version="v1",
@@ -131,12 +136,16 @@ def test_report_rejects_explicit_production_claim() -> None:
             repeats=1,
             episodes=1,
             ticks=1,
-            durations_ns=(1,),
-            median_ns=1,
-            p95_ns=1,
+            durations_ns=(1_000,),
+            median_ns=1_000,
+            p95_ns=1_000,
             python_version="3.12",
             platform="Linux-x86_64",
             production_claim=True,
+            p99_ns=1_000,
+            minimum_sample_ns=1_000,
+            clock="perf_counter_ns",
+            publishable=True,
         )
 
 
@@ -193,7 +202,7 @@ def test_cli_reference_workload_selector_roundtrip(tmp_path: Path) -> None:
         == 0
     )
     payload = json.loads(output.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == "arena.sim.reference-workload-benchmark.v1"
+    assert payload["schema_version"] == "arena.sim.reference-workload-benchmark.v2"
     assert payload["benchmark"] == "reference-workload"
     assert payload["workload_sha256"] == CANONICAL_REFERENCE_WORKLOAD_SHA256
     assert payload["run_sha256"] == _CANONICAL_RUN_SHA256
@@ -260,3 +269,25 @@ def test_cli_writes_only_caller_path_when_output_given(
     captured = capsys.readouterr()
     assert captured.out == ""
     assert output.is_file()
+
+
+def test_reference_report_rejects_forged_samples_summaries_and_strict_loader() -> None:
+    report = _run_reference_workload_benchmark_for_testing(
+        batch_size=1, repeats=2, timer=iter((0, 2_000, 0, 3_000)).__next__
+    )
+    assert not report.publishable
+    assert report.clock == "injected-test-clock"
+    with pytest.raises(ValueError, match="minimum"):
+        replace(report, durations_ns=(-1, 3_000))
+    with pytest.raises(ValueError, match="summaries"):
+        replace(report, median_ns=123_456)
+    with pytest.raises(ValueError, match="p99"):
+        replace(report, p99_ns=2_000)
+    restored = ReferenceWorkloadBenchmarkReport.from_dict(
+        report.to_dict(), expected_sha256=report.sha256
+    )
+    assert restored == report
+    malformed = report.to_dict()
+    malformed["durations_ns"] = [True, 3_000]
+    with pytest.raises(ValueError, match="duration"):
+        ReferenceWorkloadBenchmarkReport.from_dict(malformed)
