@@ -94,6 +94,33 @@ for CI deployments.
 The current static site remains available at
 <https://deliciousbuding.github.io/arena-hero-lab/>.
 
+## Platform status panel
+
+The site includes a public platform panel (`/platform` and the home-page overview)
+that reports deterministic conformance evidence for the Python vNext pipeline:
+
+- **Python Agent**: turn-to-plan known-answer conformance frozen from
+  [arena-hero-agent](https://github.com/DeliciousBuding/arena-hero-agent) with a
+  provenance manifest (source commit, SDK version, content and plan digests).
+- **Simulator**: the canonical reference-vs-optimized differential is re-executed on
+  every generation; the panel records backend identities, case and episode counts, and
+  differential / episode-order digests. Speed remains a local diagnostic and is never
+  published as a production claim.
+- **Research**: the hierarchical evidence chain (fit, solver certificate,
+  cross-validation report) is recomputed and round-tripped through its ledger; digests
+  and statuses are recorded only after every check passes.
+
+The document schema is `arena.platform.status.v1`. Generate it deterministically with:
+
+```bash
+pnpm convert:platform
+```
+
+Trust boundary: conformance and differential evidence describe reproducibility of
+deterministic pipelines. They are **not** competitive results, and the platform panel
+never alters the leaderboard rankings.
+
+
 ## Architecture and policies
 
 - [Architecture](docs/architecture.md)
