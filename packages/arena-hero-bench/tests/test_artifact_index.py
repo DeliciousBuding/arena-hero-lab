@@ -619,6 +619,45 @@ def test_manifests_root_dangling_symlink_blocks(tmp_path: Path) -> None:
     assert plan.candidates == ()
 
 
+def test_manifests_root_reparse_point_blocks_without_traversal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    manifests_root = store.root / "manifests"
+    original_lstat = Path.lstat
+    original_iterdir = Path.iterdir
+    reparse_flag = 0x400
+    monkeypatch.setattr(artifact_index_module.stat, "FILE_ATTRIBUTE_REPARSE_POINT", reparse_flag)
+
+    def fake_lstat(path: Path) -> os.stat_result:
+        result = original_lstat(path)
+        if path == manifests_root:
+            return cast(
+                os.stat_result,
+                SimpleNamespace(st_mode=result.st_mode, st_file_attributes=reparse_flag),
+            )
+        return result
+
+    def guarded_iterdir(path: Path):
+        if path == manifests_root:
+            raise AssertionError("reparse-point manifests root must not be traversed")
+        return original_iterdir(path)
+
+    monkeypatch.setattr(Path, "lstat", fake_lstat)
+    monkeypatch.setattr(Path, "iterdir", guarded_iterdir)
+
+    scan = StoreScan.scan(store)
+    assert scan.blocked
+    assert any(
+        issue.path == "manifests" and issue.reason == "symlink-root"
+        for issue in scan.invalid_manifests
+    )
+    assert scan.manifests == frozenset()
+    plan = scan.build_plan(store)
+    assert plan.blocked
+    assert plan.candidates == ()
+
+
 def test_object_prefix_symlink_is_classified_and_not_scanned(tmp_path: Path) -> None:
     store = FilesystemArtifactStore(tmp_path / "store")
     root = put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
