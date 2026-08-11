@@ -146,6 +146,26 @@ offline-only and never publishes or deploys. When the two builds differ, the
 manifest records every byte difference explicitly and the command exits
 non-zero.
 
+## Rollback drill
+
+`scripts/rollback_drill.py` runs an offline, no-production rollback drill that closes
+the previous -> next -> previous switch loop on release bundles:
+
+1. `v1` builds the current source state and records every artifact digest plus the
+   release manifest digest (`dist/drill/v1/`).
+2. `v2` materializes an isolated shadow source tree from the tracked HEAD files,
+   applies a deterministic patch-version marker, and builds the next-version bundle
+   (`dist/drill/v2/`). Its digest differences versus v1 are recorded explicitly.
+3. `v1-restored` rebuilds the current source state; the drill verifies that every
+   artifact digest, the source anchor, and the manifest bytes match v1.
+
+The drill reuses the release builder (`arena_hero_research.release` and the same
+`uv build --offline` invocation) and never touches a live runtime: it writes no
+registry, publishes nothing, and keeps the shadow tree in a temporary directory. A
+deterministic report (`arena.lab.rollback-drill.v1`) with per-step digests and
+statuses is written to `dist/drill/drill-report.json`, and the command exits
+non-zero when any step fails.
+
 ## Report conversion migration
 
 The Python converter in `arena-hero-bench` is authoritative. The previous TypeScript

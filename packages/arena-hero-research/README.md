@@ -240,6 +240,15 @@ and SBOMs are canonical JSON without timestamps, so the same source state
 produces byte-identical release documents. This surface is reproducibility
 evidence for local releases; it never publishes or deploys anything.
 
+### Rollback drill
+
+`scripts/rollback_drill.py` runs the offline no-production rollback drill: it builds
+the baseline bundle (v1), builds a next-version bundle (v2) from an isolated shadow
+tree with a deterministic version marker, then rebuilds v1 and verifies the restored
+bundle matches the original artifact, source, and manifest digests. The deterministic
+`arena.lab.rollback-drill.v1` report records every step's digests and status under
+`dist/drill/`.
+
 ## Durable ledger storage port
 
 `ResearchLedgerStorage` is the persistence port. The reference
