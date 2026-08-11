@@ -55,4 +55,5 @@ next-env.d.ts
 /apps/*/.next/
 /apps/*/out/
 /packages/*/dist/
+/dist/
 **/node_modules/
