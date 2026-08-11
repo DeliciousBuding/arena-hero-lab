@@ -38,3 +38,20 @@
 
 ## 收口（2026-08-12）
 （任务 1 完成后补记：commit sha、校验输出。）
+
+## 收口（2026-08-12）
+- 完成：
+  - `orchestration.py`：新增 `CorruptShardError(OrchestrationError)`；`merge_shards(..., *, artifact_store=None)` 可选内容校验——
+    逐 shard 取回产物重算 `content_sha256`，与声明 digest 不符或取回失败 → `CorruptShardError`；缺失/重复/不一致顺序保持既有错误优先级。
+    不传 store 向后兼容（既有 2 参调用与 `test_shard_plan_identity.py` 语义不变）。commit `fa050b2`。
+  - 新增 `tests/test_shard_merge_fail_closed.py`（6 条注入测试）：损坏内容（篡改字节）、损坏产物缺失（store 取回失败）、
+    FilesystemArtifactStore 落盘后篡改（生产 store fail-closed 读）、expected 重复 shard、unexpected shard、带 store 正路径摘要不变。
+    commit `ad0f481`。
+  - 三类故障证据：缺失/重复 baseline 已闭环 + 本次补 expected-重复/unexpected 注入；损坏为本次新闭环（红：导入缺 `CorruptShardError` → 绿：6 passed）。
+- 校验（实际输出）：
+  - bench：342 passed（基线 336，+6）；全仓：843 passed（基线 837，+6）；skipped 0。
+  - ruff format --check：139 files already formatted；ruff check：All checks passed；ty：All checks passed；git diff --check：0。
+  - 备注：一次全量跑中 `test_artifact_store.py::test_store_lock_mutual_exclusion_across_threads` 偶发超时（孤立重跑 1 passed，
+    与本次改动无关——storage.py 未动），复跑全绿。
+- 未做（记录）：`DistributedExecutor` 仍是 Protocol 缝（orchestration.py），无网络/调度实现，按 M7 计划留待后续；
+  不动 CI/其他包/`__init__.py`（白名单外）。BLOCKED.md = 无。
