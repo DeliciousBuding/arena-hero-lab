@@ -5,11 +5,13 @@ import pytest
 
 from arena_hero_research import arithmetic_mean
 from arena_hero_research.statistics import (
+    cliff_delta,
     golden_section_maximize,
     linear_interpolated_percentile,
     student_t_cdf,
     student_t_inv_cdf,
     weighted_mean,
+    wilcoxon_signed_rank,
 )
 
 
@@ -189,3 +191,69 @@ def test_statistics_module_has_no_heavy_dependencies() -> None:
     assert "import scipy" not in source
     assert "import pandas" not in source
     assert "import statsmodels" not in source
+
+# Wilcoxon reference values were generated offline with SciPy and hard-coded
+# here; SciPy is never a runtime dependency. wPlus uses scipy.stats.rankdata
+# (average-rank ties, the TS oracle semantics); the p-value reference uses
+# scipy.stats.wilcoxon(method="approx"). SciPy's p-value uses an exact normal
+# CDF while the TS-aligned implementation uses the Abramowitz-Stegun 26.2.17
+# approximation (error < 7.5e-8), so p is asserted with abs=1e-6.
+_WILCOXON_NORMAL_APPROX_REFERENCES = [
+    # (differences, n, w_plus, scipy_p_approx)
+    ((1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0), 10, 55.0, 0.005062032126267865),
+    ((1.0, -1.0, 2.0, -2.0, 2.0, 3.0, -3.0, 3.0, 4.0, 5.0), 10, 42.5, 0.12405936180556316),
+    ((-1.0, -2.0, -3.0, -4.0, -5.0, -6.0, -7.0, -8.0, -9.0, -10.0), 10, 0.0, 0.005062032126267865),
+]
+
+
+@pytest.mark.parametrize(
+    ("differences", "n", "w_plus", "scipy_p_approx"),
+    _WILCOXON_NORMAL_APPROX_REFERENCES,
+)
+def test_wilcoxon_signed_rank_normal_approximation(
+    differences, n, w_plus, scipy_p_approx
+) -> None:
+    p_value, actual_w_plus, actual_n = wilcoxon_signed_rank(differences)
+    assert actual_n == n
+    assert actual_w_plus == pytest.approx(w_plus, abs=1e-12)
+    assert p_value == pytest.approx(scipy_p_approx, abs=1e-6)
+
+
+# Conservative TS semantics: fewer than 10 nonzero differences (including
+# empty / all-zero input) returns p=1 and wPlus=0 without inference.
+_WILCOXON_CONSERVATIVE_CASES = [
+    ((3.0, -1.0, 2.0), 3),
+    ((1.0, -1.0, 2.0, 2.0, -2.0, 3.0), 6),
+    ((0.0, 0.0, 0.0, 0.0), 0),
+    ((), 0),
+    ((1.0, 0.0, -2.0, 0.0, 3.0, 0.0, -1.0), 4),
+    ((1.0, 0.0, 2.0, 0.0, 3.0, 0.0, -1.0, 0.0, -2.0, 0.0, 4.0, 5.0, 0.0, -3.0), 8),
+]
+
+
+@pytest.mark.parametrize(("differences", "n"), _WILCOXON_CONSERVATIVE_CASES)
+def test_wilcoxon_signed_rank_conservative_small_samples(differences, n) -> None:
+    assert wilcoxon_signed_rank(differences) == (1.0, 0.0, n)
+
+
+# Cliff's delta reference values are hand-verified combinatorial counts
+# (wins - losses) / (len(a) * len(b)); tied rank values count as neither.
+_CLIFF_DELTA_CASES = [
+    ((1.0, 2.0, 3.0), (4.0, 5.0, 6.0), 1.0),
+    ((4.0, 5.0, 6.0), (1.0, 2.0, 3.0), -1.0),
+    ((1.0, 2.0, 3.0), (1.0, 2.0, 3.0), 0.0),
+    ((1.0, 2.0, 3.0), (2.0, 3.0, 4.0), 5.0 / 9.0),
+    ((1.0, 1.0, 2.0), (1.0, 3.0), 1.0 / 3.0),
+]
+
+
+@pytest.mark.parametrize(("ranks_a", "ranks_b", "expected"), _CLIFF_DELTA_CASES)
+def test_cliff_delta_known_values(ranks_a, ranks_b, expected) -> None:
+    assert cliff_delta(ranks_a, ranks_b) == pytest.approx(expected)
+
+
+def test_cliff_delta_rejects_empty_samples() -> None:
+    with pytest.raises(ValueError, match="rank samples"):
+        cliff_delta((), (1.0, 2.0))
+    with pytest.raises(ValueError, match="rank samples"):
+        cliff_delta((1.0, 2.0), ())

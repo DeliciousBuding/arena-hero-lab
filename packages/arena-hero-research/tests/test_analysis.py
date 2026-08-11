@@ -10,6 +10,7 @@ from arena_hero_research.analysis import (
     benjamini_hochberg,
     normal_approx_paired_sample_size,
     paired_effect_with_bootstrap_ci,
+    paired_rank_comparisons,
 )
 from arena_hero_research.contracts import MissingDataPolicy
 
@@ -124,3 +125,44 @@ def test_zero_variance_effect_is_explicitly_flagged() -> None:
     )
     assert estimate.standardized_effect is None
     assert estimate.warnings
+
+def test_paired_rank_comparisons_are_deterministic_and_ordered() -> None:
+    matches = [
+        {"scenario": "s1", "seed": 1, "rank": {"alpha-s1": 1, "beta-s2": 2}},
+        {"scenario": "s1", "seed": 1, "rank": {"alpha-s1": 2, "beta-s2": 1}},
+        {"scenario": "s2", "seed": 2, "rank": {"alpha-s1": 1, "beta-s2": 2}},
+        {"scenario": "s2", "seed": 2, "rank": {"alpha-s1": 2, "beta-s2": 1}},
+    ]
+    first_contestants, first_pairs = paired_rank_comparisons(matches)
+    second_contestants, second_pairs = paired_rank_comparisons(matches)
+    assert first_contestants == second_contestants == ("alpha", "beta")
+    assert first_pairs == second_pairs
+    pair = first_pairs[0]
+    assert (pair.a, pair.b) == ("alpha", "beta")
+    assert pair.n == 4
+    # Four nonzero differences -> conservative Wilcoxon path.
+    assert pair.w_plus == 0.0
+    assert pair.p_value == 1.0
+    assert pair.cliff_delta == pytest.approx(0.0)
+    assert pair.mean_rank_diff == pytest.approx(0.0)
+    assert pair.q_value == pytest.approx(1.0)
+
+
+def test_paired_rank_comparisons_map_player_suffixes_to_contestants() -> None:
+    matches = [
+        {"scenario": "s1", "seed": 1, "rank": {"waaiging-s7": 1, "ts-aggressive": 2, "waaiging-s9": 3}},
+        {"scenario": "s1", "seed": 1, "rank": {"waaiging-s7": 2, "ts-aggressive": 1, "waaiging-s9": 4}},
+    ]
+    contestants, pairs = paired_rank_comparisons(matches)
+    assert contestants == ("ts-aggressive", "waaiging")
+    assert len(pairs) == 1
+    pair = pairs[0]
+    # waaiging ranks accumulate across both -s7/-s9 player ids (4 ranks);
+    # the paired test uses n=min(4, 2)=2 while Cliff's delta uses all ranks.
+    assert pair.n == 2
+    assert pair.cliff_delta == pytest.approx(0.5)
+
+
+def test_paired_rank_comparisons_reject_matches_without_rank_mapping() -> None:
+    with pytest.raises(ValueError, match="rank mapping"):
+        paired_rank_comparisons([{"scenario": "s1", "seed": 1}])
