@@ -17,6 +17,10 @@ from arena_hero_bench.agent_runtime import (
     source_build_sha256,
 )
 from arena_hero_bench.converter import convert_file
+from arena_hero_bench.differential import (
+    DifferentialError,
+    run_differential_from_manifest,
+)
 from arena_hero_bench.manifest import ArtifactManifest
 from arena_hero_bench.storage import ArtifactStoreError, FilesystemArtifactStore
 from arena_hero_sim.serialization import canonical_json_bytes
@@ -63,6 +67,17 @@ def _parser() -> argparse.ArgumentParser:
         metavar="TAG",
         help=f"public SDK tag recorded in provenance (default: {DEFAULT_SDK_TAG})",
     )
+    differential = subparsers.add_parser(
+        "differential",
+        help="classify a TS/Python replay differential run into a content-addressed report",
+    )
+    differential.add_argument(
+        "--run",
+        required=True,
+        type=Path,
+        metavar="MANIFEST",
+        help="differential run manifest JSON (paths are relative to the manifest)",
+    )
     import_run.add_argument(
         "--store",
         type=Path,
@@ -99,6 +114,16 @@ def _import_agent_run_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _differential_command(args: argparse.Namespace) -> int:
+    try:
+        report = run_differential_from_manifest(args.run)
+    except (DifferentialError, AgentRuntimeImportError) as exc:
+        print(f"arena-hero-bench: error: {exc}", file=sys.stderr)
+        return 2
+    print(json.dumps(report.to_json(), ensure_ascii=False, indent=2, sort_keys=True))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     if args.command == "convert":
@@ -116,6 +141,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "import-agent-run":
         return _import_agent_run_command(args)
+    if args.command == "differential":
+        return _differential_command(args)
     raise AssertionError(f"unhandled command: {args.command}")
 
 

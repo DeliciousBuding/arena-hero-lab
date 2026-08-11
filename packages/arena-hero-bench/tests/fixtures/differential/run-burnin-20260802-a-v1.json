@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "arena.bench.replay-differential.v1",
+  "dataset_id": "burnin-20260802-a",
+  "tenant_id": "lab-diff-t1",
+  "protocols": {
+    "ts_legacy": "differential-record-v1",
+    "python_agent": "agent-run-v1"
+  },
+  "expected_unknown": {
+    "world_state_digest": "python_agent",
+    "decision_action_canonical": "ts_legacy",
+    "terminal_metrics": "ts_legacy"
+  },
+  "ts_legacy": {
+    "manifest": "ts/burnin-20260802-a/manifest.json",
+    "data_dir": "ts/burnin-20260802-a"
+  },
+  "python_agent": {
+    "records": "python/agent_run_records_aligned_v1.jsonl"
+  }
+}
