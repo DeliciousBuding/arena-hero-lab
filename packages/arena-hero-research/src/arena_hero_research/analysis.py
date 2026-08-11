@@ -287,6 +287,7 @@ def analyze_preregistered_paired_outcomes(
         ]
     return tuple(estimates), quality
 
+
 @dataclass(frozen=True, slots=True)
 class PairwiseRankComparison:
     """One contestant-vs-contestant paired rank comparison (TS pair record)."""

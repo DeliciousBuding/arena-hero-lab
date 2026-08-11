@@ -126,6 +126,7 @@ def test_zero_variance_effect_is_explicitly_flagged() -> None:
     assert estimate.standardized_effect is None
     assert estimate.warnings
 
+
 def test_paired_rank_comparisons_are_deterministic_and_ordered() -> None:
     matches = [
         {"scenario": "s1", "seed": 1, "rank": {"alpha-s1": 1, "beta-s2": 2}},
@@ -150,8 +151,16 @@ def test_paired_rank_comparisons_are_deterministic_and_ordered() -> None:
 
 def test_paired_rank_comparisons_map_player_suffixes_to_contestants() -> None:
     matches = [
-        {"scenario": "s1", "seed": 1, "rank": {"waaiging-s7": 1, "ts-aggressive": 2, "waaiging-s9": 3}},
-        {"scenario": "s1", "seed": 1, "rank": {"waaiging-s7": 2, "ts-aggressive": 1, "waaiging-s9": 4}},
+        {
+            "scenario": "s1",
+            "seed": 1,
+            "rank": {"waaiging-s7": 1, "ts-aggressive": 2, "waaiging-s9": 3},
+        },
+        {
+            "scenario": "s1",
+            "seed": 1,
+            "rank": {"waaiging-s7": 2, "ts-aggressive": 1, "waaiging-s9": 4},
+        },
     ]
     contestants, pairs = paired_rank_comparisons(matches)
     assert contestants == ("ts-aggressive", "waaiging")

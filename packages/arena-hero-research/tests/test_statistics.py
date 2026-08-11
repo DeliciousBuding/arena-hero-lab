@@ -192,6 +192,7 @@ def test_statistics_module_has_no_heavy_dependencies() -> None:
     assert "import pandas" not in source
     assert "import statsmodels" not in source
 
+
 # Wilcoxon reference values were generated offline with SciPy and hard-coded
 # here; SciPy is never a runtime dependency. wPlus uses scipy.stats.rankdata
 # (average-rank ties, the TS oracle semantics); the p-value reference uses
@@ -210,9 +211,7 @@ _WILCOXON_NORMAL_APPROX_REFERENCES = [
     ("differences", "n", "w_plus", "scipy_p_approx"),
     _WILCOXON_NORMAL_APPROX_REFERENCES,
 )
-def test_wilcoxon_signed_rank_normal_approximation(
-    differences, n, w_plus, scipy_p_approx
-) -> None:
+def test_wilcoxon_signed_rank_normal_approximation(differences, n, w_plus, scipy_p_approx) -> None:
     p_value, actual_w_plus, actual_n = wilcoxon_signed_rank(differences)
     assert actual_n == n
     assert actual_w_plus == pytest.approx(w_plus, abs=1e-12)

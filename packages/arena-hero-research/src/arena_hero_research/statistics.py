@@ -229,6 +229,7 @@ def _student_t_positive_quantile(probability: float, degrees_of_freedom: int) ->
     transformed = 0.5 * (low + high)
     return math.sqrt(degrees_of_freedom * (1.0 - transformed) / transformed)
 
+
 def _abramowitz_stegun_normal_cdf(statistic: float) -> float:
     """Standard normal CDF via the Abramowitz-Stegun 26.2.17 approximation.
 
@@ -239,9 +240,8 @@ def _abramowitz_stegun_normal_cdf(statistic: float) -> float:
 
     t = 1.0 / (1.0 + 0.2316419 * abs(statistic))
     density = 0.3989422804014327 * math.exp((-statistic * statistic) / 2.0)
-    polynomial = (
-        0.31938153
-        + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429)))
+    polynomial = 0.31938153 + t * (
+        -0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))
     )
     probability = density * t * polynomial
     if statistic > 0:
