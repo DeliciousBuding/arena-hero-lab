@@ -174,6 +174,45 @@ def test_balanced_cross_validation_within_tolerance() -> None:
     assert report.path_a_effect == pytest.approx(report.path_b_effect, abs=1e-8)
 
 
+def test_balanced_repeated_observations_are_effect_only_until_variance_calibration() -> None:
+    base = [
+        ("a", (0.0, 0.125), (1.0, 1.125)),
+        ("b", (10.0, 10.25), (11.5, 11.75)),
+        ("c", (-7.0, -6.75), (-5.75, -5.5)),
+        ("d", (3.0, 3.5), (4.75, 5.25)),
+    ]
+    for offset in (0.0, 1e3, 1e6, 1e8):
+        observations = clustered(
+            [
+                (
+                    cluster_id,
+                    tuple(value + offset for value in controls),
+                    tuple(value + offset for value in treatments),
+                )
+                for cluster_id, controls, treatments in base
+            ]
+        )
+        fit = fit_random_intercept(outcome_name="score", observations=observations)
+        reordered_fit = fit_random_intercept(
+            outcome_name="score", observations=tuple(reversed(observations))
+        )
+        report = cross_validate_random_intercept(outcome_name="score", observations=observations)
+        reordered_report = cross_validate_random_intercept(
+            outcome_name="score", observations=tuple(reversed(observations))
+        )
+
+        assert fit.verify()
+        assert fit == reordered_fit
+        assert report.to_dict() == reordered_report.to_dict()
+        assert report.balanced
+        assert report.effect_passed
+        assert not report.variance_validated
+        assert not report.variance_passed
+        assert not report.passed
+        assert report.path_a_effect == pytest.approx(report.path_b_effect, abs=1e-8)
+        assert report.variance_absolute_difference > report.variance_tolerance
+
+
 def test_mildly_unbalanced_cross_validation_within_loose_tolerance() -> None:
     observations = clustered(
         [
@@ -232,6 +271,15 @@ def test_balance_requires_same_per_cluster_allocation_not_only_total_n() -> None
     )
     report = cross_validate_random_intercept(outcome_name="score", observations=observations)
     assert not report.balanced
+
+
+def test_duplicate_observation_identity_is_rejected() -> None:
+    observations = [
+        *balanced_observations(),
+        ClusterObservation("score", "c1", "c0", "treatment", 9.0),
+    ]
+    with pytest.raises(HierarchicalFitError, match="identities must be unique"):
+        fit_random_intercept(outcome_name="score", observations=observations)
 
 
 def test_missing_policy_rejects_string_coercion() -> None:

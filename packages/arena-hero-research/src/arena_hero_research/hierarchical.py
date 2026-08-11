@@ -744,17 +744,16 @@ def cross_validate_random_intercept(
         reml = _reml_fit(cluster_ids, clusters, control, treatment)
         reml_effect, reml_error, reml_between = reml[0], reml[2], reml[3]
         balanced = _is_balanced(clusters, control, treatment)
+        variance_validated = _has_paired_allocation(clusters, control, treatment)
         if balanced:
             effect_tolerance = max(1e-8, 1e-8 * abs(reml_effect))
             variance_tolerance = max(1e-7, 1e-7 * reml_between, 1e-7 * reml_error)
-            variance_validated = True
         else:
-            # The independent MoM variance estimator is not calibrated as a
-            # conformance oracle under allocation imbalance. Report effect
-            # agreement separately, but never claim overall validation.
+            # The independent within-cluster effect remains a useful diagnostic
+            # under allocation imbalance, but the tolerance must reflect that it
+            # targets a differently weighted finite-sample contrast than REML.
             effect_tolerance = max(1e-2, 1e-2 * abs(reml_effect))
             variance_tolerance = max(1e-2, 1e-2 * reml_between, 1e-2 * reml_error)
-            variance_validated = False
         effect_difference = abs(ols_effect - reml_effect)
         variance_difference = max(abs(mom_between - reml_between), abs(mom_error - reml_error))
         effect_passed = effect_difference <= effect_tolerance
@@ -797,8 +796,9 @@ def _prepare_clusters(
 
     if not observations:
         raise HierarchicalFitError("at least three observations are required")
-    raw: dict[str, dict[str, list[float]]] = {}
+    raw: dict[str, dict[str, list[tuple[str, float]]]] = {}
     treatment_levels: set[str] = set()
+    observation_identities: set[tuple[str, str]] = set()
     for item in observations:
         if not isinstance(item, ClusterObservation):
             raise HierarchicalFitError("observations must be ClusterObservation values")
@@ -806,8 +806,14 @@ def _prepare_clusters(
             raise HierarchicalFitError(
                 f"observation outcome {item.outcome_name} does not match requested outcome"
             )
+        identity = (item.cluster_id, item.observation_id)
+        if identity in observation_identities:
+            raise HierarchicalFitError("observation identities must be unique within a cluster")
+        observation_identities.add(identity)
         treatment_levels.add(item.treatment)
-        raw.setdefault(item.cluster_id, {}).setdefault(item.treatment, []).append(item.value)
+        raw.setdefault(item.cluster_id, {}).setdefault(item.treatment, []).append(
+            (item.observation_id, item.value)
+        )
     expected_levels = {control_level, treatment_level}
     if treatment_levels != expected_levels:
         raise HierarchicalFitError(
@@ -818,7 +824,11 @@ def _prepare_clusters(
     dropped = 0
     retained: dict[str, dict[str, tuple[float, ...]]] = {}
     for cluster_id, grouped in sorted(raw.items()):
-        present = {level: tuple(grouped[level]) for level in levels if level in grouped}
+        present = {
+            level: tuple(value for _, value in sorted(grouped[level]))
+            for level in levels
+            if level in grouped
+        }
         if len(present) != 2:
             if missing_policy == ClusterMissingPolicy.FAIL:
                 missing = ", ".join(sorted(set(levels) - set(present)))
@@ -1082,3 +1092,22 @@ def _is_balanced(
         for grouped in clusters.values()
     }
     return len(allocations) == 1
+
+
+def _has_paired_allocation(
+    clusters: dict[str, dict[str, tuple[float, ...]]],
+    control_level: str,
+    treatment_level: str,
+) -> bool:
+    """Return whether the independent variance oracle is calibrated for this design.
+
+    The first hierarchical slice preregisters variance-component conformance only
+    for one-control/one-treatment pairs. Balanced repeated-observation designs still
+    receive the independent effect check, but remain effect-only until a separate
+    finite-sample variance calibration suite is registered.
+    """
+
+    return all(
+        len(grouped[control_level]) == 1 and len(grouped[treatment_level]) == 1
+        for grouped in clusters.values()
+    )

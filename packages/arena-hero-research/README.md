@@ -77,17 +77,20 @@ two-level random-intercept model over the frozen `ClusterObservation` grain
 `control_level` and `treatment_level` labels; the directed estimand is always treatment minus
 control and never depends on lexical label ordering. The authoritative estimator is profile
 REML (stdlib only); `cross_validate_random_intercept` compares it against an independent
-within-cluster OLS effect plus between-cluster method-of-moments path. Balanced
-designs validate both effects and variances against declared tolerances. Allocation-
-unbalanced designs may report `effect_passed`, but set `variance_validated=false` and
-therefore can never claim aggregate `passed=true`. The paired design is the balanced
-degenerate case and
+within-cluster OLS effect plus between-cluster method-of-moments path. Allocation-
+balanced designs receive the strict independent effect check, but variance-component
+conformance is currently preregistered only for the one-control/one-treatment paired
+design. Balanced repeated-observation and allocation-unbalanced designs therefore set
+`variance_validated=false` and can never claim aggregate `passed=true`, even when
+`effect_passed=true`. The paired design is the calibrated balanced degenerate case and
 `paired_to_cluster_observations` bridges pairs so the REML effect reproduces the existing
 paired mean difference.
 
 Design gates fail closed: fewer than two clusters, non-finite or numerically overflowing
-values, missing levels (under a strict `ClusterMissingPolicy.FAIL` /
-`ClusterMissingPolicy.DROP_CLUSTER` policy), and cluster-randomized designs are rejected;
+values, duplicate observation identities within a cluster, missing levels (under a strict
+`ClusterMissingPolicy.FAIL` / `ClusterMissingPolicy.DROP_CLUSTER` policy), and
+cluster-randomized designs are rejected; observation cells are ordered canonically by
+`observation_id` before sufficient statistics are formed;
 singular or boundary variance disables interval and effect-size claims. The confidence
 interval is a conservative between-cluster t with `df = cluster_count - 1` (not
 Satterthwaite or Kenward-Roger), and the effect label is `hierarchical-d-v1` (not Cohen's
