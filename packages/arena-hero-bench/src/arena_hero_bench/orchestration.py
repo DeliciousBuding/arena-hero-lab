@@ -108,12 +108,25 @@ class ShardPlan:
             {
                 "request_id": item.request_id,
                 "episode_id": item.episode_id,
-                "backend_id": item.config.backend_id,
-                "engine_version": item.config.engine_version,
-                "rules_sha256": item.config.ruleset.rules_sha256,
-                "seed": item.config.seed,
+                "config": {
+                    "backend_id": item.config.backend_id,
+                    "engine_version": item.config.engine_version,
+                    "ruleset": {
+                        "name": item.config.ruleset.name,
+                        "version": item.config.ruleset.version,
+                        "rules_sha256": item.config.ruleset.rules_sha256,
+                    },
+                    "seed": item.config.seed,
+                    "max_ticks": item.config.max_ticks,
+                    "protocol_version": item.config.protocol_version,
+                    "deterministic": item.config.deterministic,
+                    "requested_features": sorted(item.config.requested_features),
+                    "parameters": dict(item.config.parameters),
+                },
                 "initial_state_sha256": item.initial_state_sha256,
+                "input_artifact_sha256": item.input_artifact_sha256,
                 "contestant_ids": list(item.contestant_ids),
+                "labels": dict(item.labels),
             }
             for item in request_tuple
         ]
