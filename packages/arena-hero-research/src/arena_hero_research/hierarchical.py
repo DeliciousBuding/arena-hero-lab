@@ -41,10 +41,22 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 
 from arena_hero_research.execution import PairedObservation
+from arena_hero_research.hierarchical_artifacts import (
+    CROSS_VALIDATION_REPORT_SCHEMA,
+    FIT_SCHEMA,
+    SOLVER_CERTIFICATE_SCHEMA,
+    CrossValidationReport,
+    CrossValidationStatus,
+    DesignProfile,
+    SolverCertificate,
+    SolverEvaluation,
+    SolverStatus,
+    ValidationScope,
+)
 from arena_hero_research.statistics import student_t_inv_cdf
 from arena_hero_research.validation import (
     require_float,
@@ -67,7 +79,7 @@ def _estimand(control_level: str, treatment_level: str) -> str:
 _ESTIMATOR = "random-intercept-reml"
 _EFFECT_SIZE_METHOD = "hierarchical-d-v1"
 _CI_METHOD = "between-cluster-t"
-_SCHEMA = "arena.research.random-intercept-fit.v2"
+_SCHEMA = FIT_SCHEMA
 _LOG_LAMBDA_LOW = -30.0
 _LOG_LAMBDA_HIGH = 30.0
 _BOUNDARY_MARGIN = 1.0
@@ -253,108 +265,6 @@ class ClusterObservation:
             treatment=_strict_string(value["treatment"], "treatment"),
             value=_strict_float(value["value"], "value"),
         )
-
-
-@dataclass(frozen=True, slots=True)
-class CrossValidationReport:
-    """Independent method-of-moments vs REML agreement report."""
-
-    outcome_name: str
-    control_level: str
-    treatment_level: str
-    cluster_count: int
-    observation_count: int
-    balanced: bool
-    path_a_effect: float
-    path_b_effect: float
-    path_a_between_variance: float
-    path_a_error_variance: float
-    path_b_between_variance: float
-    path_b_error_variance: float
-    effect_absolute_difference: float
-    variance_absolute_difference: float
-    effect_tolerance: float
-    variance_tolerance: float
-    effect_passed: bool
-    variance_validated: bool
-    variance_passed: bool
-    passed: bool
-    authoritative: str
-
-    def __post_init__(self) -> None:
-        object.__setattr__(
-            self, "outcome_name", require_identifier(self.outcome_name, "outcome_name")
-        )
-        object.__setattr__(self, "control_level", require_text(self.control_level, "control_level"))
-        object.__setattr__(
-            self, "treatment_level", require_text(self.treatment_level, "treatment_level")
-        )
-        if self.control_level == self.treatment_level:
-            raise HierarchicalFitError("control and treatment levels must differ")
-        object.__setattr__(self, "cluster_count", require_int(self.cluster_count, "cluster_count"))
-        object.__setattr__(
-            self, "observation_count", require_int(self.observation_count, "observation_count")
-        )
-        if self.cluster_count < 3:
-            raise HierarchicalFitError(
-                "cross-validation requires at least three clusters for MoM variance estimation"
-            )
-        for name in (
-            "path_a_effect",
-            "path_b_effect",
-            "path_a_between_variance",
-            "path_a_error_variance",
-            "path_b_between_variance",
-            "path_b_error_variance",
-            "effect_absolute_difference",
-            "variance_absolute_difference",
-            "effect_tolerance",
-            "variance_tolerance",
-        ):
-            if not math.isfinite(getattr(self, name)):
-                raise HierarchicalFitError(f"{name} must be finite")
-        for name in (
-            "balanced",
-            "effect_passed",
-            "variance_validated",
-            "variance_passed",
-            "passed",
-        ):
-            if not isinstance(getattr(self, name), bool):
-                raise HierarchicalFitError(f"{name} must be boolean")
-        expected_passed = self.effect_passed and self.variance_validated and self.variance_passed
-        if self.passed != expected_passed:
-            raise HierarchicalFitError(
-                "passed must require validated effect and variance agreement"
-            )
-        object.__setattr__(self, "authoritative", require_text(self.authoritative, "authoritative"))
-        if self.authoritative != _ESTIMATOR:
-            raise HierarchicalFitError("cross-validation authority must be the REML estimator")
-
-    def to_dict(self) -> dict[str, JsonValue]:
-        return {
-            "outcome_name": self.outcome_name,
-            "control_level": self.control_level,
-            "treatment_level": self.treatment_level,
-            "cluster_count": self.cluster_count,
-            "observation_count": self.observation_count,
-            "balanced": self.balanced,
-            "path_a_effect": self.path_a_effect,
-            "path_b_effect": self.path_b_effect,
-            "path_a_between_variance": self.path_a_between_variance,
-            "path_a_error_variance": self.path_a_error_variance,
-            "path_b_between_variance": self.path_b_between_variance,
-            "path_b_error_variance": self.path_b_error_variance,
-            "effect_absolute_difference": self.effect_absolute_difference,
-            "variance_absolute_difference": self.variance_absolute_difference,
-            "effect_tolerance": self.effect_tolerance,
-            "variance_tolerance": self.variance_tolerance,
-            "effect_passed": self.effect_passed,
-            "variance_validated": self.variance_validated,
-            "variance_passed": self.variance_passed,
-            "passed": self.passed,
-            "authoritative": self.authoritative,
-        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -639,6 +549,151 @@ def _numeric_boundary(operation: str, function):
         ) from error
 
 
+def _analysis_input_sha256(
+    *,
+    outcome_name: str,
+    observations: Sequence[ClusterObservation],
+    control_level: str,
+    treatment_level: str,
+    confidence_level: float,
+    missing_policy: ClusterMissingPolicy,
+) -> str:
+    ordered = sorted(
+        observations,
+        key=lambda item: (
+            item.cluster_id,
+            item.observation_id,
+            item.treatment,
+            item.outcome_name,
+            item.value,
+        ),
+    )
+    payload: dict[str, JsonValue] = {
+        "schema_version": "arena.research.hierarchical-analysis-input.v1",
+        "outcome_name": outcome_name,
+        "control_level": control_level,
+        "treatment_level": treatment_level,
+        "confidence_level": confidence_level,
+        "missing_policy": missing_policy.value,
+        "observations": [item.to_dict() for item in ordered],
+    }
+    return content_sha256(payload)
+
+
+def _fit_random_intercept_traced(
+    *,
+    outcome_name: str,
+    observations: Sequence[ClusterObservation],
+    control_level: str = "control",
+    treatment_level: str = "treatment",
+    confidence_level: float = 0.95,
+    missing_policy: ClusterMissingPolicy = ClusterMissingPolicy.FAIL,
+) -> tuple[
+    RandomInterceptFit,
+    ProfileRemlTrace,
+    dict[str, dict[str, tuple[float, ...]]],
+    str,
+]:
+    normalized_outcome = require_identifier(outcome_name, "outcome_name")
+    control, treatment = _normalize_contrast(control_level, treatment_level)
+    policy = _normalize_missing_policy(missing_policy)
+    if not 0.0 < confidence_level < 1.0:
+        raise HierarchicalFitError("confidence_level must be between zero and one")
+
+    clusters, dropped = _prepare_clusters(
+        normalized_outcome, observations, policy, control, treatment
+    )
+    cluster_ids = tuple(sorted(clusters))
+    cluster_count = len(cluster_ids)
+    observation_count = sum(
+        len(values) for grouped in clusters.values() for values in grouped.values()
+    )
+    result = _reml_fit_traced(cluster_ids, clusters, control, treatment)
+    beta, intercept, sigma2_e, sigma2_u, se2, singular, boundary, warnings, trace = result
+    if singular:
+        confidence_lower = confidence_upper = standard_error = effect = None
+    else:
+        standard_error = math.sqrt(se2)
+        critical = student_t_inv_cdf(1.0 - (1.0 - confidence_level) / 2.0, cluster_count - 1)
+        half_width = critical * standard_error
+        confidence_lower = beta - half_width
+        confidence_upper = beta + half_width
+        effect = beta / math.sqrt(sigma2_u + sigma2_e)
+    icc = sigma2_u / (sigma2_u + sigma2_e)
+    if not all(math.isfinite(value) for value in (beta, intercept, sigma2_e, sigma2_u, se2, icc)):
+        raise SingularFitError("random-intercept fit produced non-finite statistics")
+    if dropped:
+        warnings = (
+            *warnings,
+            "incomplete clusters were dropped according to the preregistered policy",
+        )
+    provisional = RandomInterceptFit(
+        schema_version=_SCHEMA,
+        outcome_name=normalized_outcome,
+        control_level=control,
+        treatment_level=treatment,
+        estimator=_ESTIMATOR,
+        effect_size_method=_EFFECT_SIZE_METHOD,
+        ci_method=_CI_METHOD,
+        confidence_level=confidence_level,
+        estimand=_estimand(control, treatment),
+        cluster_count=cluster_count,
+        observation_count=observation_count,
+        dropped_clusters=dropped,
+        intercept=intercept,
+        treatment_effect=beta,
+        standard_error=standard_error,
+        between_variance=sigma2_u,
+        error_variance=sigma2_e,
+        icc=icc,
+        hierarchical_effect=effect,
+        degrees_of_freedom=cluster_count - 1,
+        confidence_lower=confidence_lower,
+        confidence_upper=confidence_upper,
+        singular=singular,
+        boundary_lambda=boundary,
+        warnings=warnings,
+        canonical_sha256="0" * 64,
+    )
+    fit = RandomInterceptFit(
+        schema_version=provisional.schema_version,
+        outcome_name=provisional.outcome_name,
+        control_level=provisional.control_level,
+        treatment_level=provisional.treatment_level,
+        estimator=provisional.estimator,
+        effect_size_method=provisional.effect_size_method,
+        ci_method=provisional.ci_method,
+        confidence_level=provisional.confidence_level,
+        estimand=provisional.estimand,
+        cluster_count=provisional.cluster_count,
+        observation_count=provisional.observation_count,
+        dropped_clusters=provisional.dropped_clusters,
+        intercept=provisional.intercept,
+        treatment_effect=provisional.treatment_effect,
+        standard_error=provisional.standard_error,
+        between_variance=provisional.between_variance,
+        error_variance=provisional.error_variance,
+        icc=provisional.icc,
+        hierarchical_effect=provisional.hierarchical_effect,
+        degrees_of_freedom=provisional.degrees_of_freedom,
+        confidence_lower=provisional.confidence_lower,
+        confidence_upper=provisional.confidence_upper,
+        singular=provisional.singular,
+        boundary_lambda=provisional.boundary_lambda,
+        warnings=provisional.warnings,
+        canonical_sha256=content_sha256(provisional.payload()),
+    )
+    input_sha256 = _analysis_input_sha256(
+        outcome_name=normalized_outcome,
+        observations=observations,
+        control_level=control,
+        treatment_level=treatment,
+        confidence_level=confidence_level,
+        missing_policy=policy,
+    )
+    return fit, trace, clusters, input_sha256
+
+
 def fit_random_intercept(
     *,
     outcome_name: str,
@@ -650,101 +705,157 @@ def fit_random_intercept(
 ) -> RandomInterceptFit:
     """Fit a directed treatment-minus-control random-intercept model."""
 
-    normalized_outcome = require_identifier(outcome_name, "outcome_name")
-    control, treatment = _normalize_contrast(control_level, treatment_level)
-    policy = _normalize_missing_policy(missing_policy)
-    if not 0.0 < confidence_level < 1.0:
-        raise HierarchicalFitError("confidence_level must be between zero and one")
-
     def calculate() -> RandomInterceptFit:
-        clusters, dropped = _prepare_clusters(
-            normalized_outcome, observations, policy, control, treatment
-        )
-        cluster_ids = tuple(sorted(clusters))
-        cluster_count = len(cluster_ids)
-        observation_count = sum(
-            len(values) for grouped in clusters.values() for values in grouped.values()
-        )
-        beta, intercept, sigma2_e, sigma2_u, se2, singular, boundary, warnings = _reml_fit(
-            cluster_ids, clusters, control, treatment
-        )
-        if singular:
-            confidence_lower = confidence_upper = standard_error = effect = None
-        else:
-            standard_error = math.sqrt(se2)
-            critical = student_t_inv_cdf(1.0 - (1.0 - confidence_level) / 2.0, cluster_count - 1)
-            half_width = critical * standard_error
-            confidence_lower = beta - half_width
-            confidence_upper = beta + half_width
-            effect = beta / math.sqrt(sigma2_u + sigma2_e)
-        icc = sigma2_u / (sigma2_u + sigma2_e)
-        if not all(
-            math.isfinite(value) for value in (beta, intercept, sigma2_e, sigma2_u, se2, icc)
-        ):
-            raise SingularFitError("random-intercept fit produced non-finite statistics")
-        if dropped:
-            warnings = (
-                *warnings,
-                "incomplete clusters were dropped according to the preregistered policy",
-            )
-        provisional = RandomInterceptFit(
-            schema_version=_SCHEMA,
-            outcome_name=normalized_outcome,
-            control_level=control,
-            treatment_level=treatment,
-            estimator=_ESTIMATOR,
-            effect_size_method=_EFFECT_SIZE_METHOD,
-            ci_method=_CI_METHOD,
+        fit, _, _, _ = _fit_random_intercept_traced(
+            outcome_name=outcome_name,
+            observations=observations,
+            control_level=control_level,
+            treatment_level=treatment_level,
             confidence_level=confidence_level,
-            estimand=_estimand(control, treatment),
-            cluster_count=cluster_count,
-            observation_count=observation_count,
-            dropped_clusters=dropped,
-            intercept=intercept,
-            treatment_effect=beta,
-            standard_error=standard_error,
-            between_variance=sigma2_u,
-            error_variance=sigma2_e,
-            icc=icc,
-            hierarchical_effect=effect,
-            degrees_of_freedom=cluster_count - 1,
-            confidence_lower=confidence_lower,
-            confidence_upper=confidence_upper,
-            singular=singular,
-            boundary_lambda=boundary,
-            warnings=warnings,
-            canonical_sha256="0" * 64,
+            missing_policy=missing_policy,
         )
-        return RandomInterceptFit(
-            schema_version=provisional.schema_version,
-            outcome_name=provisional.outcome_name,
-            control_level=provisional.control_level,
-            treatment_level=provisional.treatment_level,
-            estimator=provisional.estimator,
-            effect_size_method=provisional.effect_size_method,
-            ci_method=provisional.ci_method,
-            confidence_level=provisional.confidence_level,
-            estimand=provisional.estimand,
-            cluster_count=provisional.cluster_count,
-            observation_count=provisional.observation_count,
-            dropped_clusters=provisional.dropped_clusters,
-            intercept=provisional.intercept,
-            treatment_effect=provisional.treatment_effect,
-            standard_error=provisional.standard_error,
-            between_variance=provisional.between_variance,
-            error_variance=provisional.error_variance,
-            icc=provisional.icc,
-            hierarchical_effect=provisional.hierarchical_effect,
-            degrees_of_freedom=provisional.degrees_of_freedom,
-            confidence_lower=provisional.confidence_lower,
-            confidence_upper=provisional.confidence_upper,
-            singular=provisional.singular,
-            boundary_lambda=provisional.boundary_lambda,
-            warnings=provisional.warnings,
-            canonical_sha256=content_sha256(provisional.payload()),
-        )
+        return fit
 
     return _numeric_boundary("random-intercept fit", calculate)
+
+
+def _build_solver_certificate(
+    *,
+    fit: RandomInterceptFit,
+    trace: ProfileRemlTrace,
+    clusters: dict[str, dict[str, tuple[float, ...]]],
+    input_sha256: str,
+) -> SolverCertificate:
+    if not trace.candidate.valid or trace.candidate.objective is None:
+        raise SingularFitError("profile-REML certificate requires a valid optimizer candidate")
+    cluster_ids = tuple(sorted(clusters))
+    _, sizes, sums, _ = _cluster_sums(clusters, fit.control_level, fit.treatment_level)
+    score, curvature = _profile_reml_score_curvature(
+        cluster_ids, sums, sum(sizes) - 2, trace.candidate.log_lambda
+    )
+    kkt_tolerance = max(1e-6, 256.0 * math.ulp(max(1.0, abs(trace.candidate.objective))))
+    kkt_residual = abs(score)
+    curvature_floor = 256.0 * math.ulp(max(1.0, abs(curvature)))
+    newton_correction = -score / curvature if abs(curvature) > curvature_floor else None
+    backward_error = (
+        abs(newton_correction)
+        if newton_correction is not None
+        else kkt_residual / max(1.0, abs(curvature))
+    )
+    precision_limited = (
+        trace.termination_reason != "interval-tolerance"
+        or curvature >= 0.0
+        or newton_correction is None
+        or kkt_residual > kkt_tolerance
+    )
+    if fit.boundary_lambda:
+        status = SolverStatus.BOUNDARY
+    elif precision_limited:
+        status = SolverStatus.INDETERMINATE
+    else:
+        status = SolverStatus.VERIFIED_INTERIOR
+    evaluations = tuple(
+        SolverEvaluation(
+            log_lambda=item.log_lambda,
+            lambda_value=item.lambda_value,
+            valid=item.valid,
+            objective=item.objective,
+            invalid_reason=item.invalid_reason,
+        )
+        for item in trace.evaluations
+    )
+    provisional = SolverCertificate(
+        schema_version=SOLVER_CERTIFICATE_SCHEMA,
+        input_sha256=input_sha256,
+        fit_schema_version=fit.schema_version,
+        fit_sha256=fit.canonical_sha256,
+        optimizer="bounded-golden-section",
+        initial_bracket=(trace.initial_lower, trace.initial_upper),
+        final_bracket=(trace.final_lower, trace.final_upper),
+        tolerance=trace.tolerance,
+        max_iterations=trace.max_iterations,
+        iterations=trace.iterations,
+        evaluation_count=len(evaluations),
+        invalid_evaluation_count=sum(not item.valid for item in evaluations),
+        termination_reason=trace.termination_reason,
+        candidate_log_lambda=trace.candidate.log_lambda,
+        candidate_lambda=trace.candidate.lambda_value,
+        candidate_objective=trace.candidate.objective,
+        profile_score=score,
+        profile_curvature=curvature,
+        kkt_residual=kkt_residual,
+        kkt_tolerance=kkt_tolerance,
+        backward_error=backward_error,
+        newton_correction=newton_correction,
+        boundary=fit.boundary_lambda,
+        precision_limited=precision_limited,
+        solver_status=status,
+        evaluations=evaluations,
+        canonical_sha256="0" * 64,
+    )
+    return replace(provisional, canonical_sha256=content_sha256(provisional.payload()))
+
+
+def fit_random_intercept_with_certificate(
+    *,
+    outcome_name: str,
+    observations: Sequence[ClusterObservation],
+    control_level: str = "control",
+    treatment_level: str = "treatment",
+    confidence_level: float = 0.95,
+    missing_policy: ClusterMissingPolicy = ClusterMissingPolicy.FAIL,
+) -> tuple[RandomInterceptFit, SolverCertificate]:
+    """Fit RandomInterceptFit v2 and emit its one-way SolverCertificate v1 evidence."""
+
+    def calculate() -> tuple[RandomInterceptFit, SolverCertificate]:
+        fit, trace, clusters, input_sha256 = _fit_random_intercept_traced(
+            outcome_name=outcome_name,
+            observations=observations,
+            control_level=control_level,
+            treatment_level=treatment_level,
+            confidence_level=confidence_level,
+            missing_policy=missing_policy,
+        )
+        return fit, _build_solver_certificate(
+            fit=fit, trace=trace, clusters=clusters, input_sha256=input_sha256
+        )
+
+    return _numeric_boundary("random-intercept fit with certificate", calculate)
+
+
+def verify_solver_certificate(
+    *,
+    certificate: SolverCertificate,
+    fit: RandomInterceptFit,
+    outcome_name: str,
+    observations: Sequence[ClusterObservation],
+    control_level: str = "control",
+    treatment_level: str = "treatment",
+    confidence_level: float = 0.95,
+    missing_policy: ClusterMissingPolicy = ClusterMissingPolicy.FAIL,
+) -> bool:
+    """Recompute solver evidence and require exact content-addressed identity."""
+
+    if certificate.fit_schema_version != fit.schema_version:
+        return False
+    if certificate.fit_sha256 != fit.canonical_sha256 or not fit.verify():
+        return False
+    try:
+        recomputed_fit, recomputed = fit_random_intercept_with_certificate(
+            outcome_name=outcome_name,
+            observations=observations,
+            control_level=control_level,
+            treatment_level=treatment_level,
+            confidence_level=confidence_level,
+            missing_policy=missing_policy,
+        )
+    except HierarchicalFitError:
+        return False
+    return (
+        recomputed_fit.to_dict() == fit.to_dict()
+        and recomputed.to_dict() == certificate.to_dict()
+        and certificate.verify()
+    )
 
 
 def cross_validate_random_intercept(
@@ -755,15 +866,19 @@ def cross_validate_random_intercept(
     treatment_level: str = "treatment",
     missing_policy: ClusterMissingPolicy = ClusterMissingPolicy.FAIL,
 ) -> CrossValidationReport:
-    """Compare independent within-OLS/MoM estimates with authoritative REML."""
-
-    normalized_outcome = require_identifier(outcome_name, "outcome_name")
-    control, treatment = _normalize_contrast(control_level, treatment_level)
-    policy = _normalize_missing_policy(missing_policy)
+    """Compare independent within-OLS/MoM estimates with authoritative REML evidence."""
 
     def calculate() -> CrossValidationReport:
-        clusters, _ = _prepare_clusters(
-            normalized_outcome, observations, policy, control, treatment
+        fit, trace, clusters, input_sha256 = _fit_random_intercept_traced(
+            outcome_name=outcome_name,
+            observations=observations,
+            control_level=control_level,
+            treatment_level=treatment_level,
+            confidence_level=0.95,
+            missing_policy=missing_policy,
+        )
+        certificate = _build_solver_certificate(
+            fit=fit, trace=trace, clusters=clusters, input_sha256=input_sha256
         )
         cluster_ids = tuple(sorted(clusters))
         cluster_count = len(cluster_ids)
@@ -772,28 +887,63 @@ def cross_validate_random_intercept(
         )
         if cluster_count < 3:
             raise HierarchicalFitError("cross-validation requires at least three clusters")
-        ols_effect, mom_between, mom_error = _mom_fit(cluster_ids, clusters, control, treatment)
-        reml = _reml_fit(cluster_ids, clusters, control, treatment)
-        reml_effect, reml_error, reml_between = reml[0], reml[2], reml[3]
-        balanced = _is_balanced(clusters, control, treatment)
-        variance_validated = _has_paired_allocation(clusters, control, treatment)
+        ols_effect, mom_between, mom_error = _mom_fit(
+            cluster_ids, clusters, fit.control_level, fit.treatment_level
+        )
+        reml_effect = fit.treatment_effect
+        reml_error = fit.error_variance
+        reml_between = fit.between_variance
+        balanced = _is_balanced(clusters, fit.control_level, fit.treatment_level)
+        variance_validated = _has_paired_allocation(
+            clusters, fit.control_level, fit.treatment_level
+        )
         if balanced:
             effect_tolerance = max(1e-8, 1e-8 * abs(reml_effect))
             variance_tolerance = max(1e-7, 1e-7 * reml_between, 1e-7 * reml_error)
         else:
-            # The independent within-cluster effect remains a useful diagnostic
-            # under allocation imbalance, but the tolerance must reflect that it
-            # targets a differently weighted finite-sample contrast than REML.
             effect_tolerance = max(1e-2, 1e-2 * abs(reml_effect))
             variance_tolerance = max(1e-2, 1e-2 * reml_between, 1e-2 * reml_error)
         effect_difference = abs(ols_effect - reml_effect)
         variance_difference = max(abs(mom_between - reml_between), abs(mom_error - reml_error))
         effect_passed = effect_difference <= effect_tolerance
         variance_passed = variance_validated and variance_difference <= variance_tolerance
-        return CrossValidationReport(
-            outcome_name=normalized_outcome,
-            control_level=control,
-            treatment_level=treatment,
+        profile = (
+            DesignProfile.PAIRED_1X1
+            if variance_validated
+            else DesignProfile.BALANCED_REPEATED
+            if balanced
+            else DesignProfile.ALLOCATION_UNBALANCED
+        )
+        if certificate.solver_status is not SolverStatus.VERIFIED_INTERIOR:
+            scope = ValidationScope.NONE
+            status = CrossValidationStatus.INDETERMINATE
+        elif variance_validated:
+            scope = ValidationScope.EFFECT_AND_VARIANCE
+            status = (
+                CrossValidationStatus.FULLY_VALIDATED
+                if effect_passed and variance_passed
+                else CrossValidationStatus.FAILED
+            )
+        else:
+            scope = ValidationScope.EFFECT_ONLY
+            status = (
+                CrossValidationStatus.EFFECT_DIAGNOSTIC
+                if effect_passed
+                else CrossValidationStatus.FAILED
+            )
+        provisional = CrossValidationReport(
+            schema_version=CROSS_VALIDATION_REPORT_SCHEMA,
+            input_sha256=input_sha256,
+            fit_schema_version=fit.schema_version,
+            fit_sha256=fit.canonical_sha256,
+            certificate_schema_version=certificate.schema_version,
+            certificate_sha256=certificate.canonical_sha256,
+            design_profile=profile,
+            validation_scope=scope,
+            status=status,
+            outcome_name=fit.outcome_name,
+            control_level=fit.control_level,
+            treatment_level=fit.treatment_level,
             cluster_count=cluster_count,
             observation_count=observation_count,
             balanced=balanced,
@@ -810,9 +960,11 @@ def cross_validate_random_intercept(
             effect_passed=effect_passed,
             variance_validated=variance_validated,
             variance_passed=variance_passed,
-            passed=effect_passed and variance_validated and variance_passed,
+            passed=status is CrossValidationStatus.FULLY_VALIDATED,
             authoritative=_ESTIMATOR,
+            canonical_sha256="0" * 64,
         )
+        return replace(provisional, canonical_sha256=content_sha256(provisional.payload()))
 
     return _numeric_boundary("random-intercept cross-validation", calculate)
 
@@ -957,6 +1109,120 @@ def _reml_components(
     return a00, a01, a11, b0, b1, q, log_terms
 
 
+def _profile_reml_score_curvature(
+    cluster_ids: tuple[str, ...],
+    sums: dict[str, tuple[float, float, float, float, float]],
+    degrees: int,
+    log_lambda: float,
+) -> tuple[float, float]:
+    """Return analytic score and curvature with respect to log(lambda)."""
+
+    lam = math.exp(log_lambda)
+    component_rows: list[tuple[float, float, float, float, float, float]] = []
+    first_rows: list[tuple[float, float, float, float, float, float]] = []
+    second_rows: list[tuple[float, float, float, float, float, float]] = []
+    log_first: list[float] = []
+    log_second: list[float] = []
+    for cluster_id in cluster_ids:
+        n, sy, nt, sty, syy = sums[cluster_id]
+        denominator = 1.0 + n * lam
+        coefficient = lam / denominator
+        first = lam / (denominator * denominator)
+        second = lam * (1.0 - n * lam) / (denominator * denominator * denominator)
+        products = (n * n, n * nt, nt * nt, n * sy, nt * sy, sy * sy)
+        component_rows.append(
+            (
+                n - coefficient * products[0],
+                nt - coefficient * products[1],
+                nt - coefficient * products[2],
+                sy - coefficient * products[3],
+                sty - coefficient * products[4],
+                syy - coefficient * products[5],
+            )
+        )
+        first_rows.append(
+            (
+                -first * products[0],
+                -first * products[1],
+                -first * products[2],
+                -first * products[3],
+                -first * products[4],
+                -first * products[5],
+            )
+        )
+        second_rows.append(
+            (
+                -second * products[0],
+                -second * products[1],
+                -second * products[2],
+                -second * products[3],
+                -second * products[4],
+                -second * products[5],
+            )
+        )
+        log_first.append(n * lam / denominator)
+        log_second.append(n * lam / (denominator * denominator))
+
+    def totals(rows):
+        return tuple(math.fsum(row[index] for row in rows) for index in range(6))
+
+    a00, a01, a11, b0, b1, q = totals(component_rows)
+    a00d, a01d, a11d, b0d, b1d, qd = totals(first_rows)
+    a00dd, a01dd, a11dd, b0dd, b1dd, qdd = totals(second_rows)
+    determinant = a00 * a11 - a01 * a01
+    determinant_first = a00d * a11 + a00 * a11d - 2.0 * a01 * a01d
+    determinant_second = (
+        a00dd * a11 + 2.0 * a00d * a11d + a00 * a11dd - 2.0 * (a01d * a01d + a01 * a01dd)
+    )
+    if determinant <= 0:
+        raise SingularFitError("analytic profile diagnostics found a singular design matrix")
+    beta0 = (a11 * b0 - a01 * b1) / determinant
+    beta1 = (a00 * b1 - a01 * b0) / determinant
+    residual = q - beta0 * b0 - beta1 * b1
+    residual_first = (
+        qd
+        - 2.0 * (beta0 * b0d + beta1 * b1d)
+        + a00d * beta0 * beta0
+        + 2.0 * a01d * beta0 * beta1
+        + a11d * beta1 * beta1
+    )
+    g0 = b0d - (a00d * beta0 + a01d * beta1)
+    g1 = b1d - (a01d * beta0 + a11d * beta1)
+    g_inverse_g = (a11 * g0 * g0 - 2.0 * a01 * g0 * g1 + a00 * g1 * g1) / determinant
+    residual_second = (
+        qdd
+        - 2.0 * (beta0 * b0dd + beta1 * b1dd)
+        + a00dd * beta0 * beta0
+        + 2.0 * a01dd * beta0 * beta1
+        + a11dd * beta1 * beta1
+        - 2.0 * g_inverse_g
+    )
+    if residual <= 0 or not all(
+        math.isfinite(item)
+        for item in (
+            residual,
+            residual_first,
+            residual_second,
+            determinant_first,
+            determinant_second,
+        )
+    ):
+        raise SingularFitError("analytic profile diagnostics found a non-positive residual")
+    score = -0.5 * (
+        degrees * residual_first / residual + determinant_first / determinant + math.fsum(log_first)
+    )
+    curvature = -0.5 * (
+        degrees
+        * (residual_second / residual - (residual_first / residual) * (residual_first / residual))
+        + determinant_second / determinant
+        - (determinant_first / determinant) * (determinant_first / determinant)
+        + math.fsum(log_second)
+    )
+    if not math.isfinite(score) or not math.isfinite(curvature):
+        raise SingularFitError("analytic profile diagnostics produced non-finite values")
+    return score, curvature
+
+
 def _profile_reml_evaluation(
     cluster_ids: tuple[str, ...],
     sums: dict[str, tuple[float, float, float, float, float]],
@@ -1039,14 +1305,20 @@ def _golden_section_maximize_traced(
 
     left_evaluation = evaluate(mid_left)
     right_evaluation = evaluate(mid_right)
+
+    def comparison_value(evaluation: ProfileRemlEvaluation) -> float:
+        if evaluation.valid and evaluation.objective is not None:
+            return evaluation.objective
+        return -math.inf
+
     iterations = 0
     termination_reason = "max-iterations"
     for _ in range(max_iterations):
         if right - left <= tolerance * max(1.0, abs(left), abs(right)):
             termination_reason = "interval-tolerance"
             break
-        left_value = left_evaluation.objective if left_evaluation.valid else -math.inf
-        right_value = right_evaluation.objective if right_evaluation.valid else -math.inf
+        left_value = comparison_value(left_evaluation)
+        right_value = comparison_value(right_evaluation)
         if left_value > right_value:
             right = mid_right
             mid_right = mid_left
@@ -1061,8 +1333,8 @@ def _golden_section_maximize_traced(
             right_evaluation = evaluate(mid_right)
         iterations += 1
 
-    left_value = left_evaluation.objective if left_evaluation.valid else -math.inf
-    right_value = right_evaluation.objective if right_evaluation.valid else -math.inf
+    left_value = comparison_value(left_evaluation)
+    right_value = comparison_value(right_evaluation)
     candidate = left_evaluation if left_value >= right_value else right_evaluation
     return ProfileRemlTrace(
         initial_lower=lower,
