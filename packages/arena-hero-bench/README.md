@@ -112,13 +112,23 @@ of the canonical content-addressed workload and returns a raw, content-addressed
 - `median_ns`, `p95_ns`, and `p99_ns` are derived only from complete, credible raw samples.
 - `production_claim` is fixed to `false`; publishable evidence can never carry issues.
 
-For an actual candidate comparison, use `measure_comparative_workloads` with independent
-reference and candidate runner factories. The function executes both factories for baseline,
-warmup, and measured rounds; a precomputed reference run cannot masquerade as candidate timing.
-The `arena.bench.comparative-performance-evidence.v1` artifact binds workload, protocol, public
+For an actual candidate comparison, use `measure_comparative_workloads` with concrete
+reference and candidate `SimulatorBackend` objects. The benchmark layer constructs the workload
+runners internally and uses the fixed `perf_counter_ns` clock. Runner factories and injected
+clocks exist only in a private test seam and always produce non-publishable evidence.
+
+The `arena.bench.comparative-performance-evidence.v2` artifact binds workload, protocol, public
 environment, reference/candidate backend and run identities, the recomputed differential digest,
-episode-order digest, and both raw timing series. Identical backend identities, semantic drift,
-incomplete samples, or timer failures are non-publishable. `production_claim` is always `false`.
+episode-order digest, both raw timing series, and replay-attestation provenance. A caller may
+supply a `ReplayArtifactResolver` that returns canonical replay envelope bytes. Every claimed
+payload, envelope, and semantic digest is recomputed from those bytes before evidence can be
+publishable. Without a resolver, or when any replay fails verification, the artifact is explicitly
+`self-reported/unattested` and `publishable=false`.
+
+This attestation proves that resolved bytes match the artifact refs used by the differential gate;
+it does not independently prove how the backend produced those bytes, prevent a trusted backend
+from caching work, or constitute production benchmarking. Backends and resolvers remain trusted
+inputs, and `production_claim` is always `false`.
 
 The differential gate is recomputed inside the measurement from the current baseline run and,
 when supplied, a candidate run (`compare_workload_runs(baseline, candidate)`). An externally

@@ -106,7 +106,7 @@ canonical workload:
 uv run arena-hero-sim-bench --benchmark reference-workload --repeats 5 --batch-size 9
 ```
 
-Schema: `arena.sim.reference-workload-benchmark.v1`. Each round is exactly one execution
+Schema: `arena.sim.reference-workload-benchmark.v2`. Each round is exactly one execution
 of the canonical 9-episode `reference-movement-dependency` workload through
 `run_canonical_reference_workload`; the episode count is fixed by the manifest and cannot
 be scaled by a caller-supplied `--episodes` value. The report binds the workload digest and

@@ -66,7 +66,7 @@ samples is not publishable.
 The sim package now ships the first real measurement entrypoint: `--benchmark reference-workload`
 on `arena-hero-sim-bench` executes the canonical 9-episode workload through the real engine,
 freezes the workload and semantic run digests, and retains raw per-round durations
-(`arena.sim.reference-workload-benchmark.v1`, always `production_claim=false`). This harness is
+(`arena.sim.reference-workload-benchmark.v2`, always `production_claim=false`). This harness is
 an in-process measurement signal; `arena-hero-bench` remains the owner of bounded execution,
 differential binding, content-addressed storage, and publication eligibility.
 
@@ -90,13 +90,19 @@ digests must all match, so stale or forged reports cannot reach publishable evid
 outputs are validated against the integer wall-clock contract (non-integer, non-finite,
 boolean, or backwards values fail closed and discard the sample).
 
-`measure_comparative_workloads` is the real candidate path. It accepts independent runner
-factories, executes both backends for baseline, warmup, and measured rounds, rejects identical or
-wrong candidate backend identity, and emits
-`arena.bench.comparative-performance-evidence.v1`. The evidence binds workload, protocol, public
-environment, both backend/run identities, differential digest, episode-order digest, and both raw
-duration series. It never converts a reference timing into candidate evidence and always keeps
-`production_claim=false`.
+`measure_comparative_workloads` accepts concrete reference and candidate `SimulatorBackend`
+objects and constructs its workload runners internally. The public path uses `perf_counter_ns`;
+injected runners or clocks are test-only and cannot produce publishable evidence. The emitted
+`arena.bench.comparative-performance-evidence.v2` artifact binds workload, protocol, public
+environment, both backend/run identities, differential digest, episode-order digest, both raw
+duration series, and replay-attestation provenance.
+
+Publishable evidence additionally requires a `ReplayArtifactResolver`. The resolver returns the
+canonical envelope bytes for each claimed replay identity, after which payload, envelope, and
+backend-neutral semantic digests are recomputed and verified. Missing or invalid bytes yield
+`self-reported/unattested` evidence with `publishable=false`. This verifies resolved content, not
+independent execution or the absence of backend-side caching; the backend and resolver are trusted
+inputs and `production_claim` remains `false`.
 
 ## Ownership and extension path
 

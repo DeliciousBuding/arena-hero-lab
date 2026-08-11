@@ -117,7 +117,7 @@ The same command selects the real-engine harness against the frozen canonical wo
 uv run arena-hero-sim-bench --benchmark reference-workload --repeats 5 --batch-size 9
 ```
 
-Schema: `arena.sim.reference-workload-benchmark.v1`. A round is exactly one execution of the
+Schema: `arena.sim.reference-workload-benchmark.v2`. A round is exactly one execution of the
 canonical 9-episode reference workload through the real engine, including the known-answer
 gate and the semantic run digest. `--episodes` is rejected for this selector because a round
 is a fixed semantic unit, not a copyable scenario count. The report binds the workload and
@@ -130,7 +130,8 @@ The backend-neutral workload contract and the mandatory reference/optimized diff
 defined in [`reference-workloads.md`](reference-workloads.md). A real performance claim must bind a
 content-addressed workload manifest and retain raw measurement samples. Contract dispatch remains
 a separate overhead signal and cannot be promoted into engine-throughput evidence.
-`arena_hero_bench.measure_comparative_workloads` executes both injected runner factories, binds the
+`arena_hero_bench.measure_comparative_workloads` accepts two concrete simulator backends, builds
+its runners internally, verifies resolved replay envelope bytes when a resolver is supplied, and binds the
 reference and candidate run identities plus the differential and episode-order digests, retains
 both raw timing series, and always records `production_claim=false`.
 
