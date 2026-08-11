@@ -1,5 +1,5 @@
 {
-  "schema": "arena.platform.external-evidence.v1",
+  "schema": "arena.platform.external-evidence.v2",
   "source": {
     "repository": "DeliciousBuding/arena-hero-agent",
     "repository_url": "https://github.com/DeliciousBuding/arena-hero-agent",
@@ -12,7 +12,7 @@
   },
   "artifact": {
     "path": "tests/adapters/sdk/fixtures/turn_to_plan_known_answers_v1.json",
-    "sha256": "836a0d7d51c1855ad326d316ca65b61a889fc48751ae993b2adb167704064ec5",
+    "canonical_sha256": "6e076a91fa4bc06f3f52ec82c34aa35afb4bea9485c1bf918170c3c42afff080",
     "plan_sha256": "6704ea79a7711a01e66bf3534f4d032591ffad41040b92c8431c12c5a76a7a68",
     "rules_version": "v0.14",
     "captured_on": "2026-08-11"

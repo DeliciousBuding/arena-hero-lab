@@ -14,8 +14,10 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-PLATFORM_STATUS_SCHEMA = "arena.platform.status.v1"
-EXTERNAL_EVIDENCE_SCHEMA = "arena.platform.external-evidence.v1"
+from arena_hero_sim.serialization import content_sha256
+
+PLATFORM_STATUS_SCHEMA = "arena.platform.status.v2"
+EXTERNAL_EVIDENCE_SCHEMA = "arena.platform.external-evidence.v2"
 
 AGENT_FIXTURE_FILENAME = "turn_to_plan_known_answers_v1.json"
 AGENT_PROVENANCE_FILENAME = "provenance.json"
@@ -74,16 +76,16 @@ def agent_fixture_dir(fixture_dir: Path | None) -> Path:
 def load_agent_conformance(fixture_dir: Path | None = None) -> dict[str, Any]:
     """Load and strictly verify the frozen external agent known-answer evidence.
 
-    Fail-closed on any mismatch: content digest drift, provenance tampering,
+    Fail-closed on any mismatch: canonical content digest drift, provenance tampering,
     SDK version drift, or a plan digest that no longer matches the fixture.
     """
     directory = agent_fixture_dir(fixture_dir)
     fixture_path = directory / AGENT_FIXTURE_FILENAME
     provenance_path = directory / AGENT_PROVENANCE_FILENAME
 
-    fixture_bytes = fixture_path.read_bytes()
-    fixture_sha = _sha256_bytes(fixture_bytes)
     provenance = _load_json(provenance_path)
+    fixture = _load_json(fixture_path)
+    fixture_sha = content_sha256(fixture)
 
     if provenance.get("schema") != EXTERNAL_EVIDENCE_SCHEMA:
         raise PlatformStatusError("external agent evidence schema mismatch")
@@ -102,7 +104,7 @@ def load_agent_conformance(fixture_dir: Path | None = None) -> dict[str, Any]:
     artifact = provenance.get("artifact")
     if not isinstance(artifact, dict):
         raise PlatformStatusError("external agent evidence missing artifact metadata")
-    declared_sha = _require(artifact.get("sha256"), "artifact sha256")
+    declared_sha = _require(artifact.get("canonical_sha256"), "artifact canonical sha256")
     declared_plan_sha = _require(artifact.get("plan_sha256"), "plan sha256")
 
     if source_repo != "DeliciousBuding/arena-hero-agent":
@@ -112,11 +114,10 @@ def load_agent_conformance(fixture_dir: Path | None = None) -> dict[str, Any]:
     if sdk_name != AGENT_SDK_NAME or sdk_version != AGENT_SDK_VERSION:
         raise PlatformStatusError("external agent evidence SDK version mismatch")
     if declared_sha != fixture_sha:
-        raise PlatformStatusError("external agent fixture content digest mismatch")
+        raise PlatformStatusError("external agent fixture canonical digest mismatch")
     if declared_plan_sha != AGENT_PLAN_SHA256:
         raise PlatformStatusError("external agent plan digest mismatch")
 
-    fixture = _load_json(fixture_path)
     embedded_plan_sha = _require(fixture.get("plan_sha256"), "fixture plan sha256")
     embedded_rules = _require(fixture.get("rules_version"), "fixture rules version")
     if embedded_plan_sha != AGENT_PLAN_SHA256:
@@ -129,7 +130,7 @@ def load_agent_conformance(fixture_dir: Path | None = None) -> dict[str, Any]:
         "source_commit_short": _require(source.get("commit_short"), "source commit short"),
         "sdk": {"name": sdk_name, "version": sdk_version},
         "evidence": {
-            "fixture_sha256": fixture_sha,
+            "fixture_canonical_sha256": fixture_sha,
             "plan_sha256": AGENT_PLAN_SHA256,
             "rules_version": embedded_rules,
             "captured_on": _require(artifact.get("captured_on"), "captured on"),

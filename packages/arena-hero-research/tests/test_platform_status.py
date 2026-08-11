@@ -24,6 +24,7 @@ from arena_hero_research.platform_status import (
 )
 
 KNOWN_DIFFERENTIAL_DIGEST = "1b65d7c39a5175f67a9319336746f5e15a2a5279c23163d24d82ca2a00c1ea7e"
+KNOWN_FIXTURE_CANONICAL_SHA256 = "6e076a91fa4bc06f3f52ec82c34aa35afb4bea9485c1bf918170c3c42afff080"
 
 
 @pytest.fixture()
@@ -54,6 +55,7 @@ def test_platform_schema_and_known_values(tmp_output: Path) -> None:
     assert agent["sdk"]["version"] == AGENT_SDK_VERSION
     assert agent["source_commit"] == AGENT_SOURCE_COMMIT
     assert agent["evidence"]["plan_sha256"] == AGENT_PLAN_SHA256
+    assert agent["evidence"]["fixture_canonical_sha256"] == KNOWN_FIXTURE_CANONICAL_SHA256
 
     simulator = platform["simulator"]
     assert simulator["status"] == "verified-differential"
@@ -88,7 +90,7 @@ def test_agent_fixture_tamper_fails_closed(tmp_path: Path) -> None:
     (fixture_dir / "turn_to_plan_known_answers_v1.json").write_text(
         '{"plan_sha256": "tampered"}', encoding="utf-8"
     )
-    with pytest.raises(PlatformStatusError, match="content digest mismatch"):
+    with pytest.raises(PlatformStatusError, match="canonical digest mismatch"):
         load_agent_conformance(fixture_dir)
 
 
@@ -96,9 +98,9 @@ def test_agent_provenance_tamper_fails_closed(tmp_path: Path) -> None:
     fixture_dir = _copy_fixture_dir(tmp_path / "fixture")
     provenance_path = fixture_dir / "provenance.json"
     provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
-    provenance["artifact"]["sha256"] = "0" * 64
+    provenance["artifact"]["canonical_sha256"] = "0" * 64
     provenance_path.write_text(json.dumps(provenance), encoding="utf-8")
-    with pytest.raises(PlatformStatusError, match="content digest mismatch"):
+    with pytest.raises(PlatformStatusError, match="canonical digest mismatch"):
         load_agent_conformance(fixture_dir)
 
 
@@ -150,3 +152,43 @@ def test_research_evidence_invalid_fails_closed(monkeypatch: pytest.MonkeyPatch)
 def test_build_platform_status_rejects_unverified_cards() -> None:
     with pytest.raises(PlatformStatusError, match="agent conformance"):
         build_platform_status(agent={"status": "failed"}, simulator=None, research=None)
+
+
+def test_agent_fixture_identity_is_line_ending_insensitive(tmp_path: Path) -> None:
+    fixture_dir = _copy_fixture_dir(tmp_path / "fixture")
+    fixture_path = fixture_dir / "turn_to_plan_known_answers_v1.json"
+    lf_text = fixture_path.read_text(encoding="utf-8")
+    assert "\r\n" not in lf_text
+    fixture_path.write_text(lf_text.replace("\n", "\r\n"), encoding="utf-8", newline="")
+    agent = load_agent_conformance(fixture_dir)
+    assert agent["evidence"]["fixture_canonical_sha256"] == KNOWN_FIXTURE_CANONICAL_SHA256
+
+
+def test_agent_fixture_identity_is_whitespace_insensitive(tmp_path: Path) -> None:
+    fixture_dir = _copy_fixture_dir(tmp_path / "fixture")
+    fixture_path = fixture_dir / "turn_to_plan_known_answers_v1.json"
+    value = json.loads(fixture_path.read_text(encoding="utf-8"))
+    compact = json.dumps(value, separators=(",", ":"), ensure_ascii=False)
+    fixture_path.write_text(compact, encoding="utf-8", newline="")
+    agent = load_agent_conformance(fixture_dir)
+    assert agent["evidence"]["fixture_canonical_sha256"] == KNOWN_FIXTURE_CANONICAL_SHA256
+
+
+def test_agent_fixture_semantic_tamper_fails_closed(tmp_path: Path) -> None:
+    fixture_dir = _copy_fixture_dir(tmp_path / "fixture")
+    fixture_path = fixture_dir / "turn_to_plan_known_answers_v1.json"
+    value = json.loads(fixture_path.read_text(encoding="utf-8"))
+    value["rules_version"] = "v9.9"
+    fixture_path.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8", newline="")
+    with pytest.raises(PlatformStatusError, match="canonical digest mismatch"):
+        load_agent_conformance(fixture_dir)
+
+
+def test_agent_provenance_plan_digest_tamper_fails_closed(tmp_path: Path) -> None:
+    fixture_dir = _copy_fixture_dir(tmp_path / "fixture")
+    provenance_path = fixture_dir / "provenance.json"
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    provenance["artifact"]["plan_sha256"] = "0" * 64
+    provenance_path.write_text(json.dumps(provenance), encoding="utf-8")
+    with pytest.raises(PlatformStatusError, match="plan digest mismatch"):
+        load_agent_conformance(fixture_dir)
