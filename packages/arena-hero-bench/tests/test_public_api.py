@@ -8,6 +8,10 @@ import inspect
 import arena_hero_bench
 
 _EXPECTED_PUBLIC_API = {
+    "AGENT_RUN_EVIDENCE_SCHEMA",
+    "AGENT_RUN_IMPORT_REPORT_SCHEMA",
+    "AgentRunEvidence",
+    "AgentRuntimeImportError",
     "COMPARATIVE_PERFORMANCE_EVIDENCE_SCHEMA",
     "ArtifactIndexError",
     "ArtifactManifest",
@@ -46,6 +50,7 @@ _EXPECTED_PUBLIC_API = {
     "StaleScanError",
     "StoreScan",
     "build_gc_plan",
+    "import_agent_run",
     "measure_comparative_workloads",
     "measure_reference_workload",
     "merge_shards",

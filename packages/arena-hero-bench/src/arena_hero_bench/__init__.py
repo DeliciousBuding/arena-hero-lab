@@ -1,5 +1,12 @@
 """Arena Hero benchmark platform contracts and tooling."""
 
+from arena_hero_bench.agent_runtime import (
+    AGENT_RUN_EVIDENCE_SCHEMA,
+    AGENT_RUN_IMPORT_REPORT_SCHEMA,
+    AgentRunEvidence,
+    AgentRuntimeImportError,
+    import_agent_run,
+)
 from arena_hero_bench.artifact_index import (
     ArtifactIndexError,
     GcCandidate,
@@ -47,12 +54,16 @@ from arena_hero_bench.process_executor import (
 from arena_hero_bench.storage import FilesystemArtifactStore
 
 __all__ = [
+    "AGENT_RUN_EVIDENCE_SCHEMA",
+    "AGENT_RUN_IMPORT_REPORT_SCHEMA",
     "COMPARATIVE_PERFORMANCE_EVIDENCE_SCHEMA",
     "MEASUREMENT_PROTOCOL_SCHEMA",
     "MINIMUM_CREDIBLE_SAMPLE_NS",
     "PERFORMANCE_EVIDENCE_SCHEMA",
     "REPLAY_ATTESTATION_UNATTESTED",
     "REPLAY_ATTESTATION_VERIFIED",
+    "AgentRunEvidence",
+    "AgentRuntimeImportError",
     "ArtifactIndexError",
     "ArtifactManifest",
     "ArtifactStatus",
@@ -85,6 +96,7 @@ __all__ = [
     "StaleScanError",
     "StoreScan",
     "build_gc_plan",
+    "import_agent_run",
     "measure_comparative_workloads",
     "measure_reference_workload",
     "merge_shards",

@@ -3,9 +3,23 @@
 from __future__ import annotations
 
 import argparse
+import json
+import sys
 from pathlib import Path
 
+from arena_hero_bench.agent_runtime import (
+    AGENT_RUN_EVIDENCE_SCHEMA,
+    DEFAULT_AGENT_COMMIT,
+    DEFAULT_SDK_TAG,
+    GENERATOR_VERSION,
+    AgentRuntimeImportError,
+    import_agent_run,
+    source_build_sha256,
+)
 from arena_hero_bench.converter import convert_file
+from arena_hero_bench.manifest import ArtifactManifest
+from arena_hero_bench.storage import ArtifactStoreError, FilesystemArtifactStore
+from arena_hero_sim.serialization import canonical_json_bytes
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -17,7 +31,72 @@ def _parser() -> argparse.ArgumentParser:
     convert.add_argument("--source-root", type=Path)
     convert.add_argument("--source-label")
     convert.add_argument("--converted-at")
+    import_run = subparsers.add_parser(
+        "import-agent-run",
+        help="import one offline agent run into a content-addressed lab artifact",
+    )
+    import_run.add_argument(
+        "--records",
+        required=True,
+        type=Path,
+        metavar="PATH",
+        help="offline agent records JSONL (tick and loop records)",
+    )
+    import_run.add_argument(
+        "--tenant", required=True, metavar="ID", help="expected tenant id for the run"
+    )
+    import_run.add_argument(
+        "--health",
+        type=Path,
+        metavar="PATH",
+        help="optional offline agent health snapshot JSON",
+    )
+    import_run.add_argument(
+        "--agent-commit",
+        default=DEFAULT_AGENT_COMMIT,
+        metavar="SHA",
+        help=f"public agent commit recorded in provenance (default: {DEFAULT_AGENT_COMMIT})",
+    )
+    import_run.add_argument(
+        "--sdk-tag",
+        default=DEFAULT_SDK_TAG,
+        metavar="TAG",
+        help=f"public SDK tag recorded in provenance (default: {DEFAULT_SDK_TAG})",
+    )
+    import_run.add_argument(
+        "--store",
+        type=Path,
+        metavar="PATH",
+        help="content-addressed artifact store root; when omitted the digest is only reported",
+    )
     return parser
+
+
+def _import_agent_run_command(args: argparse.Namespace) -> int:
+    try:
+        evidence = import_agent_run(
+            args.records,
+            tenant_id=args.tenant,
+            health_path=args.health,
+            agent_commit=args.agent_commit,
+            sdk_tag=args.sdk_tag,
+        )
+        if args.store is not None:
+            store = FilesystemArtifactStore(args.store)
+            payload = canonical_json_bytes(evidence.content)
+            manifest = ArtifactManifest.for_content(
+                content=payload,
+                schema_version=AGENT_RUN_EVIDENCE_SCHEMA,
+                generator_version=GENERATOR_VERSION,
+                provenance=evidence.provenance,
+                source_build_sha256=source_build_sha256(args.records, args.health),
+            )
+            store.store_artifact(manifest, payload)
+    except (AgentRuntimeImportError, ArtifactStoreError) as exc:
+        print(f"arena-hero-bench: error: {exc}", file=sys.stderr)
+        return 2
+    print(json.dumps(evidence.report, ensure_ascii=False, indent=2, sort_keys=True))
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -35,6 +114,8 @@ def main(argv: list[str] | None = None) -> int:
             f"({len(output['leaderboard'])} entries, {len(output['scenarios'])} scenarios)"
         )
         return 0
+    if args.command == "import-agent-run":
+        return _import_agent_run_command(args)
     raise AssertionError(f"unhandled command: {args.command}")
 
 
