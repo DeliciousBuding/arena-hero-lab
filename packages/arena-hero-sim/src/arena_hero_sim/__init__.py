@@ -17,6 +17,12 @@ from arena_hero_sim.microbenchmark import (
     run_contract_dispatch_microbenchmark,
     run_reference_workload_benchmark,
 )
+from arena_hero_sim.optimized import (
+    OPTIMIZED_BACKEND_ID,
+    OPTIMIZED_ENGINE_VERSION,
+    OPTIMIZED_VISIBILITY_FEATURE,
+    OptimizedEngineBackend,
+)
 from arena_hero_sim.reference import (
     REFERENCE_BACKEND_ID,
     REFERENCE_ENGINE_VERSION,
@@ -62,6 +68,7 @@ from arena_hero_sim.reference_workload import (
     CANONICAL_REFERENCE_WORKLOAD_VERSION,
     DIFFERENTIAL_REPORT_SCHEMA,
     REFERENCE_WORKLOAD_RUN_SCHEMA,
+    BackendWorkloadRunner,
     DifferentialMismatch,
     DifferentialReport,
     KnownAnswer,
@@ -91,6 +98,9 @@ __all__ = [
     "CANONICAL_REFERENCE_WORKLOAD_VERSION",
     "DIFFERENTIAL_REPORT_SCHEMA",
     "MICROBENCHMARK_SCHEMA",
+    "OPTIMIZED_BACKEND_ID",
+    "OPTIMIZED_ENGINE_VERSION",
+    "OPTIMIZED_VISIBILITY_FEATURE",
     "REFERENCE_BACKEND_ID",
     "REFERENCE_ENGINE_VERSION",
     "REFERENCE_FEATURES",
@@ -104,10 +114,12 @@ __all__ = [
     "BackendCapabilities",
     "BackendDescriptor",
     "BackendRegistry",
+    "BackendWorkloadRunner",
     "DifferentialMismatch",
     "DifferentialReport",
     "KnownAnswer",
     "MicrobenchmarkReport",
+    "OptimizedEngineBackend",
     "ReferenceActionKind",
     "ReferenceBackendPlaceholder",
     "ReferenceCommand",

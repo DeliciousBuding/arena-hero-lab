@@ -175,6 +175,16 @@ class ReferenceEngineBackend:
         return tuple(self.simulate(request) for request in requests)
 
     def _support_problem(self, request: SimulationRequest) -> str | None:
+        descriptor = self.descriptor
+        if request.config.backend_id != descriptor.backend_id:
+            return "request backend_id does not match this backend"
+        if request.config.engine_version != descriptor.engine_version:
+            return "request engine_version does not match this backend"
+        if request.config.protocol_version not in descriptor.capabilities.protocol_versions:
+            return "request protocol_version is not supported by this backend"
+        missing = descriptor.capabilities.missing_features(request.config.requested_features)
+        if missing:
+            return "request contains unsupported backend capabilities"
         if not request.config.deterministic:
             return "reference engine requires deterministic=true"
         if request.config.ruleset != REFERENCE_RULESET:

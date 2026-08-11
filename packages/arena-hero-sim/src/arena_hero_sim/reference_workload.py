@@ -8,7 +8,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
 
-from arena_hero_sim.backend import BackendDescriptor
+from arena_hero_sim.backend import BackendDescriptor, SimulatorBackend
 from arena_hero_sim.contracts import (
     RulesetRef,
     SimulationRequest,
@@ -841,17 +841,21 @@ class WorkloadRun:
         return content_sha256(self.to_dict())
 
 
-class ReferenceWorkloadRunner:
-    """Run a verified manifest through the real reference engine and known-answer gate."""
+class BackendWorkloadRunner:
+    """Inject one registered backend into the frozen canonical workload path."""
 
-    def __init__(self, scenarios: ReferenceScenarioRegistry) -> None:
+    def __init__(
+        self,
+        scenarios: ReferenceScenarioRegistry,
+        backend: SimulatorBackend,
+    ) -> None:
         self._scenarios = scenarios
-        self._backend = ReferenceEngineBackend(scenarios.scenarios)
+        self._backend = backend
         self._registry = BackendRegistry()
-        self._registry.register(self._backend)
+        self._registry.register(backend)
 
     @property
-    def backend(self) -> ReferenceEngineBackend:
+    def backend(self) -> SimulatorBackend:
         return self._backend
 
     def run(self, manifest: WorkloadManifest, *, batch_size: int = 1) -> WorkloadRun:
@@ -859,7 +863,8 @@ class ReferenceWorkloadRunner:
             raise ReferenceWorkloadError("manifest rules identity is not the reference ruleset")
         if batch_size < 1 or batch_size > self._backend.descriptor.capabilities.max_batch_size:
             raise ReferenceWorkloadError("batch_size is outside backend capabilities")
-        records = tuple(self._scenarios.resolve(case) for case in manifest.cases)
+        for case in manifest.cases:
+            self._scenarios.resolve(case)
         requests = tuple(
             manifest.iter_requests(
                 backend_id=self._backend.descriptor.backend_id,
@@ -881,9 +886,25 @@ class ReferenceWorkloadRunner:
             results=results,
         )
         if not run.publishable:
-            raise ReferenceWorkloadError(
-                "reference workload failed closed: " + "; ".join(run.issues)
-            )
+            raise ReferenceWorkloadError("workload backend failed closed: " + "; ".join(run.issues))
+        return run
+
+
+class ReferenceWorkloadRunner(BackendWorkloadRunner):
+    """Run the real reference engine and its frozen known-answer gate."""
+
+    def __init__(self, scenarios: ReferenceScenarioRegistry) -> None:
+        super().__init__(scenarios, ReferenceEngineBackend(scenarios.scenarios))
+
+    @property
+    def backend(self) -> ReferenceEngineBackend:
+        backend = super().backend
+        assert isinstance(backend, ReferenceEngineBackend)
+        return backend
+
+    def run(self, manifest: WorkloadManifest, *, batch_size: int = 1) -> WorkloadRun:
+        records = tuple(self._scenarios.resolve(case) for case in manifest.cases)
+        run = super().run(manifest, batch_size=batch_size)
         answers = {record.scenario.scenario_id: record.known_answer for record in records}
         for episode in run.episodes:
             answer = answers[episode.case_id]
@@ -1051,7 +1072,6 @@ def compare_workload_runs(reference: WorkloadRun, candidate: WorkloadRun) -> Dif
         "seed",
         "ticks_completed",
         "final_world_sha256",
-        "replay_semantic_sha256",
     )
     for episode_id in reference_ids:
         expected = reference_by_id[episode_id]
@@ -1059,26 +1079,31 @@ def compare_workload_runs(reference: WorkloadRun, candidate: WorkloadRun) -> Dif
         if actual is None:
             add("missing_episode", episode_id, None, episode_id=episode_id)
             continue
+        try:
+            expected_replay_semantic = ReplayArtifactIdentity.from_artifact_refs(
+                expected.artifact_refs
+            ).semantic_sha256
+            actual_replay_semantic = ReplayArtifactIdentity.from_artifact_refs(
+                actual.artifact_refs
+            ).semantic_sha256
+        except ValueError:
+            add(
+                "artifact_refs",
+                expected.artifact_refs,
+                actual.artifact_refs,
+                episode_id=episode_id,
+            )
+        else:
+            if expected_replay_semantic != actual_replay_semantic:
+                add(
+                    "replay_semantic_sha256",
+                    expected_replay_semantic,
+                    actual_replay_semantic,
+                    episode_id=episode_id,
+                )
         for field_name in semantic_fields:
-            if field_name == "replay_semantic_sha256":
-                try:
-                    expected_value = ReplayArtifactIdentity.from_artifact_refs(
-                        expected.artifact_refs
-                    ).semantic_sha256
-                    actual_value = ReplayArtifactIdentity.from_artifact_refs(
-                        actual.artifact_refs
-                    ).semantic_sha256
-                except ValueError:
-                    add(
-                        "artifact_refs",
-                        expected.artifact_refs,
-                        actual.artifact_refs,
-                        episode_id=episode_id,
-                    )
-                    continue
-            else:
-                expected_value = getattr(expected, field_name)
-                actual_value = getattr(actual, field_name)
+            expected_value = getattr(expected, field_name)
+            actual_value = getattr(actual, field_name)
             if isinstance(expected_value, SimulationStatus):
                 expected_value = expected_value.value
                 if isinstance(actual_value, SimulationStatus):

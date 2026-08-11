@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from types import MappingProxyType
 
@@ -503,6 +504,10 @@ def settle_reference_turn(
     world: ReferenceWorld,
     turn: ReferenceTurn,
     rules: ReferenceRules = REFERENCE_RULES,
+    *,
+    observer: Callable[
+        [ReferenceWorld, ReferenceRules], tuple[ReferenceObservation, ...]
+    ] = observe_world,
 ) -> tuple[ReferenceWorld, ReferenceReplayFrame]:
     """Run the explicit supported phases atomically for one tick."""
 
@@ -524,7 +529,7 @@ def settle_reference_turn(
         tick=draft.tick + 1,
         resolved_tick_count=draft.resolved_tick_count + 1,
     )
-    observations = observe_world(committed, rules)
+    observations = observer(committed, rules)
     events = tuple(
         ReferenceEvent(
             sequence=index,
@@ -559,6 +564,9 @@ def run_reference_episode(
     episode_id: str,
     max_ticks: int,
     rules: ReferenceRules = REFERENCE_RULES,
+    observer: Callable[
+        [ReferenceWorld, ReferenceRules], tuple[ReferenceObservation, ...]
+    ] = observe_world,
 ) -> ReferenceEpisodeResult:
     if max_ticks < 1:
         raise ValueError("max_ticks must be positive")
@@ -570,7 +578,7 @@ def run_reference_episode(
     all_events: list[ReferenceEvent] = []
     selected_turns = scenario.turns[:max_ticks]
     for turn in selected_turns:
-        world, frame = settle_reference_turn(world, turn, rules)
+        world, frame = settle_reference_turn(world, turn, rules, observer=observer)
         frames.append(frame)
         all_events.extend(frame.events)
     status = (
