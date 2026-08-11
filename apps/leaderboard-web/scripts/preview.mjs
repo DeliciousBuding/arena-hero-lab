@@ -34,10 +34,12 @@ const server = createServer(async (req, res) => {
 
     let filePath = join(ROOT, normalize(path));
     // 无扩展名：优先目录索引（/leaderboard → /leaderboard/index.html），
-    // 否则回退扁平 html（Next 16 导出形态 /leaderboard → /leaderboard.html）
+    // 否则回退扁平 html（Next 16 导出形态 /leaderboard → /leaderboard.html）。
+    // 尾斜杠与无尾斜杠等价：/platform/ 与 /platform 都解析到 platform.html，
+    // 否则 `${filePath}.html` 会拼出 `platform\.html`（目录内隐藏文件）而 404。
     if (!extname(filePath)) {
       const dirIndex = join(filePath, "index.html");
-      const flat = `${filePath}.html`;
+      const flat = `${filePath.replace(/[\\/]+$/, "")}.html`;
       filePath = (await readFile(dirIndex).catch(() => null))
         ? dirIndex
         : flat;
