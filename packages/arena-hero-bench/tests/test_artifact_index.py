@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
@@ -654,6 +656,88 @@ def test_manifests_root_reparse_point_blocks_without_traversal(
     )
     assert scan.manifests == frozenset()
     plan = scan.build_plan(store)
+    assert plan.blocked
+    assert plan.candidates == ()
+
+
+def _create_windows_junction(link: Path, target: Path) -> None:
+    result = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(target)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        pytest.skip(f"junction creation is not permitted here: {result.stderr.strip()}")
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows junction test")
+def test_manifests_root_windows_junction_blocks_without_scanning_outside(
+    tmp_path: Path,
+) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    outside = tmp_path / "outside-manifests"
+    outside.mkdir()
+    body = artifact_for(
+        canonical_json_bytes({"run": "outside-decoy"}), tag="outside/decoy.json"
+    ).to_dict()
+    decoy_digest = content_sha256(to_json_value(body))
+    decoy = outside / f"{decoy_digest}.json"
+    decoy.write_bytes(canonical_json_bytes(body))
+
+    manifests_root = store.root / "manifests"
+    manifests_root.rmdir()
+    try:
+        _create_windows_junction(manifests_root, outside)
+
+        scan = StoreScan.scan(store)
+        assert scan.blocked
+        assert any(
+            issue.path == "manifests" and issue.reason == "symlink-root"
+            for issue in scan.invalid_manifests
+        )
+        assert scan.manifests == frozenset()
+        plan = scan.build_plan(store)
+        assert plan.blocked
+        assert plan.candidates == ()
+        assert decoy.read_bytes() == canonical_json_bytes(body)
+    finally:
+        if os.path.isjunction(manifests_root):
+            # Remove only the junction link; the outside target must survive.
+            os.rmdir(manifests_root)
+
+    assert not manifests_root.exists()
+    assert decoy.exists()
+
+
+def test_invalid_json_manifest_is_invalid_and_blocks(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    root = put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
+    raw = b'{"broken": '
+    digest = hashlib.sha256(raw).hexdigest()
+    (store.root / "manifests" / f"{digest}.json").write_bytes(raw)
+
+    scan = StoreScan.scan(store)
+    assert any(issue.reason == "invalid-json" for issue in scan.invalid_manifests)
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan(store)
+    assert plan.blocked
+    assert plan.candidates == ()
+
+
+def test_non_canonical_manifest_is_invalid_and_blocks(tmp_path: Path) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    root = put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
+    body = artifact_for(
+        canonical_json_bytes({"run": "noncanonical"}), tag="tests/noncanonical.json"
+    ).to_dict()
+    canonical = canonical_json_bytes(body)
+    raw = canonical.replace(b"{", b"{ ", 1)
+    assert raw != canonical
+    digest = hashlib.sha256(raw).hexdigest()
+    (store.root / "manifests" / f"{digest}.json").write_bytes(raw)
+
+    scan = StoreScan.scan(store)
+    assert any(issue.reason == "non-canonical" for issue in scan.invalid_manifests)
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan(store)
     assert plan.blocked
     assert plan.candidates == ()
 
