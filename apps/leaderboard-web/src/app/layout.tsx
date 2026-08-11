@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   title: "Arena Hero · 模拟器评测榜单",
   description:
     "arena-hero 模拟器评测 v3 Leaderboard：agent 条目 × 场景 × 种子对抗，综合分 / 名次 / 击杀 / 经济多维对比，全量图表前端渲染（React + SVG），静态导出部署于 GitHub Pages。",
-  metadataBase: new URL("https://deliciousbuding.github.io"),
+  metadataBase: new URL("https://deliciousbuding.github.io/arena-hero-lab"),
   openGraph: {
     title: "Arena Hero · 模拟器评测榜单",
     description:
