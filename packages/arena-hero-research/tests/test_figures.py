@@ -120,12 +120,13 @@ def test_attribution_bar_is_deterministic_and_headless() -> None:
 
 def test_attribution_bar_rejects_unverified_attribution() -> None:
     attribution = _attribution()
-    tampered = attribution.to_dict()
-    dimensions = tampered["dimensions"]
-    assert isinstance(dimensions, list)
-    first = dict(dimensions[0])
-    first["adjusted_p_value"] = 0.5
-    tampered["dimensions"] = [first, *dimensions[1:]]
+    tampered = {
+        **attribution.to_dict(),
+        "dimensions": [
+            {**item.to_dict(), "adjusted_p_value": 0.5} if index == 0 else item.to_dict()
+            for index, item in enumerate(attribution.dimensions)
+        ],
+    }
     from arena_hero_research.attribution import BehaviorAttribution
 
     restored = BehaviorAttribution.from_dict(tampered)

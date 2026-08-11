@@ -131,12 +131,13 @@ def test_verify_rejects_tampered_payload() -> None:
     attribution = attribute_behavior_effects(
         estimates=_three_estimates(), outcome_dimensions=_mapping()
     )
-    tampered = attribution.to_dict()
-    dimensions = tampered["dimensions"]
-    assert isinstance(dimensions, list)
-    first = dict(dimensions[0])
-    first["adjusted_p_value"] = 0.5
-    tampered["dimensions"] = [first, *dimensions[1:]]
+    tampered = {
+        **attribution.to_dict(),
+        "dimensions": [
+            {**item.to_dict(), "adjusted_p_value": 0.5} if index == 0 else item.to_dict()
+            for index, item in enumerate(attribution.dimensions)
+        ],
+    }
     restored = BehaviorAttribution.from_dict(tampered)
     assert not restored.verify()
 
