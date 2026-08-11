@@ -1081,7 +1081,8 @@ def compare_workload_runs(reference: WorkloadRun, candidate: WorkloadRun) -> Dif
                 actual_value = getattr(actual, field_name)
             if isinstance(expected_value, SimulationStatus):
                 expected_value = expected_value.value
-                actual_value = actual_value.value
+                if isinstance(actual_value, SimulationStatus):
+                    actual_value = actual_value.value
             if expected_value != actual_value:
                 add(field_name, expected_value, actual_value, episode_id=episode_id)
         expected_metrics = dict(expected.metrics)
