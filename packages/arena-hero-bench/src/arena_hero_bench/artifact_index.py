@@ -381,15 +381,24 @@ def _scan_objects(
         if not _HEX2.fullmatch(prefix.name):
             issues.append(ObjectIssue(rel, "non-digest-name", None))
             continue
-        resolved_prefix = prefix.resolve()
-        if not resolved_prefix.is_relative_to(objects_root_resolved):
-            issues.append(ObjectIssue(rel, "escaped-path", None))
+        try:
+            prefix_st = prefix.lstat()
+        except OSError:
+            issues.append(ObjectIssue(rel, "unreadable-entry", None))
             continue
-        if prefix.is_symlink():
+        if stat.S_ISLNK(prefix_st.st_mode) or _is_reparse_point(prefix_st):
             issues.append(ObjectIssue(rel, "symlink-entry", None))
             continue
-        if not prefix.is_dir():
+        if not stat.S_ISDIR(prefix_st.st_mode):
             issues.append(ObjectIssue(rel, "unexpected-entry", None))
+            continue
+        try:
+            resolved_prefix = prefix.resolve()
+        except OSError:
+            issues.append(ObjectIssue(rel, "unreadable-entry", None))
+            continue
+        if not resolved_prefix.is_relative_to(objects_root_resolved):
+            issues.append(ObjectIssue(rel, "escaped-path", None))
             continue
         try:
             names = sorted(os.listdir(prefix))
@@ -403,15 +412,24 @@ def _scan_objects(
                 issues.append(ObjectIssue(child_rel, "non-digest-name", None))
                 continue
             digest = f"{prefix.name}{name}"
-            resolved = child.resolve()
-            if not resolved.is_relative_to(objects_root_resolved):
-                issues.append(ObjectIssue(child_rel, "escaped-path", digest))
+            try:
+                child_st = child.lstat()
+            except OSError:
+                issues.append(ObjectIssue(child_rel, "unreadable-entry", digest))
                 continue
-            if child.is_symlink():
+            if stat.S_ISLNK(child_st.st_mode) or _is_reparse_point(child_st):
                 issues.append(ObjectIssue(child_rel, "symlink-entry", digest))
                 continue
-            if not resolved.is_file():
+            if not stat.S_ISREG(child_st.st_mode):
                 issues.append(ObjectIssue(child_rel, "unexpected-entry", digest))
+                continue
+            try:
+                resolved = child.resolve()
+            except OSError:
+                issues.append(ObjectIssue(child_rel, "unreadable-entry", digest))
+                continue
+            if not resolved.is_relative_to(objects_root_resolved):
+                issues.append(ObjectIssue(child_rel, "escaped-path", digest))
                 continue
             try:
                 payload = resolved.read_bytes()

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
@@ -272,7 +273,7 @@ def test_symlink_escape_fails_closed(tmp_path: Path) -> None:
     os.symlink(target, prefix / escaped_name)
 
     scan = StoreScan.scan(store)
-    assert any(issue.reason == "escaped-path" for issue in scan.object_issues)
+    assert any(issue.reason == "symlink-entry" for issue in scan.object_issues)
 
     plan = scan.mark_roots([manifest_digest(root)]).build_plan(store)
     assert "ab" + escaped_name not in candidate_digests(plan)
@@ -637,6 +638,91 @@ def test_object_prefix_symlink_is_classified_and_not_scanned(tmp_path: Path) -> 
     plan = scan.mark_roots([manifest_digest(root)]).build_plan(store)
     assert not plan.blocked
     assert other_prefix + ("f" * 62) not in candidate_digests(plan)
+
+
+def test_object_prefix_reparse_point_is_classified_without_traversal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    root = put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
+    for index in range(1024):
+        payload = f"prefix-reparse-orphan-{index}".encode()
+        orphan = content_sha256(payload)
+        if orphan[:2] != root.content_sha256[:2]:
+            store.put(payload)
+            break
+    else:
+        raise AssertionError("could not find an object with a distinct prefix")
+    prefix = store.root / "objects" / orphan[:2]
+    original_lstat = Path.lstat
+    original_listdir = os.listdir
+    reparse_flag = 0x400
+    monkeypatch.setattr(artifact_index_module.stat, "FILE_ATTRIBUTE_REPARSE_POINT", reparse_flag)
+
+    def fake_lstat(path: Path) -> os.stat_result:
+        result = original_lstat(path)
+        if path == prefix:
+            return cast(
+                os.stat_result,
+                SimpleNamespace(st_mode=result.st_mode, st_file_attributes=reparse_flag),
+            )
+        return result
+
+    def guarded_listdir(path: str | os.PathLike[str]) -> list[str]:
+        if Path(path) == prefix:
+            raise AssertionError("reparse-point prefix must not be traversed")
+        return original_listdir(path)
+
+    monkeypatch.setattr(Path, "lstat", fake_lstat)
+    monkeypatch.setattr(os, "listdir", guarded_listdir)
+
+    scan = StoreScan.scan(store)
+    assert any(
+        issue.path == orphan[:2] and issue.reason == "symlink-entry" for issue in scan.object_issues
+    )
+    assert orphan not in scan.objects
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan(store)
+    assert not plan.blocked
+    assert orphan not in candidate_digests(plan)
+
+
+def test_object_child_reparse_point_is_classified_without_reading(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    root = put_artifact(store, canonical_json_bytes({"run": "root"}), tag="tests/root.json")
+    orphan = store.put(b"child-reparse-orphan")
+    child = store._object_path(orphan)
+    original_lstat = Path.lstat
+    original_read_bytes = Path.read_bytes
+    reparse_flag = 0x400
+    monkeypatch.setattr(artifact_index_module.stat, "FILE_ATTRIBUTE_REPARSE_POINT", reparse_flag)
+
+    def fake_lstat(path: Path) -> os.stat_result:
+        result = original_lstat(path)
+        if path == child:
+            return cast(
+                os.stat_result,
+                SimpleNamespace(st_mode=result.st_mode, st_file_attributes=reparse_flag),
+            )
+        return result
+
+    def guarded_read_bytes(path: Path) -> bytes:
+        if path == child:
+            raise AssertionError("reparse-point child must not be read")
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "lstat", fake_lstat)
+    monkeypatch.setattr(Path, "read_bytes", guarded_read_bytes)
+
+    scan = StoreScan.scan(store)
+    assert any(
+        issue.digest == orphan and issue.reason == "symlink-entry" for issue in scan.object_issues
+    )
+    assert orphan not in scan.objects
+    plan = scan.mark_roots([manifest_digest(root)]).build_plan(store)
+    assert not plan.blocked
+    assert orphan not in candidate_digests(plan)
 
 
 def test_pretty_json_manifest_is_invalid_and_blocks(tmp_path: Path) -> None:
