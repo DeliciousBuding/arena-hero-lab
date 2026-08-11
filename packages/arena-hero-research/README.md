@@ -88,7 +88,8 @@ paired mean difference.
 
 The additive evidence API `analyze_hierarchical_evidence` preserves those legacy surfaces
 while returning an acyclic Fit v2 → SolverCertificate v1 → CrossValidationReport v1 chain.
-The certificate records the traced profile optimizer, analytic score/curvature, KKT and
+The certificate records the traced bounded optimizer, a safeguarded analytic score-root
+refinement, analytic score/curvature, KKT and
 backward-error diagnostics, source and retained-analysis identities, and the unchanged Fit v2
 digest. `commit_hierarchical_analysis_evidence` stores all three artifacts in one immutable
 ledger transaction; `load_hierarchical_analysis_evidence` rejects missing, cross-transaction,

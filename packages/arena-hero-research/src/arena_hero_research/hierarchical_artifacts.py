@@ -14,6 +14,8 @@ SOLVER_CERTIFICATE_SCHEMA = "arena.research.profile-reml-solver-certificate.v1"
 CROSS_VALIDATION_REPORT_SCHEMA = "arena.research.cross-validation-report.v1"
 FIT_SCHEMA = "arena.research.random-intercept-fit.v2"
 ESTIMATOR = "random-intercept-reml"
+LEGACY_OPTIMIZER = "bounded-golden-section"
+SAFEGUARDED_OPTIMIZER = "bounded-golden-section+analytic-score-root"
 
 
 class SolverEvidenceError(ValueError):
@@ -267,7 +269,7 @@ class SolverCertificate:
         if self.fit_schema_version != FIT_SCHEMA:
             raise SolverEvidenceError("solver certificate must bind RandomInterceptFit v2")
         object.__setattr__(self, "fit_sha256", require_sha256(self.fit_sha256, "fit_sha256"))
-        if self.optimizer != "bounded-golden-section":
+        if self.optimizer not in {LEGACY_OPTIMIZER, SAFEGUARDED_OPTIMIZER}:
             raise SolverEvidenceError("unsupported profile-REML optimizer")
         for field_name in (
             "tolerance",
@@ -308,11 +310,19 @@ class SolverCertificate:
             raise SolverEvidenceError("invalid solver iteration counts")
         if self.evaluation_count != len(self.evaluations) or self.evaluation_count < 2:
             raise SolverEvidenceError("evaluation_count must match the retained trace")
-        if self.evaluation_count != self.iterations + 2:
-            raise SolverEvidenceError("golden-section trace must retain iterations + 2 evaluations")
+        if self.optimizer == LEGACY_OPTIMIZER and self.evaluation_count != self.iterations + 2:
+            raise SolverEvidenceError(
+                "legacy golden-section trace must retain iterations + 2 evaluations"
+            )
         if self.initial_bracket != (-30.0, 30.0):
             raise SolverEvidenceError("solver certificate v1 requires the frozen [-30, 30] bracket")
-        if self.termination_reason not in {"interval-tolerance", "max-iterations"}:
+        if self.termination_reason not in {
+            "interval-tolerance",
+            "max-iterations",
+            "score-root-tolerance",
+            "score-root-precision-limit",
+            "score-root-unbracketed",
+        }:
             raise SolverEvidenceError("unsupported solver termination reason")
         if not self.final_bracket[0] <= self.candidate_log_lambda <= self.final_bracket[1]:
             raise SolverEvidenceError("candidate must lie inside the final bracket")
@@ -342,11 +352,42 @@ class SolverCertificate:
                 )
             if self.kkt_residual > self.kkt_tolerance or self.profile_curvature >= 0:
                 raise SolverEvidenceError("verified interior certificate fails KKT conditions")
+            if self.optimizer == SAFEGUARDED_OPTIMIZER and not self.has_verified_root_conditions():
+                raise SolverEvidenceError(
+                    "verified interior certificate lacks safeguarded score-root evidence"
+                )
         elif self.solver_status is SolverStatus.BOUNDARY:
             if not self.boundary:
                 raise SolverEvidenceError("boundary status requires boundary=true")
         object.__setattr__(
             self, "canonical_sha256", require_sha256(self.canonical_sha256, "canonical_sha256")
+        )
+
+    def has_verified_root_conditions(self) -> bool:
+        """Return whether v1 carries the strengthened analytic score-root proof."""
+
+        if self.optimizer != SAFEGUARDED_OPTIMIZER:
+            return False
+        if self.termination_reason != "score-root-tolerance":
+            return False
+        if self.newton_correction is None or self.profile_curvature >= 0.0:
+            return False
+        parameter_tolerance = self.tolerance * max(
+            1.0,
+            abs(self.final_bracket[0]),
+            abs(self.final_bracket[1]),
+            abs(self.candidate_log_lambda),
+        )
+        corrected_root = self.candidate_log_lambda + self.newton_correction
+        return (
+            self.final_bracket[1] - self.final_bracket[0] <= 2.0 * parameter_tolerance
+            and abs(self.newton_correction) <= parameter_tolerance
+            and self.final_bracket[0] - parameter_tolerance
+            <= corrected_root
+            <= self.final_bracket[1] + parameter_tolerance
+            and self.kkt_residual <= self.kkt_tolerance
+            and not self.boundary
+            and not self.precision_limited
         )
 
     def payload(self) -> dict[str, JsonValue]:

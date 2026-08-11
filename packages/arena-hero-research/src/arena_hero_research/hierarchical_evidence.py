@@ -77,6 +77,10 @@ class HierarchicalAnalysisEvidence:
         )
         if not fit_fields_match:
             return False
+        if self.certificate.solver_status is SolverStatus.VERIFIED_INTERIOR and not (
+            self.certificate.has_verified_root_conditions()
+        ):
+            return False
         if self.certificate.solver_status is not SolverStatus.VERIFIED_INTERIOR:
             return (
                 self.report.validation_scope is ValidationScope.NONE

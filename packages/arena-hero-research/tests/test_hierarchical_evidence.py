@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import random
 from dataclasses import replace
 from pathlib import Path
 
@@ -116,7 +117,23 @@ def test_solver_certificate_known_answer_round_trip_and_recomputation() -> None:
     assert certificate.solver_status is SolverStatus.VERIFIED_INTERIOR
     assert certificate.profile_curvature < 0
     assert certificate.kkt_residual <= certificate.kkt_tolerance
-    assert certificate.evaluation_count == certificate.iterations + 2
+    assert certificate.evaluation_count >= certificate.iterations
+    assert certificate.has_verified_root_conditions()
+    parameter_tolerance = certificate.tolerance * max(
+        1.0,
+        abs(certificate.final_bracket[0]),
+        abs(certificate.final_bracket[1]),
+        abs(certificate.candidate_log_lambda),
+    )
+    assert certificate.newton_correction is not None
+    corrected_root = certificate.candidate_log_lambda + certificate.newton_correction
+    assert abs(certificate.newton_correction) <= parameter_tolerance
+    assert (
+        certificate.final_bracket[0] - parameter_tolerance
+        <= corrected_root
+        <= certificate.final_bracket[1] + parameter_tolerance
+    )
+    assert certificate.kkt_tolerance < 1e-10
     assert certificate.verify()
     assert SolverCertificate.from_dict(certificate.to_dict()) == certificate
     assert verify_solver_certificate(
@@ -125,6 +142,91 @@ def test_solver_certificate_known_answer_round_trip_and_recomputation() -> None:
         outcome_name="score",
         observations=data,
     )
+
+
+def test_safeguarded_score_root_conditions_hold_for_200_random_fits() -> None:
+    rng = random.Random(20260811)
+    verified = 0
+    for case_index in range(200):
+        cluster_count = 4 + case_index % 5
+        baseline = rng.uniform(-3.0, 3.0)
+        treatment_effect = rng.uniform(0.25, 2.0)
+        rows: list[ClusterObservation] = []
+        for cluster_index in range(cluster_count):
+            cluster_shift = rng.uniform(-1.0, 1.0)
+            rows.extend(
+                (
+                    ClusterObservation(
+                        "score",
+                        f"c{cluster_index}",
+                        "c0",
+                        "control",
+                        baseline + cluster_shift + rng.uniform(-0.15, 0.15),
+                    ),
+                    ClusterObservation(
+                        "score",
+                        f"c{cluster_index}",
+                        "t0",
+                        "treatment",
+                        baseline + cluster_shift + treatment_effect + rng.uniform(-0.15, 0.15),
+                    ),
+                )
+            )
+        data = tuple(rows)
+        _, certificate = fit_random_intercept_with_certificate(
+            outcome_name="score", observations=data
+        )
+        if certificate.solver_status is not SolverStatus.VERIFIED_INTERIOR:
+            continue
+        verified += 1
+        clusters, _ = hierarchical._prepare_clusters(
+            "score", data, ClusterMissingPolicy.FAIL, "control", "treatment"
+        )
+        cluster_ids, sizes, sums, _ = hierarchical._cluster_sums(clusters, "control", "treatment")
+        degrees = sum(sizes) - 2
+        lower_score, _, _ = hierarchical._profile_reml_diagnostics(
+            cluster_ids, sums, degrees, certificate.final_bracket[0]
+        )
+        upper_score, _, _ = hierarchical._profile_reml_diagnostics(
+            cluster_ids, sums, degrees, certificate.final_bracket[1]
+        )
+        assert lower_score >= -certificate.kkt_tolerance
+        assert upper_score <= certificate.kkt_tolerance
+        assert certificate.has_verified_root_conditions()
+
+    assert verified >= 150
+
+
+def test_invalid_root_objective_downgrades_to_precision_limited_indeterminate(
+    monkeypatch,
+) -> None:
+    fit, trace, clusters, source_sha256, analysis_sha256 = (
+        hierarchical._fit_random_intercept_traced(outcome_name="score", observations=observations())
+    )
+
+    def invalid_objective(cluster_ids, sums, degrees, log_lambda):
+        del cluster_ids, sums, degrees
+        return hierarchical.ProfileRemlEvaluation(
+            log_lambda=log_lambda,
+            lambda_value=math.exp(log_lambda),
+            valid=False,
+            objective=None,
+            invalid_reason="non-finite-objective",
+        )
+
+    monkeypatch.setattr(hierarchical, "_profile_reml_evaluation", invalid_objective)
+    certificate = hierarchical._build_solver_certificate(
+        fit=fit,
+        trace=trace,
+        clusters=clusters,
+        source_input_sha256=source_sha256,
+        analysis_input_sha256=analysis_sha256,
+    )
+
+    assert certificate.precision_limited
+    assert certificate.solver_status is SolverStatus.INDETERMINATE
+    assert certificate.termination_reason == "score-root-precision-limit"
+    assert not certificate.has_verified_root_conditions()
 
 
 def test_analytic_score_and_curvature_match_finite_difference_test_oracle() -> None:

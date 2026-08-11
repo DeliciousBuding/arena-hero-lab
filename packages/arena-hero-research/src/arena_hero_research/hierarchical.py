@@ -47,6 +47,7 @@ from enum import StrEnum
 from arena_hero_research.execution import PairedObservation
 from arena_hero_research.hierarchical_artifacts import (
     FIT_SCHEMA,
+    SAFEGUARDED_OPTIMIZER,
     SOLVER_CERTIFICATE_SCHEMA,
     SolverCertificate,
     SolverEvaluation,
@@ -150,6 +151,23 @@ class ProfileRemlTrace:
     iterations: int
     termination_reason: str
     candidate: ProfileRemlEvaluation
+    evaluations: tuple[ProfileRemlEvaluation, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class _ProfileScoreRootRefinement:
+    final_lower: float
+    final_upper: float
+    candidate: ProfileRemlEvaluation
+    profile_score: float
+    profile_curvature: float
+    score_scale: float
+    lower_score: float
+    upper_score: float
+    max_iterations: int
+    iterations: int
+    termination_reason: str
+    precision_limited: bool
     evaluations: tuple[ProfileRemlEvaluation, ...]
 
 
@@ -879,17 +897,51 @@ def _build_solver_certificate(
     cluster_ids = tuple(sorted(clusters))
     _, sizes, sums, _ = _cluster_sums(clusters, fit.control_level, fit.treatment_level)
     degrees = sum(sizes) - 2
-    score, curvature, score_scale = _profile_reml_diagnostics(
-        cluster_ids, sums, degrees, trace.candidate.log_lambda
-    )
-    _, lower_curvature, _ = _profile_reml_diagnostics(cluster_ids, sums, degrees, trace.final_lower)
-    _, upper_curvature, _ = _profile_reml_diagnostics(cluster_ids, sums, degrees, trace.final_upper)
-    interval_error = (trace.final_upper - trace.final_lower) * max(
+    if fit.boundary_lambda:
+        score, curvature, score_scale = _profile_reml_diagnostics(
+            cluster_ids, sums, degrees, trace.candidate.log_lambda
+        )
+        final_lower = trace.final_lower
+        final_upper = trace.final_upper
+        candidate = trace.candidate
+        termination_reason = trace.termination_reason
+        refinement_iterations = 0
+        refinement_max_iterations = 0
+        refinement_evaluations: tuple[ProfileRemlEvaluation, ...] = ()
+        precision_limited = trace.termination_reason != "interval-tolerance"
+        bracketed = False
+    else:
+        refinement = _safeguarded_profile_score_root(cluster_ids, sums, degrees, trace)
+        score = refinement.profile_score
+        curvature = refinement.profile_curvature
+        score_scale = refinement.score_scale
+        final_lower = refinement.final_lower
+        final_upper = refinement.final_upper
+        candidate = refinement.candidate
+        termination_reason = refinement.termination_reason
+        refinement_iterations = refinement.iterations
+        refinement_max_iterations = refinement.max_iterations
+        refinement_evaluations = refinement.evaluations
+        precision_limited = refinement.precision_limited
+        bracketed = refinement.lower_score >= 0.0 >= refinement.upper_score
+    if not candidate.valid or candidate.objective is None:
+        candidate = trace.candidate
+        score, curvature, score_scale = _profile_reml_diagnostics(
+            cluster_ids, sums, degrees, candidate.log_lambda
+        )
+        final_lower = trace.final_lower
+        final_upper = trace.final_upper
+        termination_reason = "score-root-precision-limit"
+        precision_limited = True
+        bracketed = False
+    _, lower_curvature, _ = _profile_reml_diagnostics(cluster_ids, sums, degrees, final_lower)
+    _, upper_curvature, _ = _profile_reml_diagnostics(cluster_ids, sums, degrees, final_upper)
+    interval_error = (final_upper - final_lower) * max(
         abs(lower_curvature), abs(curvature), abs(upper_curvature)
     )
-    roundoff_error = 16.0 * math.sqrt(math.ulp(1.0)) * score_scale
+    roundoff_error = 64.0 * math.ulp(max(1.0, score_scale))
     kkt_tolerance = max(roundoff_error, interval_error)
-    if fit.boundary_lambda and trace.candidate.log_lambda < 0:
+    if fit.boundary_lambda and candidate.log_lambda < 0:
         kkt_residual = max(score, 0.0)
     elif fit.boundary_lambda:
         kkt_residual = max(-score, 0.0)
@@ -900,12 +952,27 @@ def _build_solver_certificate(
         -score / curvature if not fit.boundary_lambda and curvature < -curvature_floor else None
     )
     backward_error = kkt_residual / score_scale
-    precision_limited = trace.termination_reason != "interval-tolerance"
+    parameter_tolerance = trace.tolerance * max(
+        1.0, abs(final_lower), abs(final_upper), abs(candidate.log_lambda)
+    )
+    if newton_correction is None:
+        correction_consistent = False
+    else:
+        corrected_root = candidate.log_lambda + newton_correction
+        correction_consistent = (
+            abs(newton_correction) <= parameter_tolerance
+            and final_lower - parameter_tolerance
+            <= corrected_root
+            <= final_upper + parameter_tolerance
+        )
+    root_conditions = (
+        bracketed
+        and termination_reason == "score-root-tolerance"
+        and final_upper - final_lower <= 2.0 * parameter_tolerance
+        and correction_consistent
+    )
     indeterminate = (
-        precision_limited
-        or curvature >= 0.0
-        or newton_correction is None
-        or kkt_residual > kkt_tolerance
+        precision_limited or not root_conditions or curvature >= 0.0 or kkt_residual > kkt_tolerance
     )
     if fit.boundary_lambda:
         status = SolverStatus.BOUNDARY
@@ -913,34 +980,50 @@ def _build_solver_certificate(
         status = SolverStatus.INDETERMINATE
     else:
         status = SolverStatus.VERIFIED_INTERIOR
-    evaluations = tuple(
-        SolverEvaluation(
-            log_lambda=item.log_lambda,
-            lambda_value=item.lambda_value,
-            valid=item.valid,
-            objective=item.objective,
-            invalid_reason=item.invalid_reason,
+
+    retained: list[SolverEvaluation] = []
+    seen: set[tuple[float, float, bool, float | None, str | None]] = set()
+    for item in (*trace.evaluations, *refinement_evaluations):
+        key = (
+            item.log_lambda,
+            item.lambda_value,
+            item.valid,
+            item.objective,
+            item.invalid_reason,
         )
-        for item in trace.evaluations
-    )
+        if key in seen:
+            continue
+        seen.add(key)
+        retained.append(
+            SolverEvaluation(
+                log_lambda=item.log_lambda,
+                lambda_value=item.lambda_value,
+                valid=item.valid,
+                objective=item.objective,
+                invalid_reason=item.invalid_reason,
+            )
+        )
+    evaluations = tuple(retained)
+    if candidate.objective is None:
+        raise SingularFitError("solver certificate candidate objective is unavailable")
     provisional = SolverCertificate(
         schema_version=SOLVER_CERTIFICATE_SCHEMA,
         source_input_sha256=source_input_sha256,
         analysis_input_sha256=analysis_input_sha256,
         fit_schema_version=fit.schema_version,
         fit_sha256=fit.canonical_sha256,
-        optimizer="bounded-golden-section",
+        optimizer=SAFEGUARDED_OPTIMIZER,
         initial_bracket=(trace.initial_lower, trace.initial_upper),
-        final_bracket=(trace.final_lower, trace.final_upper),
+        final_bracket=(final_lower, final_upper),
         tolerance=trace.tolerance,
-        max_iterations=trace.max_iterations,
-        iterations=trace.iterations,
+        max_iterations=trace.max_iterations + refinement_max_iterations,
+        iterations=trace.iterations + refinement_iterations,
         evaluation_count=len(evaluations),
         invalid_evaluation_count=sum(not item.valid for item in evaluations),
-        termination_reason=trace.termination_reason,
-        candidate_log_lambda=trace.candidate.log_lambda,
-        candidate_lambda=trace.candidate.lambda_value,
-        candidate_objective=trace.candidate.objective,
+        termination_reason=termination_reason,
+        candidate_log_lambda=candidate.log_lambda,
+        candidate_lambda=candidate.lambda_value,
+        candidate_objective=candidate.objective,
         profile_score=score,
         profile_curvature=curvature,
         kkt_residual=kkt_residual,
@@ -1361,6 +1444,147 @@ def _profile_reml_score_curvature(
 ) -> tuple[float, float]:
     score, curvature, _ = _profile_reml_diagnostics(cluster_ids, sums, degrees, log_lambda)
     return score, curvature
+
+
+def _safeguarded_profile_score_root(
+    cluster_ids: tuple[str, ...],
+    sums: dict[str, tuple[float, float, float, float, float]],
+    degrees: int,
+    trace: ProfileRemlTrace,
+    *,
+    max_iterations: int = 200,
+) -> _ProfileScoreRootRefinement:
+    """Bracket the analytic profile score and refine it with safeguarded Newton steps."""
+
+    lower = trace.initial_lower
+    upper = trace.initial_upper
+    evaluations: list[ProfileRemlEvaluation] = []
+    try:
+        lower_score, _, _ = _profile_reml_diagnostics(cluster_ids, sums, degrees, lower)
+        upper_score, _, _ = _profile_reml_diagnostics(cluster_ids, sums, degrees, upper)
+    except SingularFitError:
+        score, curvature, score_scale = _profile_reml_diagnostics(
+            cluster_ids, sums, degrees, trace.candidate.log_lambda
+        )
+        return _ProfileScoreRootRefinement(
+            final_lower=trace.final_lower,
+            final_upper=trace.final_upper,
+            candidate=trace.candidate,
+            profile_score=score,
+            profile_curvature=curvature,
+            score_scale=score_scale,
+            lower_score=math.nan,
+            upper_score=math.nan,
+            max_iterations=max_iterations,
+            iterations=0,
+            termination_reason="score-root-unbracketed",
+            precision_limited=True,
+            evaluations=(),
+        )
+    if not lower_score >= 0.0 >= upper_score:
+        score, curvature, score_scale = _profile_reml_diagnostics(
+            cluster_ids, sums, degrees, trace.candidate.log_lambda
+        )
+        return _ProfileScoreRootRefinement(
+            final_lower=trace.final_lower,
+            final_upper=trace.final_upper,
+            candidate=trace.candidate,
+            profile_score=score,
+            profile_curvature=curvature,
+            score_scale=score_scale,
+            lower_score=lower_score,
+            upper_score=upper_score,
+            max_iterations=max_iterations,
+            iterations=0,
+            termination_reason="score-root-unbracketed",
+            precision_limited=True,
+            evaluations=(),
+        )
+
+    candidate_log_lambda = min(max(trace.candidate.log_lambda, lower), upper)
+    termination_reason = "score-root-precision-limit"
+    precision_limited = True
+    score = curvature = score_scale = math.nan
+    candidate = trace.candidate
+    iterations = 0
+    for index in range(max_iterations + 1):
+        score, curvature, score_scale = _profile_reml_diagnostics(
+            cluster_ids, sums, degrees, candidate_log_lambda
+        )
+        candidate = _profile_reml_evaluation(cluster_ids, sums, degrees, candidate_log_lambda)
+        evaluations.append(candidate)
+        if not candidate.valid or candidate.objective is None:
+            break
+        if score > 0.0:
+            lower = candidate_log_lambda
+            lower_score = score
+        elif score < 0.0:
+            upper = candidate_log_lambda
+            upper_score = score
+        else:
+            lower = math.nextafter(candidate_log_lambda, -math.inf)
+            upper = math.nextafter(candidate_log_lambda, math.inf)
+            lower_score = upper_score = 0.0
+        parameter_tolerance = trace.tolerance * max(
+            1.0, abs(lower), abs(upper), abs(candidate_log_lambda)
+        )
+        curvature_floor = 256.0 * math.ulp(max(1.0, abs(curvature)))
+        correction = -score / curvature if curvature < -curvature_floor else None
+        if correction is None:
+            corrected_root = None
+            correction_consistent = False
+        else:
+            corrected_root = candidate_log_lambda + correction
+            correction_consistent = (
+                abs(correction) <= parameter_tolerance
+                and lower - parameter_tolerance <= corrected_root <= upper + parameter_tolerance
+            )
+        if (
+            lower_score >= 0.0 >= upper_score
+            and upper - lower <= 2.0 * parameter_tolerance
+            and correction_consistent
+        ):
+            termination_reason = "score-root-tolerance"
+            precision_limited = False
+            iterations = index + 1
+            break
+        if index == max_iterations:
+            iterations = max_iterations
+            break
+        midpoint = lower + 0.5 * (upper - lower)
+        if (
+            corrected_root is not None
+            and lower < corrected_root < upper
+            and corrected_root != candidate_log_lambda
+        ):
+            next_candidate = corrected_root
+        else:
+            next_candidate = midpoint
+        if not math.isfinite(next_candidate) or next_candidate in {
+            lower,
+            upper,
+            candidate_log_lambda,
+        }:
+            iterations = index + 1
+            break
+        candidate_log_lambda = next_candidate
+        iterations = index + 1
+
+    return _ProfileScoreRootRefinement(
+        final_lower=lower,
+        final_upper=upper,
+        candidate=candidate,
+        profile_score=score,
+        profile_curvature=curvature,
+        score_scale=score_scale,
+        lower_score=lower_score,
+        upper_score=upper_score,
+        max_iterations=max_iterations,
+        iterations=iterations,
+        termination_reason=termination_reason,
+        precision_limited=precision_limited,
+        evaluations=tuple(evaluations),
+    )
 
 
 def _profile_reml_evaluation(
