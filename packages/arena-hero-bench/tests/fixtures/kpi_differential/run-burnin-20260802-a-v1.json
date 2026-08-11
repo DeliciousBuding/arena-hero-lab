@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "arena.bench.kpi-differential.v1",
+  "dataset_id": "burnin-20260802-a",
+  "tenant_id": "lab-diff-t1",
+  "protocols": {
+    "evolve": "differential-record-v1",
+    "python_agent": "agent-run-v1"
+  },
+  "evidence_kind": "sanitized_fixture",
+  "expected_unknown": {},
+  "evolve": {
+    "manifest": "../differential/ts/burnin-20260802-a/manifest.json",
+    "data_dir": "../differential/ts/burnin-20260802-a",
+    "decision_trace": "evolve/decision-trace-v1.jsonl"
+  },
+  "python_agent": {
+    "records": "../differential/python/agent_run_records_aligned_v1.jsonl",
+    "observation_snapshots": "python/observation-snapshots-v1.jsonl"
+  }
+}
