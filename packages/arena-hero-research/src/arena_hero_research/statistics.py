@@ -228,3 +228,87 @@ def _student_t_positive_quantile(probability: float, degrees_of_freedom: int) ->
             high = middle
     transformed = 0.5 * (low + high)
     return math.sqrt(degrees_of_freedom * (1.0 - transformed) / transformed)
+
+def _abramowitz_stegun_normal_cdf(statistic: float) -> float:
+    """Standard normal CDF via the Abramowitz-Stegun 26.2.17 approximation.
+
+    This mirrors the TypeScript ``bench-stats.mts`` oracle (documented error
+    < 7.5e-8) exactly, including the sign-dependent tail branch, so paired
+    Wilcoxon p-values stay bit-close to the legacy reference implementation.
+    """
+
+    t = 1.0 / (1.0 + 0.2316419 * abs(statistic))
+    density = 0.3989422804014327 * math.exp((-statistic * statistic) / 2.0)
+    polynomial = (
+        0.31938153
+        + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429)))
+    )
+    probability = density * t * polynomial
+    if statistic > 0:
+        return 1.0 - probability
+    return probability
+
+
+def wilcoxon_signed_rank(differences: Sequence[float]) -> tuple[float, float, int]:
+    """Two-sided paired Wilcoxon signed-rank test aligned to the TS oracle.
+
+    Semantics mirror ``bench-stats.mts``: zero differences are dropped before
+    ranking; ties in absolute differences receive average ranks; if fewer than
+    10 nonzero differences remain the test is conservative and returns
+    ``p_value == 1`` with ``w_plus == 0`` (the oracle declines inference); for
+    n >= 10 a normal approximation with tie correction is used and the
+    p-value is capped at 1. An empty (or all-zero) input follows the same
+    rule and returns ``(1.0, 0.0, 0)`` rather than raising.
+
+    Returns ``(p_value, w_plus, n)`` where ``n`` is the number of nonzero
+    differences used by the test.
+    """
+
+    nonzero = tuple(difference for difference in differences if difference != 0)
+    n = len(nonzero)
+    if n == 0:
+        return (1.0, 0.0, 0)
+    if n < 10:
+        return (1.0, 0.0, n)
+    ordered = sorted(abs(difference) for difference in nonzero)
+    ranks: dict[float, float] = {}
+    index = 0
+    while index < n:
+        end = index + 1
+        while end < n and ordered[end] == ordered[index]:
+            end += 1
+        average_rank = (index + 1 + end) / 2.0
+        for position in range(index, end):
+            ranks[ordered[position]] = average_rank
+        index = end
+    w_plus = sum(ranks[abs(difference)] for difference in nonzero if difference > 0)
+    mean_w = n * (n + 1) / 4.0
+    tie_counts: dict[float, int] = {}
+    for value in ordered:
+        tie_counts[value] = tie_counts.get(value, 0) + 1
+    tie_correction = sum((count**3 - count) / 48.0 for count in tie_counts.values())
+    variance_w = n * (n + 1) * (2 * n + 1) / 24.0 - tie_correction
+    z_score = (w_plus - mean_w) / math.sqrt(variance_w) if variance_w > 0 else 0.0
+    p_value = 2.0 * (1.0 - _abramowitz_stegun_normal_cdf(abs(z_score)))
+    return (min(1.0, p_value), w_plus, n)
+
+
+def cliff_delta(ranks_a: Sequence[float], ranks_b: Sequence[float]) -> float:
+    """Cliff's delta between two rank samples (smaller ranks are better).
+
+    Returns ``P(A beats B) - P(B beats A)`` where ``a < b`` counts as a win
+    for A; tied rank values contribute to neither side. Both samples must be
+    non-empty.
+    """
+
+    if not ranks_a or not ranks_b:
+        raise ValueError("both rank samples are required")
+    wins = 0
+    losses = 0
+    for left in ranks_a:
+        for right in ranks_b:
+            if left < right:
+                wins += 1
+            elif left > right:
+                losses += 1
+    return (wins - losses) / (len(ranks_a) * len(ranks_b))

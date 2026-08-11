@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import math
 import random
+import re
 import statistics
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from statistics import NormalDist
 
@@ -19,6 +20,7 @@ from arena_hero_research.contracts import (
     OutcomeRole,
     Preregistration,
 )
+from arena_hero_research.statistics import cliff_delta, wilcoxon_signed_rank
 
 
 class ResearchAnalysisError(ValueError):
@@ -284,3 +286,143 @@ def analyze_preregistered_paired_outcomes(
             replace(item, adjusted_p_value=adjusted[item.hypothesis_id]) for item in estimates
         ]
     return tuple(estimates), quality
+
+@dataclass(frozen=True, slots=True)
+class PairwiseRankComparison:
+    """One contestant-vs-contestant paired rank comparison (TS pair record)."""
+
+    a: str
+    b: str
+    n: int
+    w_plus: float
+    p_value: float
+    cliff_delta: float
+    mean_rank_diff: float
+    ci95_lower: float
+    ci95_upper: float
+    q_value: float
+
+
+_CONTESTANT_SUFFIX = re.compile(r"(.*)-s\d+$")
+
+
+def _contestant_id(player_id: str) -> str:
+    """Map a player id to its contestant id (``waaiging-s1`` -> ``waaiging``)."""
+
+    match = _CONTESTANT_SUFFIX.fullmatch(player_id)
+    return match.group(1) if match else player_id
+
+
+def _to_int32(value: int) -> int:
+    value &= 0xFFFFFFFF
+    return value - 0x1_0000_0000 if value >= 0x8000_0000 else value
+
+
+def _mulberry32(seed: int) -> Callable[[], float]:
+    """Deterministic PRNG bit-compatible with the TS oracle's mulberry32."""
+
+    state = seed & 0xFFFFFFFF
+
+    def rng() -> float:
+        nonlocal state
+        state = (state + 0x6D2B79F5) & 0xFFFFFFFF
+        t = state
+        t = _to_int32(_to_int32(t ^ (state >> 15)) * (_to_int32(t) | 1))
+        t ^= _to_int32(t + _to_int32(_to_int32(t ^ ((t & 0xFFFFFFFF) >> 7)) * (t | 61)))
+        return ((t ^ ((t & 0xFFFFFFFF) >> 14)) & 0xFFFFFFFF) / 4294967296.0
+
+    return rng
+
+
+def _bootstrap_percentile_ci(
+    samples: Sequence[float],
+    *,
+    iterations: int = 10_000,
+    seed: int = 20260810,
+) -> tuple[float, float]:
+    """Percentile bootstrap CI for a paired mean difference (TS semantics).
+
+    Resamples with ``mulberry32(20260810)`` and returns the
+    ``floor(iterations * 0.025)`` / ``floor(iterations * 0.975)`` order
+    statistics of the resampled means.
+    """
+
+    if not samples:
+        raise ValueError("bootstrap requires a non-empty sample")
+    rng = _mulberry32(seed)
+    size = len(samples)
+    resampled: list[float] = []
+    for _ in range(iterations):
+        total = 0.0
+        for _ in range(size):
+            total += samples[math.floor(rng() * size)]
+        resampled.append(total / size)
+    resampled.sort()
+    lo_index = math.floor(iterations * 0.025)
+    hi_index = math.floor(iterations * 0.975)
+    return resampled[lo_index], resampled[hi_index]
+
+
+def paired_rank_comparisons(
+    matches: Sequence[Mapping[str, object]],
+    *,
+    bootstrap_iterations: int = 10_000,
+    bootstrap_seed: int = 20260810,
+) -> tuple[tuple[str, ...], tuple[PairwiseRankComparison, ...]]:
+    """Pairwise rank statistics across matches (TS ``computePairwiseStats``).
+
+    Each match maps player ids to ranks; ids ending in ``-s<digits>`` are
+    mapped to their base contestant id, ranks are accumulated per contestant
+    in match order, and every contestant pair is compared with the Wilcoxon
+    signed-rank test, Cliff's delta, a mean rank difference, and a seeded
+    bootstrap CI. Raw p-values are adjusted with Benjamini-Hochberg and each
+    comparison carries its ``q_value``. Returns ``(contestants, comparisons)``
+    with contestants and comparisons in the same sorted order as the oracle.
+    """
+
+    contestant_ranks: dict[str, list[float]] = {}
+    for match in matches:
+        rank_by_player = match.get("rank")
+        if not isinstance(rank_by_player, Mapping):
+            raise ValueError("each match must provide a rank mapping")
+        for player_id, rank in rank_by_player.items():
+            contestant = _contestant_id(str(player_id))
+            contestant_ranks.setdefault(contestant, []).append(float(rank))
+    contestants = tuple(sorted(contestant_ranks))
+    comparisons: list[PairwiseRankComparison] = []
+    raw_p_values: list[float] = []
+    for index_a, left in enumerate(contestants):
+        for right in contestants[index_a + 1 :]:
+            ranks_left = contestant_ranks[left]
+            ranks_right = contestant_ranks[right]
+            n = min(len(ranks_left), len(ranks_right))
+            differences = [ranks_left[k] - ranks_right[k] for k in range(n)]
+            p_value, w_plus, _ = wilcoxon_signed_rank(differences)
+            raw_p_values.append(p_value)
+            ci_lower, ci_upper = _bootstrap_percentile_ci(
+                differences,
+                iterations=bootstrap_iterations,
+                seed=bootstrap_seed,
+            )
+            comparisons.append(
+                PairwiseRankComparison(
+                    a=left,
+                    b=right,
+                    n=n,
+                    w_plus=w_plus,
+                    p_value=p_value,
+                    cliff_delta=cliff_delta(ranks_left, ranks_right),
+                    mean_rank_diff=sum(differences) / n,
+                    ci95_lower=ci_lower,
+                    ci95_upper=ci_upper,
+                    q_value=0.0,
+                )
+            )
+    adjusted = benjamini_hochberg(
+        {f"{index:04d}": value for index, value in enumerate(raw_p_values)}
+    )
+    adjusted_comparisons = tuple(
+        replace(comparison, q_value=adjusted[f"{index:04d}"])
+        for index, comparison in enumerate(comparisons)
+    )
+    return contestants, adjusted_comparisons
