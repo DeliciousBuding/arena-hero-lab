@@ -54,8 +54,8 @@ Run the web application locally:
 pnpm dev
 ```
 
-The GitHub Pages-compatible base path remains `/arena-hero-leaderboard` by default while
-the existing public URL is in use. Override it for another host:
+The GitHub Pages-compatible base path defaults to `/arena-hero-lab`, matching the
+public repository and Pages site. Override it for another host:
 
 ```bash
 NEXT_PUBLIC_BASE_PATH="" pnpm build
@@ -92,7 +92,7 @@ for CI deployments.
 ## Public leaderboard
 
 The current static site remains available at
-<https://deliciousbuding.github.io/arena-hero-leaderboard/>.
+<https://deliciousbuding.github.io/arena-hero-lab/>.
 
 ## Architecture and policies
 

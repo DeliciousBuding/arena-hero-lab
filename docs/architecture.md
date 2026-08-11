@@ -87,6 +87,6 @@ pipeline invokes Python directly and never falls back silently.
 
 ## Web hosting compatibility
 
-The web app defaults to the existing `/arena-hero-leaderboard` base path. Hosting changes,
-repository renames, default-branch changes, and publication are intentionally independent
-from source-layout work.
+The web app defaults to `/arena-hero-lab`, matching the public repository and Pages
+site. Hosting changes, default-branch changes, and publication remain explicit release
+operations rather than side effects of source-layout work.

@@ -22,8 +22,8 @@ pnpm build                      # static export into out/
 pnpm preview                    # serve the static export locally
 ```
 
-The GitHub Pages-compatible base path defaults to `/arena-hero-leaderboard` while the
-existing public URL is in use; override with `NEXT_PUBLIC_BASE_PATH=""` for another host.
+The GitHub Pages-compatible base path defaults to `/arena-hero-lab`, matching the
+public repository; override with `NEXT_PUBLIC_BASE_PATH=""` for another host.
 
 ## Deployment
 

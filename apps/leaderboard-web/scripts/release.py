@@ -16,7 +16,7 @@ WORKSPACE_ROOT = APP_ROOT.parents[1]
 DEFAULT_SOURCE = SCRIPT_DIR / "input" / "results.json"
 DEFAULT_RUN_ROOT = WORKSPACE_ROOT / "artifacts" / "runs"
 BENCH_PATH = APP_ROOT / "src" / "data" / "bench.json"
-ONLINE_URL = "https://deliciousbuding.github.io/arena-hero-leaderboard/"
+ONLINE_URL = "https://deliciousbuding.github.io/arena-hero-lab/"
 REPORT_SCHEMA = "arena.bench.report.v3"
 
 

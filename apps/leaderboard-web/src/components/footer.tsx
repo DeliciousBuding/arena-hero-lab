@@ -12,7 +12,7 @@ export function Footer() {
           <span>© 2026 Arena Hero</span>
           <Separator orientation="vertical" className="h-3" />
           <Link
-            href="https://github.com/DeliciousBuding/arena-hero-leaderboard"
+            href="https://github.com/DeliciousBuding/arena-hero-lab"
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1 transition-colors hover:text-foreground"

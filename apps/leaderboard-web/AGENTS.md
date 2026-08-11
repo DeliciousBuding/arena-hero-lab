@@ -13,7 +13,7 @@ notices. This block may be refreshed by `next dev`.
 - The application is a static export and consumes `src/data/bench.json` at build time.
 - Generate benchmark data with the root Python converter (`pnpm convert`).
 - Keep `scripts/convert.mts` only as the differential-test oracle.
-- Preserve `/arena-hero-leaderboard` as the default base path until hosting configuration
-  changes in a dedicated release.
+- Preserve `/arena-hero-lab` as the public repository and Pages base path; any future
+  hosting change belongs in a dedicated release.
 - Do not deploy from tests, builds, previews, or ordinary development commands.
 - Keep community repository and discussion links traceable to public sources.
