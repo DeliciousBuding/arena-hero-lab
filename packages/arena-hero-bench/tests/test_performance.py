@@ -439,7 +439,9 @@ def test_injected_clock_is_named_and_cannot_be_publishable() -> None:
         environment=_environment(),
         clock=_clock(0, 2_000),
     )
-    assert evidence.to_dict()["protocol"]["clock"] == "injected-test-clock"
+    protocol_value = evidence.to_dict()["protocol"]
+    assert isinstance(protocol_value, dict)
+    assert protocol_value["clock"] == "injected-test-clock"
     assert not evidence.publishable
     with pytest.raises(ValueError, match="perf_counter_ns"):
         replace(evidence, publishable=True, issues=())
