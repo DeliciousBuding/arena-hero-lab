@@ -109,6 +109,21 @@ snapshots) whose provenance is surfaced as `evidence_kind` in the report; the
 committed corpus declares `sanitized_fixture`. Companion fixtures must cover
 exactly the side's tick set and are validated fail-closed.
 
+## Bounded offline replay soak
+
+`arena-hero-bench` also ships a bounded offline replay soak driver
+(`soak --run <manifest>`, `arena.bench.replay-soak.v1`) that repeatedly
+replays the P6-2/P6-3 differential corpus and the canonical reference
+workload through the bounded process executor for a configurable number of
+rounds. Every round monitors open handles/fds, per-step content digests,
+uncaught exceptions, and descendant-process residue; any anomaly fails the
+soak with a classification (`step_exception`, `digest_drift`,
+`resource_leak`, `process_residue`, `duration_exceeded`). The committed
+manifest is a seconds-scale reproducible skeleton; the same manifest with a
+larger `rounds`/`max_duration_seconds` extends to a 24h offline soak.
+Reports are machine-readable and carry per-round step digests, leak and
+exception counts, and a content hash of the emitted report.
+
 ## Report conversion migration
 
 The Python converter in `arena-hero-bench` is authoritative. The previous TypeScript

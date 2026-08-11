@@ -34,6 +34,19 @@ fail closed. Wire-contract gaps are declared as `EXPECTED_UNKNOWN`; a run
 manifest may bind sanitized companion fixtures whose provenance is surfaced as
 `evidence_kind` (the committed corpus declares `sanitized_fixture`).
 
+## Bounded offline replay soak
+
+`soak --run <manifest>` (P6-4) replays the differential corpus and the
+canonical reference workload N times through the process executor,
+monitoring for resource leaks, digest drift, uncaught exceptions, and
+process-tree residue. Any anomaly fails the soak with a classification; a
+clean soak reports `status=pass` with stable per-round digests. The
+committed fixture `tests/fixtures/soak/run-burnin-20260802-a-v1.json` is a
+seconds-scale reproducible skeleton; the same manifest with a larger
+`rounds`/`max_duration_seconds` extends to a 24h offline soak.
+Fault-injection steps are reachable only through a private test seam and
+mark the report `attested=false`.
+
 ## Filesystem artifact store
 
 `arena_hero_bench.storage.FilesystemArtifactStore` is a reference
