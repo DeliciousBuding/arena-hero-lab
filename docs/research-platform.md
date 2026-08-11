@@ -294,6 +294,27 @@ specified numerical tolerance.
   contracts within a specified tolerance);
 - reproducible figure generation, signed publication, and reproduction services.
 
+## Genetic-algorithm evolution (P3-13)
+
+`run_evolution` is a deterministic, stdlib-only GA core that evolves parameterized
+strategies (genomes) against a caller-supplied deterministic fitness function and
+records the full trajectory in a content-addressed report
+(`arena.research.evolution-report.v1`). The same seed and inputs always produce the
+same report bytes and digest.
+
+Holdout independence is structural: `EvolutionConfig` requires non-empty disjoint
+evolution/holdout corpora; every `FitnessEvaluator` is bound to exactly one corpus;
+and `run_evolution` fails closed when the evolution evaluator corpus differs from
+`config.evolution_corpus` or the holdout evaluator corpus differs from
+`config.holdout_corpus`. Holdout case ids can therefore never reach the evolution
+loop, and the final holdout evaluation never observes evolution case ids.
+
+The reference wiring derives frozen per-case evidence from the canonical reference
+workload manifest and verified scenario registry (contracts only, no simulator
+engine) and evaluates a linear policy genome (one weight per feature plus an
+intercept) by negative mean absolute error against the frozen known-answer target.
+See [GA/evolution over the frozen reference workload](research/evolution-20260812.md).
+
 ## Implementation status
 
 | Capability | Status |
@@ -309,6 +330,7 @@ specified numerical tolerance.
 | Durable lifecycle chronology and immutable evidence ledger | Implemented filesystem reference |
 | Public environment snapshot and minimal explicit SBOM | Implemented reference generators |
 | Random-intercept REML + SolverCertificate v1 + versioned cross-validation evidence | Implemented (stdlib-only, fail-closed) |
+| Deterministic GA evolution with structural holdout independence (P3-13) | Implemented (stdlib-only, reference workload evidence) |
 | Cluster-level power for hierarchical designs | Deferred to a later slice |
 | Distributed verification, signed attestation, publication service | Planned extension |
 

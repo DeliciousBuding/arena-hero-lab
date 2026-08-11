@@ -44,8 +44,9 @@ generated report conversion. A publishable run may reference only complete, veri
 ### `arena-hero-research`
 
 Owns preregistration, durable lifecycle chronology, paired confirmatory analysis, replication
-evidence, public environment/SBOM provenance, and reproducible result bundles. Future
-evolutionary and offline-learning methods remain in this package, never in the simulation hot
+evidence, public environment/SBOM provenance, reproducible result bundles, and deterministic
+GA/evolution over the frozen reference workload with structural holdout independence (P3-13).
+Future offline-learning methods remain in this package, never in the simulation hot
 path. Analysis invariants and the scientific roadmap are
 documented in [Research platform](research-platform.md).
 

@@ -72,6 +72,30 @@ outcomes after they are observed.
   environments. All labels are XML-escaped and every coordinate derives
   deterministically from the data.
 
+### Genetic-algorithm evolution (P3-13)
+
+- `run_evolution` is a deterministic, stdlib-only GA core that evolves parameterized
+  strategies (genomes) against a caller-supplied deterministic fitness function and
+  records the complete trajectory in a content-addressed report
+  (`arena.research.evolution-report.v1`). The same seed and inputs always produce the
+  same report bytes and digest.
+- **Holdout independence is structural.** `EvolutionConfig` requires non-empty,
+  disjoint evolution and holdout corpora. Every `FitnessEvaluator` is bound to exactly
+  one corpus (`corpus_ids`), and `run_evolution` refuses an evolution evaluator whose
+  corpus differs from `config.evolution_corpus` and a holdout evaluator whose corpus
+  differs from `config.holdout_corpus` -- so holdout case ids can never reach the
+  evolution loop, and the final holdout evaluation never observes evolution case ids.
+- `load_reference_workload_evidence` derives frozen per-case evidence from the
+  canonical reference workload manifest and verified scenario registry (pure
+  contracts and known answers; no simulator engine is constructed or run). The
+  shipped `ReferenceComplexityFitness` is a corpus-bound linear policy evaluator: the
+  genome encodes one weight per workload feature plus an intercept, and fitness is the
+  negative mean absolute prediction error against the frozen known-answer
+  `ticks_completed` target over the bound corpus.
+- `reference_evolution_config` builds a frozen `EvolutionConfig` for that policy and
+  binds the frozen workload identity, so a caller only supplies run id, seed, and the
+  disjoint evolution/holdout case-id sets.
+
 ## Approximation assumptions and limits
 
 The Monte Carlo planner is **not exact**. It assumes normally distributed paired
