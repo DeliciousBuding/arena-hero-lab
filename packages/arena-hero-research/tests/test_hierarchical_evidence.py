@@ -22,6 +22,7 @@ from arena_hero_research.hierarchical_artifacts import (
     CrossValidationReportV1,
     CrossValidationStatus,
     SolverCertificate,
+    SolverEvaluation,
     SolverEvidenceError,
     SolverStatus,
     ValidationScope,
@@ -270,6 +271,34 @@ def test_cross_validation_report_tamper_fails_closed(field: str) -> None:
     payload[field] = False if field == "passed" else "tampered"
     with pytest.raises((SolverEvidenceError, ValueError)):
         CrossValidationReportV1.from_dict(payload)
+
+
+def test_solver_evaluation_accepts_only_bounded_cross_libm_roundoff() -> None:
+    log_lambda = 3.238259894893683
+    expected_lambda = math.exp(log_lambda)
+    adjacent_lambda = math.nextafter(expected_lambda, math.inf)
+
+    restored = SolverEvaluation.from_dict(
+        {
+            "log_lambda": log_lambda,
+            "lambda_value": adjacent_lambda,
+            "valid": True,
+            "objective": -1.0,
+            "invalid_reason": None,
+        }
+    )
+    assert restored.lambda_value == adjacent_lambda
+
+    with pytest.raises(SolverEvidenceError, match="within 4 ULP"):
+        SolverEvaluation.from_dict(
+            {
+                "log_lambda": log_lambda,
+                "lambda_value": expected_lambda * (1.0 + 1e-10),
+                "valid": True,
+                "objective": -1.0,
+                "invalid_reason": None,
+            }
+        )
 
 
 def test_literal_hierarchical_known_answer_artifacts() -> None:

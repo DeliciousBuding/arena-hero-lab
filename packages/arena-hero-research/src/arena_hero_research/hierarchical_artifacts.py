@@ -131,8 +131,9 @@ class SolverEvaluation:
             expected_lambda = math.exp(self.log_lambda)
         except OverflowError as error:
             raise SolverEvidenceError("log_lambda is outside the supported finite range") from error
-        if self.lambda_value != expected_lambda:
-            raise SolverEvidenceError("lambda_value must equal exp(log_lambda)")
+        lambda_roundoff = 4.0 * max(math.ulp(self.lambda_value), math.ulp(expected_lambda))
+        if abs(self.lambda_value - expected_lambda) > lambda_roundoff:
+            raise SolverEvidenceError("lambda_value must equal exp(log_lambda) within 4 ULP")
         if not isinstance(self.valid, bool):
             raise SolverEvidenceError("valid must be boolean")
         if self.valid:
