@@ -953,7 +953,10 @@ class DifferentialReport:
             _sha256(self.candidate_run_sha256, "candidate run"),
         )
         object.__setattr__(self, "mismatches", tuple(self.mismatches))
-        if self.publishable != (not self.mismatches):
+        if not isinstance(self.publishable, bool):
+            raise ValueError("differential publishable must be a boolean")
+        expected_publishable = not self.mismatches
+        if self.publishable is not expected_publishable:
             raise ValueError("differential publishability must be fail-closed")
 
     @property
