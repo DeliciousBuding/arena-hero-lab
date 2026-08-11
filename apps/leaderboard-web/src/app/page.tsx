@@ -4,6 +4,7 @@ import { Methodology } from "@/components/methodology";
 import { RankingsSection } from "@/components/rankings-section";
 import { ScenarioSection } from "@/components/scenario-section";
 import { ScoreBars, type ScoreBarEntry } from "@/components/score-bars";
+import { PlatformOverview } from "@/components/platform-overview";
 import { SectionHeader } from "@/components/section-header";
 import { ACTIVE_SCORE_DIMENSIONS, benchData, contestantOf } from "@/lib/bench";
 
@@ -59,6 +60,9 @@ export default function HomePage() {
         </div>
       </header>
 
+      {/* ===== 0. Python 新一代平台成果区（不参与排名） ===== */}
+      <PlatformOverview />
+
       {/* ===== 1. 综合排名榜（维度可切换） ===== */}
       <RankingsSection />
 
@@ -92,3 +96,4 @@ export default function HomePage() {
     </div>
   );
 }
+

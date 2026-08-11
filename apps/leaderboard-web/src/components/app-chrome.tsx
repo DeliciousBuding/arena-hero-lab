@@ -18,6 +18,7 @@ import {
 import { ThemeToggle } from "./theme-toggle";
 
 const NAV_ITEMS = [
+  { href: "/platform", label: "平台", sectionId: "platform" },
   { href: "/", label: "Leaderboard", sectionId: "rankings" },
   { href: "/#scenarios", label: "场景", sectionId: "scenarios" },
   { href: "/#scores", label: "画像", sectionId: "scores" },
@@ -72,12 +73,14 @@ export function AppChrome() {
 
   /** 锚点链接按 scroll spy 高亮；首页 Leaderboard 在 hero/榜单区亮。 */
   const isActive = (href: string): boolean => {
-    if (href.includes("#")) {
-      return activeSection === href.slice(2);
+    if (!href.includes("#")) {
+      return pathname === href;
     }
-    return pathname === "/" && (activeSection === null || activeSection === "rankings");
+    if (href === "/#rankings" && activeSection === null) {
+      return true;
+    }
+    return activeSection === href.slice(2);
   };
-
   return (
     <nav className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
       <div className="container-page flex h-14 items-center justify-between gap-4 px-4 sm:px-6">
@@ -178,3 +181,4 @@ export function AppChrome() {
     </nav>
   );
 }
+
