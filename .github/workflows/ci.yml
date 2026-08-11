@@ -58,6 +58,11 @@ jobs:
       - name: Web build
         run: pnpm build
 
+      - name: Platform artifact freshness
+        run: |
+          uv run python scripts/generate_platform.py
+          git diff --exit-code -- apps/leaderboard-web/src/data/platform.json
+
       - name: Public-surface scan
         run: uv run python scripts/check_public_surface.py
 

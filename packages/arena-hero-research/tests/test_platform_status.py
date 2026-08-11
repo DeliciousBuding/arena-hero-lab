@@ -85,6 +85,16 @@ def test_write_is_stable_and_readable(tmp_path: Path) -> None:
     assert reloaded == platform
 
 
+def test_checked_in_platform_artifact_matches_generator(tmp_path: Path) -> None:
+    """The committed web artifact must equal a fresh generator run (CI freshness)."""
+    from arena_hero_research.platform_status import _REPO_ROOT
+
+    checked_in = _REPO_ROOT / "apps" / "leaderboard-web" / "src" / "data" / "platform.json"
+    assert checked_in.is_file(), f"missing checked-in platform artifact: {checked_in}"
+    generated = generate_platform_status(tmp_path / "fresh.json")
+    assert json.loads(checked_in.read_text(encoding="utf-8")) == generated
+
+
 def test_agent_fixture_tamper_fails_closed(tmp_path: Path) -> None:
     fixture_dir = _copy_fixture_dir(tmp_path / "fixture")
     (fixture_dir / "turn_to_plan_known_answers_v1.json").write_text(
