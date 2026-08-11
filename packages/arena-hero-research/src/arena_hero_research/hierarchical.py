@@ -45,7 +45,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from arena_hero_research.execution import PairedObservation
-from arena_hero_research.statistics import golden_section_maximize, student_t_inv_cdf
+from arena_hero_research.statistics import student_t_inv_cdf
 from arena_hero_research.validation import (
     require_float,
     require_identifier,
@@ -113,6 +113,37 @@ class ClusterIdentifiabilityError(HierarchicalFitError):
 
 class SingularFitError(HierarchicalFitError):
     """The variance structure is degenerate and no estimate is produced."""
+
+
+@dataclass(frozen=True, slots=True)
+class ProfileRemlEvaluation:
+    """One explicit profile-REML objective evaluation.
+
+    Invalid evaluations carry a reason and no objective value. They are never
+    represented by a finite sentinel that could be mistaken for evidence.
+    """
+
+    log_lambda: float
+    lambda_value: float
+    valid: bool
+    objective: float | None
+    invalid_reason: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class ProfileRemlTrace:
+    """Deterministic trace of the bounded profile-REML optimization."""
+
+    initial_lower: float
+    initial_upper: float
+    final_lower: float
+    final_upper: float
+    tolerance: float
+    max_iterations: int
+    iterations: int
+    termination_reason: str
+    candidate: ProfileRemlEvaluation
+    evaluations: tuple[ProfileRemlEvaluation, ...]
 
 
 class ClusterMissingPolicy(StrEnum):
@@ -926,45 +957,153 @@ def _reml_components(
     return a00, a01, a11, b0, b1, q, log_terms
 
 
-def _reml_fit(
+def _profile_reml_evaluation(
     cluster_ids: tuple[str, ...],
-    clusters: dict[str, dict[str, tuple[float, ...]]],
-    control_level: str,
-    treatment_level: str,
-) -> tuple[float, float, float, float, float, bool, bool, tuple[str, ...]]:
-    """Profile REML fit using centered, compensated sufficient statistics.
+    sums: dict[str, tuple[float, float, float, float, float]],
+    degrees: int,
+    log_lambda: float,
+) -> ProfileRemlEvaluation:
+    """Evaluate the profile objective without converting invalid states to sentinels."""
 
-    Returns (beta, mu, sigma2_e, sigma2_u, se2, singular, boundary, warnings).
-    """
-
-    _, sizes, sums, anchor = _cluster_sums(clusters, control_level, treatment_level)
-    observation_count = sum(sizes)
-    degrees = observation_count - 2
-
-    def profile(log_lambda: float) -> float:
+    try:
         lam = math.exp(log_lambda)
         a00, a01, a11, b0, b1, q, log_terms = _reml_components(cluster_ids, sums, lam)
         determinant = a00 * a11 - a01 * a01
         scale = a00 * a11
-        if (
-            not all(
-                math.isfinite(value) for value in (a00, a01, a11, b0, b1, q, log_terms, determinant)
-            )
-            or determinant <= 0
-            or scale <= 0
-            or determinant < 1e-14 * scale
-            or q <= 0
+        if not all(
+            math.isfinite(value) for value in (a00, a01, a11, b0, b1, q, log_terms, determinant)
         ):
-            return -1e300
-        beta0 = (a11 * b0 - a01 * b1) / determinant
-        beta1 = (a00 * b1 - a01 * b0) / determinant
-        residual = q - (beta0 * b0 + beta1 * b1)
-        if not math.isfinite(residual) or residual <= 0 or residual < 1e-12 * q:
-            return -1e300
-        return -0.5 * (degrees * math.log(residual) + math.log(determinant) + log_terms)
+            reason = "non-finite sufficient statistics"
+        elif determinant <= 0 or scale <= 0 or determinant < 1e-14 * scale:
+            reason = "singular profile design matrix"
+        elif q <= 0:
+            reason = "non-positive profile quadratic form"
+        else:
+            beta0 = (a11 * b0 - a01 * b1) / determinant
+            beta1 = (a00 * b1 - a01 * b0) / determinant
+            residual = q - (beta0 * b0 + beta1 * b1)
+            if not math.isfinite(residual) or residual <= 0 or residual < 1e-12 * q:
+                reason = "non-positive or precision-limited profile residual"
+            else:
+                objective = -0.5 * (
+                    degrees * math.log(residual) + math.log(determinant) + log_terms
+                )
+                if math.isfinite(objective):
+                    return ProfileRemlEvaluation(
+                        log_lambda=log_lambda,
+                        lambda_value=lam,
+                        valid=True,
+                        objective=objective,
+                        invalid_reason=None,
+                    )
+                reason = "non-finite profile objective"
+    except (ArithmeticError, ValueError) as error:
+        reason = f"profile evaluation failed: {type(error).__name__}"
+        lam = math.inf if log_lambda > 0 else 0.0
+    return ProfileRemlEvaluation(
+        log_lambda=log_lambda,
+        lambda_value=lam,
+        valid=False,
+        objective=None,
+        invalid_reason=reason,
+    )
 
-    log_lambda, _ = golden_section_maximize(profile, _LOG_LAMBDA_LOW, _LOG_LAMBDA_HIGH)
-    lam = math.exp(log_lambda)
+
+def _golden_section_maximize_traced(
+    cluster_ids: tuple[str, ...],
+    sums: dict[str, tuple[float, float, float, float, float]],
+    degrees: int,
+    lower: float,
+    upper: float,
+    *,
+    tolerance: float = 1e-12,
+    max_iterations: int = 200,
+) -> ProfileRemlTrace:
+    """Mirror the established golden-section search while retaining every evaluation."""
+
+    if not math.isfinite(lower) or not math.isfinite(upper) or lower >= upper:
+        raise HierarchicalFitError("profile-REML bounds must be finite with lower < upper")
+    if tolerance <= 0 or max_iterations < 1:
+        raise HierarchicalFitError("profile-REML tolerance and iteration count must be positive")
+    inv_phi = (math.sqrt(5.0) - 1.0) / 2.0
+    left = lower
+    right = upper
+    mid_left = right - inv_phi * (right - left)
+    mid_right = left + inv_phi * (right - left)
+    evaluations: list[ProfileRemlEvaluation] = []
+
+    def evaluate(value: float) -> ProfileRemlEvaluation:
+        result = _profile_reml_evaluation(cluster_ids, sums, degrees, value)
+        evaluations.append(result)
+        return result
+
+    left_evaluation = evaluate(mid_left)
+    right_evaluation = evaluate(mid_right)
+    iterations = 0
+    termination_reason = "max-iterations"
+    for _ in range(max_iterations):
+        if right - left <= tolerance * max(1.0, abs(left), abs(right)):
+            termination_reason = "interval-tolerance"
+            break
+        left_value = left_evaluation.objective if left_evaluation.valid else -math.inf
+        right_value = right_evaluation.objective if right_evaluation.valid else -math.inf
+        if left_value > right_value:
+            right = mid_right
+            mid_right = mid_left
+            right_evaluation = left_evaluation
+            mid_left = right - inv_phi * (right - left)
+            left_evaluation = evaluate(mid_left)
+        else:
+            left = mid_left
+            mid_left = mid_right
+            left_evaluation = right_evaluation
+            mid_right = left + inv_phi * (right - left)
+            right_evaluation = evaluate(mid_right)
+        iterations += 1
+
+    left_value = left_evaluation.objective if left_evaluation.valid else -math.inf
+    right_value = right_evaluation.objective if right_evaluation.valid else -math.inf
+    candidate = left_evaluation if left_value >= right_value else right_evaluation
+    return ProfileRemlTrace(
+        initial_lower=lower,
+        initial_upper=upper,
+        final_lower=left,
+        final_upper=right,
+        tolerance=tolerance,
+        max_iterations=max_iterations,
+        iterations=iterations,
+        termination_reason=termination_reason,
+        candidate=candidate,
+        evaluations=tuple(evaluations),
+    )
+
+
+def _reml_fit_traced(
+    cluster_ids: tuple[str, ...],
+    clusters: dict[str, dict[str, tuple[float, ...]]],
+    control_level: str,
+    treatment_level: str,
+) -> tuple[
+    float,
+    float,
+    float,
+    float,
+    float,
+    bool,
+    bool,
+    tuple[str, ...],
+    ProfileRemlTrace,
+]:
+    """Profile REML fit plus an explicit bounded-optimizer trace."""
+
+    _, sizes, sums, anchor = _cluster_sums(clusters, control_level, treatment_level)
+    observation_count = sum(sizes)
+    degrees = observation_count - 2
+    trace = _golden_section_maximize_traced(
+        cluster_ids, sums, degrees, _LOG_LAMBDA_LOW, _LOG_LAMBDA_HIGH
+    )
+    log_lambda = trace.candidate.log_lambda
+    lam = trace.candidate.lambda_value
     boundary = log_lambda <= _LOG_LAMBDA_LOW + _BOUNDARY_MARGIN or (
         log_lambda >= _LOG_LAMBDA_HIGH - _BOUNDARY_MARGIN
     )
@@ -991,7 +1130,19 @@ def _reml_fit(
             "between-cluster variance estimate is at the boundary; "
             "confidence interval and effect size are undefined",
         )
-    return beta1, intercept, sigma2_e, sigma2_u, se2, singular, boundary, warnings
+    return beta1, intercept, sigma2_e, sigma2_u, se2, singular, boundary, warnings, trace
+
+
+def _reml_fit(
+    cluster_ids: tuple[str, ...],
+    clusters: dict[str, dict[str, tuple[float, ...]]],
+    control_level: str,
+    treatment_level: str,
+) -> tuple[float, float, float, float, float, bool, bool, tuple[str, ...]]:
+    """Compatibility wrapper preserving the established estimator return contract."""
+
+    result = _reml_fit_traced(cluster_ids, clusters, control_level, treatment_level)
+    return result[:8]
 
 
 def _mom_fit(

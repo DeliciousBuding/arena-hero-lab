@@ -81,6 +81,39 @@ def test_cluster_observation_round_trip_and_validation() -> None:
 # --------------------------------------------------------------------------- fit
 
 
+def test_profile_reml_trace_preserves_fit_v2_digest_and_explicit_evaluations() -> None:
+    import arena_hero_research.hierarchical as hierarchical
+
+    observations = balanced_observations()
+    fit = fit_random_intercept(outcome_name="score", observations=observations)
+    clusters, _ = hierarchical._prepare_clusters(
+        "score",
+        observations,
+        ClusterMissingPolicy.FAIL,
+        "control",
+        "treatment",
+    )
+    result = hierarchical._reml_fit_traced(
+        tuple(sorted(clusters)), clusters, "control", "treatment"
+    )
+    trace = result[-1]
+
+    assert fit.canonical_sha256 == (
+        "d8e6ab3b4ce189eee6c9d603ca54ff7bcb2a9adac890e85d3b4cdd05507bd42f"
+    )
+    assert trace.termination_reason == "interval-tolerance"
+    assert trace.iterations > 0
+    assert len(trace.evaluations) == trace.iterations + 2
+    assert trace.candidate.valid
+    assert trace.candidate.objective is not None
+    assert all(
+        evaluation.objective is None
+        if not evaluation.valid
+        else math.isfinite(evaluation.objective)
+        for evaluation in trace.evaluations
+    )
+
+
 def test_balanced_fit_known_answer_and_ci() -> None:
     observations = balanced_observations()
     fit = fit_random_intercept(outcome_name="score", observations=observations)
