@@ -11,18 +11,20 @@ import arena_hero_research.hierarchical as hierarchical
 from arena_hero_research.hierarchical import (
     ClusterMissingPolicy,
     ClusterObservation,
+    CrossValidationReport,
     cross_validate_random_intercept,
     fit_random_intercept_with_certificate,
     verify_solver_certificate,
 )
 from arena_hero_research.hierarchical_artifacts import (
-    CrossValidationReport,
+    CrossValidationReportV1,
     CrossValidationStatus,
     SolverCertificate,
     SolverEvidenceError,
     SolverStatus,
     ValidationScope,
 )
+from arena_hero_research.hierarchical_evidence import analyze_hierarchical_evidence
 
 
 def observations() -> tuple[ClusterObservation, ...]:
@@ -40,6 +42,60 @@ def observations() -> tuple[ClusterObservation, ...]:
             ClusterObservation("score", cluster_id, "t0", "treatment", treatment),
         )
     )
+
+
+def test_legacy_cross_validation_entrypoint_is_exactly_compatible() -> None:
+    report = cross_validate_random_intercept(outcome_name="score", observations=observations())
+
+    assert type(report) is CrossValidationReport
+    assert set(report.to_dict()) == {
+        "outcome_name",
+        "control_level",
+        "treatment_level",
+        "cluster_count",
+        "observation_count",
+        "balanced",
+        "path_a_effect",
+        "path_b_effect",
+        "path_a_between_variance",
+        "path_a_error_variance",
+        "path_b_between_variance",
+        "path_b_error_variance",
+        "effect_absolute_difference",
+        "variance_absolute_difference",
+        "effect_tolerance",
+        "variance_tolerance",
+        "effect_passed",
+        "variance_validated",
+        "variance_passed",
+        "passed",
+        "authoritative",
+    }
+    assert "schema_version" not in report.to_dict()
+    assert "canonical_sha256" not in report.to_dict()
+
+
+def test_source_and_retained_analysis_identities_are_distinct_and_deterministic() -> None:
+    data = (
+        *observations(),
+        ClusterObservation("score", "dropped", "c0", "control", 9.0),
+    )
+    first_fit, first = fit_random_intercept_with_certificate(
+        outcome_name="score",
+        observations=data,
+        missing_policy=ClusterMissingPolicy.DROP_CLUSTER,
+    )
+    second_fit, second = fit_random_intercept_with_certificate(
+        outcome_name="score",
+        observations=tuple(reversed(data)),
+        missing_policy=ClusterMissingPolicy.DROP_CLUSTER,
+    )
+
+    assert first_fit.dropped_clusters == 1
+    assert first.source_input_sha256 != first.analysis_input_sha256
+    assert second.source_input_sha256 == first.source_input_sha256
+    assert second.analysis_input_sha256 == first.analysis_input_sha256
+    assert second_fit.to_dict() == first_fit.to_dict()
 
 
 def test_solver_certificate_known_answer_round_trip_and_recomputation() -> None:
@@ -100,17 +156,18 @@ def test_versioned_cross_validation_report_chain_and_status() -> None:
     fit, certificate = fit_random_intercept_with_certificate(
         outcome_name="score", observations=data
     )
-    report = cross_validate_random_intercept(outcome_name="score", observations=data)
+    report = analyze_hierarchical_evidence(outcome_name="score", observations=data).report
 
     assert report.schema_version == "arena.research.cross-validation-report.v1"
     assert report.fit_sha256 == fit.canonical_sha256
     assert report.certificate_sha256 == certificate.canonical_sha256
-    assert report.input_sha256 == certificate.input_sha256
+    assert report.source_input_sha256 == certificate.source_input_sha256
+    assert report.analysis_input_sha256 == certificate.analysis_input_sha256
     assert report.status is CrossValidationStatus.FULLY_VALIDATED
     assert report.validation_scope is ValidationScope.EFFECT_AND_VARIANCE
     assert report.passed
     assert report.verify()
-    assert CrossValidationReport.from_dict(report.to_dict()) == report
+    assert CrossValidationReportV1.from_dict(report.to_dict()) == report
 
 
 def test_reordered_input_is_exactly_deterministic() -> None:
@@ -118,13 +175,13 @@ def test_reordered_input_is_exactly_deterministic() -> None:
     first_fit, first_certificate = fit_random_intercept_with_certificate(
         outcome_name="score", observations=data
     )
-    first_report = cross_validate_random_intercept(outcome_name="score", observations=data)
+    first_report = analyze_hierarchical_evidence(outcome_name="score", observations=data).report
     second_fit, second_certificate = fit_random_intercept_with_certificate(
         outcome_name="score", observations=tuple(reversed(data))
     )
-    second_report = cross_validate_random_intercept(
+    second_report = analyze_hierarchical_evidence(
         outcome_name="score", observations=tuple(reversed(data))
-    )
+    ).report
 
     assert second_fit.to_dict() == first_fit.to_dict()
     assert second_certificate.to_dict() == first_certificate.to_dict()
@@ -140,7 +197,7 @@ def test_translation_offsets_preserve_numerical_status_not_artifact_identity() -
         _, certificate = fit_random_intercept_with_certificate(
             outcome_name="score", observations=shifted
         )
-        report = cross_validate_random_intercept(outcome_name="score", observations=shifted)
+        report = analyze_hierarchical_evidence(outcome_name="score", observations=shifted).report
         assert certificate.solver_status is baseline.solver_status
         assert certificate.profile_curvature == pytest.approx(
             baseline.profile_curvature, rel=1e-7, abs=1e-8
@@ -171,7 +228,7 @@ def test_boundary_fit_is_not_promoted_to_validated_evidence() -> None:
     fit, certificate = fit_random_intercept_with_certificate(
         outcome_name="score", observations=data
     )
-    report = cross_validate_random_intercept(outcome_name="score", observations=data)
+    report = analyze_hierarchical_evidence(outcome_name="score", observations=data).report
 
     assert fit.singular and fit.boundary_lambda
     assert certificate.solver_status is SolverStatus.BOUNDARY
@@ -203,11 +260,11 @@ def test_solver_certificate_strict_malformed_and_tamper_matrix(mutation, message
 
 @pytest.mark.parametrize(
     "field",
-    ["schema_version", "input_sha256", "certificate_sha256", "status", "passed"],
+    ["schema_version", "source_input_sha256", "certificate_sha256", "status", "passed"],
 )
 def test_cross_validation_report_tamper_fails_closed(field: str) -> None:
-    report = cross_validate_random_intercept(outcome_name="score", observations=observations())
+    report = analyze_hierarchical_evidence(outcome_name="score", observations=observations()).report
     payload = report.to_dict()
     payload[field] = False if field == "passed" else "tampered"
     with pytest.raises((SolverEvidenceError, ValueError)):
-        CrossValidationReport.from_dict(payload)
+        CrossValidationReportV1.from_dict(payload)

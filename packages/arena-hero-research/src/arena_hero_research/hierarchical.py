@@ -46,16 +46,11 @@ from enum import StrEnum
 
 from arena_hero_research.execution import PairedObservation
 from arena_hero_research.hierarchical_artifacts import (
-    CROSS_VALIDATION_REPORT_SCHEMA,
     FIT_SCHEMA,
     SOLVER_CERTIFICATE_SCHEMA,
-    CrossValidationReport,
-    CrossValidationStatus,
-    DesignProfile,
     SolverCertificate,
     SolverEvaluation,
     SolverStatus,
-    ValidationScope,
 )
 from arena_hero_research.statistics import student_t_inv_cdf
 from arena_hero_research.validation import (
@@ -265,6 +260,108 @@ class ClusterObservation:
             treatment=_strict_string(value["treatment"], "treatment"),
             value=_strict_float(value["value"], "value"),
         )
+
+
+@dataclass(frozen=True, slots=True)
+class CrossValidationReport:
+    """Independent method-of-moments vs REML agreement report."""
+
+    outcome_name: str
+    control_level: str
+    treatment_level: str
+    cluster_count: int
+    observation_count: int
+    balanced: bool
+    path_a_effect: float
+    path_b_effect: float
+    path_a_between_variance: float
+    path_a_error_variance: float
+    path_b_between_variance: float
+    path_b_error_variance: float
+    effect_absolute_difference: float
+    variance_absolute_difference: float
+    effect_tolerance: float
+    variance_tolerance: float
+    effect_passed: bool
+    variance_validated: bool
+    variance_passed: bool
+    passed: bool
+    authoritative: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self, "outcome_name", require_identifier(self.outcome_name, "outcome_name")
+        )
+        object.__setattr__(self, "control_level", require_text(self.control_level, "control_level"))
+        object.__setattr__(
+            self, "treatment_level", require_text(self.treatment_level, "treatment_level")
+        )
+        if self.control_level == self.treatment_level:
+            raise HierarchicalFitError("control and treatment levels must differ")
+        object.__setattr__(self, "cluster_count", require_int(self.cluster_count, "cluster_count"))
+        object.__setattr__(
+            self, "observation_count", require_int(self.observation_count, "observation_count")
+        )
+        if self.cluster_count < 3:
+            raise HierarchicalFitError(
+                "cross-validation requires at least three clusters for MoM variance estimation"
+            )
+        for name in (
+            "path_a_effect",
+            "path_b_effect",
+            "path_a_between_variance",
+            "path_a_error_variance",
+            "path_b_between_variance",
+            "path_b_error_variance",
+            "effect_absolute_difference",
+            "variance_absolute_difference",
+            "effect_tolerance",
+            "variance_tolerance",
+        ):
+            if not math.isfinite(getattr(self, name)):
+                raise HierarchicalFitError(f"{name} must be finite")
+        for name in (
+            "balanced",
+            "effect_passed",
+            "variance_validated",
+            "variance_passed",
+            "passed",
+        ):
+            if not isinstance(getattr(self, name), bool):
+                raise HierarchicalFitError(f"{name} must be boolean")
+        expected_passed = self.effect_passed and self.variance_validated and self.variance_passed
+        if self.passed != expected_passed:
+            raise HierarchicalFitError(
+                "passed must require validated effect and variance agreement"
+            )
+        object.__setattr__(self, "authoritative", require_text(self.authoritative, "authoritative"))
+        if self.authoritative != _ESTIMATOR:
+            raise HierarchicalFitError("cross-validation authority must be the REML estimator")
+
+    def to_dict(self) -> dict[str, JsonValue]:
+        return {
+            "outcome_name": self.outcome_name,
+            "control_level": self.control_level,
+            "treatment_level": self.treatment_level,
+            "cluster_count": self.cluster_count,
+            "observation_count": self.observation_count,
+            "balanced": self.balanced,
+            "path_a_effect": self.path_a_effect,
+            "path_b_effect": self.path_b_effect,
+            "path_a_between_variance": self.path_a_between_variance,
+            "path_a_error_variance": self.path_a_error_variance,
+            "path_b_between_variance": self.path_b_between_variance,
+            "path_b_error_variance": self.path_b_error_variance,
+            "effect_absolute_difference": self.effect_absolute_difference,
+            "variance_absolute_difference": self.variance_absolute_difference,
+            "effect_tolerance": self.effect_tolerance,
+            "variance_tolerance": self.variance_tolerance,
+            "effect_passed": self.effect_passed,
+            "variance_validated": self.variance_validated,
+            "variance_passed": self.variance_passed,
+            "passed": self.passed,
+            "authoritative": self.authoritative,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -549,7 +646,7 @@ def _numeric_boundary(operation: str, function):
         ) from error
 
 
-def _analysis_input_sha256(
+def _source_input_sha256(
     *,
     outcome_name: str,
     observations: Sequence[ClusterObservation],
@@ -580,6 +677,32 @@ def _analysis_input_sha256(
     return content_sha256(payload)
 
 
+def _retained_analysis_input_sha256(
+    *,
+    outcome_name: str,
+    clusters: dict[str, dict[str, tuple[float, ...]]],
+    control_level: str,
+    treatment_level: str,
+    confidence_level: float,
+) -> str:
+    payload: dict[str, JsonValue] = {
+        "schema_version": "arena.research.hierarchical-retained-input.v1",
+        "outcome_name": outcome_name,
+        "control_level": control_level,
+        "treatment_level": treatment_level,
+        "confidence_level": confidence_level,
+        "clusters": [
+            {
+                "cluster_id": cluster_id,
+                "control": list(clusters[cluster_id][control_level]),
+                "treatment": list(clusters[cluster_id][treatment_level]),
+            }
+            for cluster_id in sorted(clusters)
+        ],
+    }
+    return content_sha256(payload)
+
+
 def _fit_random_intercept_traced(
     *,
     outcome_name: str,
@@ -592,6 +715,7 @@ def _fit_random_intercept_traced(
     RandomInterceptFit,
     ProfileRemlTrace,
     dict[str, dict[str, tuple[float, ...]]],
+    str,
     str,
 ]:
     normalized_outcome = require_identifier(outcome_name, "outcome_name")
@@ -683,7 +807,7 @@ def _fit_random_intercept_traced(
         warnings=provisional.warnings,
         canonical_sha256=content_sha256(provisional.payload()),
     )
-    input_sha256 = _analysis_input_sha256(
+    source_input_sha256 = _source_input_sha256(
         outcome_name=normalized_outcome,
         observations=observations,
         control_level=control,
@@ -691,7 +815,14 @@ def _fit_random_intercept_traced(
         confidence_level=confidence_level,
         missing_policy=policy,
     )
-    return fit, trace, clusters, input_sha256
+    analysis_input_sha256 = _retained_analysis_input_sha256(
+        outcome_name=normalized_outcome,
+        clusters=clusters,
+        control_level=control,
+        treatment_level=treatment,
+        confidence_level=confidence_level,
+    )
+    return fit, trace, clusters, source_input_sha256, analysis_input_sha256
 
 
 def fit_random_intercept(
@@ -706,7 +837,7 @@ def fit_random_intercept(
     """Fit a directed treatment-minus-control random-intercept model."""
 
     def calculate() -> RandomInterceptFit:
-        fit, _, _, _ = _fit_random_intercept_traced(
+        fit, _, _, _, _ = _fit_random_intercept_traced(
             outcome_name=outcome_name,
             observations=observations,
             control_level=control_level,
@@ -724,33 +855,45 @@ def _build_solver_certificate(
     fit: RandomInterceptFit,
     trace: ProfileRemlTrace,
     clusters: dict[str, dict[str, tuple[float, ...]]],
-    input_sha256: str,
+    source_input_sha256: str,
+    analysis_input_sha256: str,
 ) -> SolverCertificate:
     if not trace.candidate.valid or trace.candidate.objective is None:
         raise SingularFitError("profile-REML certificate requires a valid optimizer candidate")
     cluster_ids = tuple(sorted(clusters))
     _, sizes, sums, _ = _cluster_sums(clusters, fit.control_level, fit.treatment_level)
-    score, curvature = _profile_reml_score_curvature(
-        cluster_ids, sums, sum(sizes) - 2, trace.candidate.log_lambda
+    degrees = sum(sizes) - 2
+    score, curvature, score_scale = _profile_reml_diagnostics(
+        cluster_ids, sums, degrees, trace.candidate.log_lambda
     )
-    kkt_tolerance = max(1e-6, 256.0 * math.ulp(max(1.0, abs(trace.candidate.objective))))
-    kkt_residual = abs(score)
+    _, lower_curvature, _ = _profile_reml_diagnostics(cluster_ids, sums, degrees, trace.final_lower)
+    _, upper_curvature, _ = _profile_reml_diagnostics(cluster_ids, sums, degrees, trace.final_upper)
+    interval_error = (trace.final_upper - trace.final_lower) * max(
+        abs(lower_curvature), abs(curvature), abs(upper_curvature)
+    )
+    roundoff_error = 8.0 * math.sqrt(math.ulp(1.0)) * score_scale
+    kkt_tolerance = max(roundoff_error, interval_error)
+    if fit.boundary_lambda and trace.candidate.log_lambda < 0:
+        kkt_residual = max(score, 0.0)
+    elif fit.boundary_lambda:
+        kkt_residual = max(-score, 0.0)
+    else:
+        kkt_residual = abs(score)
     curvature_floor = 256.0 * math.ulp(max(1.0, abs(curvature)))
-    newton_correction = -score / curvature if abs(curvature) > curvature_floor else None
-    backward_error = (
-        abs(newton_correction)
-        if newton_correction is not None
-        else kkt_residual / max(1.0, abs(curvature))
+    newton_correction = (
+        -score / curvature if not fit.boundary_lambda and curvature < -curvature_floor else None
     )
-    precision_limited = (
-        trace.termination_reason != "interval-tolerance"
+    backward_error = kkt_residual / score_scale
+    precision_limited = trace.termination_reason != "interval-tolerance"
+    indeterminate = (
+        precision_limited
         or curvature >= 0.0
         or newton_correction is None
         or kkt_residual > kkt_tolerance
     )
     if fit.boundary_lambda:
         status = SolverStatus.BOUNDARY
-    elif precision_limited:
+    elif indeterminate:
         status = SolverStatus.INDETERMINATE
     else:
         status = SolverStatus.VERIFIED_INTERIOR
@@ -766,7 +909,8 @@ def _build_solver_certificate(
     )
     provisional = SolverCertificate(
         schema_version=SOLVER_CERTIFICATE_SCHEMA,
-        input_sha256=input_sha256,
+        source_input_sha256=source_input_sha256,
+        analysis_input_sha256=analysis_input_sha256,
         fit_schema_version=fit.schema_version,
         fit_sha256=fit.canonical_sha256,
         optimizer="bounded-golden-section",
@@ -808,16 +952,22 @@ def fit_random_intercept_with_certificate(
     """Fit RandomInterceptFit v2 and emit its one-way SolverCertificate v1 evidence."""
 
     def calculate() -> tuple[RandomInterceptFit, SolverCertificate]:
-        fit, trace, clusters, input_sha256 = _fit_random_intercept_traced(
-            outcome_name=outcome_name,
-            observations=observations,
-            control_level=control_level,
-            treatment_level=treatment_level,
-            confidence_level=confidence_level,
-            missing_policy=missing_policy,
+        fit, trace, clusters, source_input_sha256, analysis_input_sha256 = (
+            _fit_random_intercept_traced(
+                outcome_name=outcome_name,
+                observations=observations,
+                control_level=control_level,
+                treatment_level=treatment_level,
+                confidence_level=confidence_level,
+                missing_policy=missing_policy,
+            )
         )
         return fit, _build_solver_certificate(
-            fit=fit, trace=trace, clusters=clusters, input_sha256=input_sha256
+            fit=fit,
+            trace=trace,
+            clusters=clusters,
+            source_input_sha256=source_input_sha256,
+            analysis_input_sha256=analysis_input_sha256,
         )
 
     return _numeric_boundary("random-intercept fit with certificate", calculate)
@@ -866,19 +1016,15 @@ def cross_validate_random_intercept(
     treatment_level: str = "treatment",
     missing_policy: ClusterMissingPolicy = ClusterMissingPolicy.FAIL,
 ) -> CrossValidationReport:
-    """Compare independent within-OLS/MoM estimates with authoritative REML evidence."""
+    """Compare independent within-OLS/MoM estimates with authoritative REML."""
+
+    normalized_outcome = require_identifier(outcome_name, "outcome_name")
+    control, treatment = _normalize_contrast(control_level, treatment_level)
+    policy = _normalize_missing_policy(missing_policy)
 
     def calculate() -> CrossValidationReport:
-        fit, trace, clusters, input_sha256 = _fit_random_intercept_traced(
-            outcome_name=outcome_name,
-            observations=observations,
-            control_level=control_level,
-            treatment_level=treatment_level,
-            confidence_level=0.95,
-            missing_policy=missing_policy,
-        )
-        certificate = _build_solver_certificate(
-            fit=fit, trace=trace, clusters=clusters, input_sha256=input_sha256
+        clusters, _ = _prepare_clusters(
+            normalized_outcome, observations, policy, control, treatment
         )
         cluster_ids = tuple(sorted(clusters))
         cluster_count = len(cluster_ids)
@@ -887,63 +1033,28 @@ def cross_validate_random_intercept(
         )
         if cluster_count < 3:
             raise HierarchicalFitError("cross-validation requires at least three clusters")
-        ols_effect, mom_between, mom_error = _mom_fit(
-            cluster_ids, clusters, fit.control_level, fit.treatment_level
-        )
-        reml_effect = fit.treatment_effect
-        reml_error = fit.error_variance
-        reml_between = fit.between_variance
-        balanced = _is_balanced(clusters, fit.control_level, fit.treatment_level)
-        variance_validated = _has_paired_allocation(
-            clusters, fit.control_level, fit.treatment_level
-        )
+        ols_effect, mom_between, mom_error = _mom_fit(cluster_ids, clusters, control, treatment)
+        reml = _reml_fit(cluster_ids, clusters, control, treatment)
+        reml_effect, reml_error, reml_between = reml[0], reml[2], reml[3]
+        balanced = _is_balanced(clusters, control, treatment)
+        variance_validated = _has_paired_allocation(clusters, control, treatment)
         if balanced:
             effect_tolerance = max(1e-8, 1e-8 * abs(reml_effect))
             variance_tolerance = max(1e-7, 1e-7 * reml_between, 1e-7 * reml_error)
         else:
+            # The independent within-cluster effect remains a useful diagnostic
+            # under allocation imbalance, but the tolerance must reflect that it
+            # targets a differently weighted finite-sample contrast than REML.
             effect_tolerance = max(1e-2, 1e-2 * abs(reml_effect))
             variance_tolerance = max(1e-2, 1e-2 * reml_between, 1e-2 * reml_error)
         effect_difference = abs(ols_effect - reml_effect)
         variance_difference = max(abs(mom_between - reml_between), abs(mom_error - reml_error))
         effect_passed = effect_difference <= effect_tolerance
         variance_passed = variance_validated and variance_difference <= variance_tolerance
-        profile = (
-            DesignProfile.PAIRED_1X1
-            if variance_validated
-            else DesignProfile.BALANCED_REPEATED
-            if balanced
-            else DesignProfile.ALLOCATION_UNBALANCED
-        )
-        if certificate.solver_status is not SolverStatus.VERIFIED_INTERIOR:
-            scope = ValidationScope.NONE
-            status = CrossValidationStatus.INDETERMINATE
-        elif variance_validated:
-            scope = ValidationScope.EFFECT_AND_VARIANCE
-            status = (
-                CrossValidationStatus.FULLY_VALIDATED
-                if effect_passed and variance_passed
-                else CrossValidationStatus.FAILED
-            )
-        else:
-            scope = ValidationScope.EFFECT_ONLY
-            status = (
-                CrossValidationStatus.EFFECT_DIAGNOSTIC
-                if effect_passed
-                else CrossValidationStatus.FAILED
-            )
-        provisional = CrossValidationReport(
-            schema_version=CROSS_VALIDATION_REPORT_SCHEMA,
-            input_sha256=input_sha256,
-            fit_schema_version=fit.schema_version,
-            fit_sha256=fit.canonical_sha256,
-            certificate_schema_version=certificate.schema_version,
-            certificate_sha256=certificate.canonical_sha256,
-            design_profile=profile,
-            validation_scope=scope,
-            status=status,
-            outcome_name=fit.outcome_name,
-            control_level=fit.control_level,
-            treatment_level=fit.treatment_level,
+        return CrossValidationReport(
+            outcome_name=normalized_outcome,
+            control_level=control,
+            treatment_level=treatment,
             cluster_count=cluster_count,
             observation_count=observation_count,
             balanced=balanced,
@@ -960,11 +1071,9 @@ def cross_validate_random_intercept(
             effect_passed=effect_passed,
             variance_validated=variance_validated,
             variance_passed=variance_passed,
-            passed=status is CrossValidationStatus.FULLY_VALIDATED,
+            passed=effect_passed and variance_validated and variance_passed,
             authoritative=_ESTIMATOR,
-            canonical_sha256="0" * 64,
         )
-        return replace(provisional, canonical_sha256=content_sha256(provisional.payload()))
 
     return _numeric_boundary("random-intercept cross-validation", calculate)
 
@@ -1109,12 +1218,12 @@ def _reml_components(
     return a00, a01, a11, b0, b1, q, log_terms
 
 
-def _profile_reml_score_curvature(
+def _profile_reml_diagnostics(
     cluster_ids: tuple[str, ...],
     sums: dict[str, tuple[float, float, float, float, float]],
     degrees: int,
     log_lambda: float,
-) -> tuple[float, float]:
+) -> tuple[float, float, float]:
     """Return analytic score and curvature with respect to log(lambda)."""
 
     lam = math.exp(log_lambda)
@@ -1220,6 +1329,21 @@ def _profile_reml_score_curvature(
     )
     if not math.isfinite(score) or not math.isfinite(curvature):
         raise SingularFitError("analytic profile diagnostics produced non-finite values")
+    score_scale = 1.0 + 0.5 * (
+        abs(degrees * residual_first / residual)
+        + abs(determinant_first / determinant)
+        + abs(math.fsum(log_first))
+    )
+    return score, curvature, score_scale
+
+
+def _profile_reml_score_curvature(
+    cluster_ids: tuple[str, ...],
+    sums: dict[str, tuple[float, float, float, float, float]],
+    degrees: int,
+    log_lambda: float,
+) -> tuple[float, float]:
+    score, curvature, _ = _profile_reml_diagnostics(cluster_ids, sums, degrees, log_lambda)
     return score, curvature
 
 
@@ -1239,17 +1363,17 @@ def _profile_reml_evaluation(
         if not all(
             math.isfinite(value) for value in (a00, a01, a11, b0, b1, q, log_terms, determinant)
         ):
-            reason = "non-finite sufficient statistics"
+            reason = "non-finite-components"
         elif determinant <= 0 or scale <= 0 or determinant < 1e-14 * scale:
-            reason = "singular profile design matrix"
+            reason = "singular-design"
         elif q <= 0:
-            reason = "non-positive profile quadratic form"
+            reason = "non-positive-quadratic"
         else:
             beta0 = (a11 * b0 - a01 * b1) / determinant
             beta1 = (a00 * b1 - a01 * b0) / determinant
             residual = q - (beta0 * b0 + beta1 * b1)
             if not math.isfinite(residual) or residual <= 0 or residual < 1e-12 * q:
-                reason = "non-positive or precision-limited profile residual"
+                reason = "non-positive-or-precision-limited-residual"
             else:
                 objective = -0.5 * (
                     degrees * math.log(residual) + math.log(determinant) + log_terms
@@ -1262,9 +1386,9 @@ def _profile_reml_evaluation(
                         objective=objective,
                         invalid_reason=None,
                     )
-                reason = "non-finite profile objective"
-    except (ArithmeticError, ValueError) as error:
-        reason = f"profile evaluation failed: {type(error).__name__}"
+                reason = "non-finite-objective"
+    except (ArithmeticError, ValueError):
+        reason = "arithmetic-error"
         lam = math.inf if log_lambda > 0 else 0.0
     return ProfileRemlEvaluation(
         log_lambda=log_lambda,

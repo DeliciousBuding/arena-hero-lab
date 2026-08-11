@@ -17,7 +17,6 @@ from arena_hero_research.validation import (
     freeze_public_metadata,
     require_identifier,
     require_json_mapping,
-    require_sequence,
     require_sha256,
 )
 from arena_hero_sim.serialization import JsonValue, canonical_json_bytes, content_sha256
@@ -42,6 +41,21 @@ class TornLedgerTailError(LedgerCorruptionError):
         self.torn_bytes = torn_bytes
 
 
+def _require_exact_keys(value: Mapping[str, object], expected: frozenset[str], label: str) -> None:
+    actual = frozenset(value)
+    if actual != expected:
+        raise LedgerStorageError(
+            f"{label} keys mismatch; missing={sorted(expected - actual)}, "
+            f"extra={sorted(actual - expected)}"
+        )
+
+
+def _strict_string(value: object, field_name: str) -> str:
+    if not isinstance(value, str):
+        raise TypeError(f"{field_name} must be a JSON string")
+    return value
+
+
 class ResearchRecordKind(StrEnum):
     PREREGISTRATION = "preregistration"
     ASSIGNMENT = "assignment"
@@ -54,6 +68,9 @@ class ResearchRecordKind(StrEnum):
     REPLICATION_TASK = "replication-task"
     REPLICATION_RESULT = "replication-result"
     RESULT_BUNDLE = "result-bundle"
+    HIERARCHICAL_FIT = "hierarchical-fit"
+    SOLVER_CERTIFICATE = "solver-certificate"
+    CROSS_VALIDATION_REPORT = "cross-validation-report"
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,15 +150,33 @@ class FrozenResearchRecord:
 
     @classmethod
     def from_dict(cls, value: Mapping[str, object]) -> FrozenResearchRecord:
-        return cls(
-            schema_version=str(value["schema_version"]),
-            study_id=str(value["study_id"]),
-            kind=ResearchRecordKind(str(value["kind"])),
-            subject_id=str(value["subject_id"]),
-            payload_sha256=str(value["payload_sha256"]),
-            payload=require_json_mapping(value["payload"], "record payload"),
-            canonical_sha256=str(value["canonical_sha256"]),
+        _require_exact_keys(
+            value,
+            frozenset(
+                {
+                    "schema_version",
+                    "study_id",
+                    "kind",
+                    "subject_id",
+                    "payload_sha256",
+                    "payload",
+                    "canonical_sha256",
+                }
+            ),
+            "frozen research record",
         )
+        restored = cls(
+            schema_version=_strict_string(value["schema_version"], "schema_version"),
+            study_id=_strict_string(value["study_id"], "study_id"),
+            kind=ResearchRecordKind(_strict_string(value["kind"], "kind")),
+            subject_id=_strict_string(value["subject_id"], "subject_id"),
+            payload_sha256=_strict_string(value["payload_sha256"], "payload_sha256"),
+            payload=require_json_mapping(value["payload"], "record payload"),
+            canonical_sha256=_strict_string(value["canonical_sha256"], "canonical_sha256"),
+        )
+        if restored.to_dict() != dict(value):
+            raise LedgerStorageError("frozen research record is not canonical schema v1")
+        return restored
 
 
 @dataclass(frozen=True, slots=True)
@@ -232,20 +267,44 @@ class ResearchLedgerTransaction:
 
     @classmethod
     def from_dict(cls, value: Mapping[str, object]) -> ResearchLedgerTransaction:
-        digests = require_sequence(value["record_sha256s"], "record_sha256s")
-        previous = value.get("previous_transaction_sha256")
+        _require_exact_keys(
+            value,
+            frozenset(
+                {
+                    "schema_version",
+                    "sequence",
+                    "operation_id",
+                    "study_id",
+                    "record_sha256s",
+                    "previous_transaction_sha256",
+                    "canonical_sha256",
+                }
+            ),
+            "research ledger transaction",
+        )
+        digests = value["record_sha256s"]
+        if not isinstance(digests, list):
+            raise TypeError("record_sha256s must be a JSON list")
+        if any(not isinstance(item, str) for item in digests):
+            raise TypeError("record_sha256s entries must be JSON strings")
+        previous = value["previous_transaction_sha256"]
+        if previous is not None and not isinstance(previous, str):
+            raise TypeError("previous_transaction_sha256 must be a JSON string or null")
         sequence = value["sequence"]
         if isinstance(sequence, bool) or not isinstance(sequence, int):
             raise TypeError("transaction sequence must be an integer")
-        return cls(
-            schema_version=str(value["schema_version"]),
+        restored = cls(
+            schema_version=_strict_string(value["schema_version"], "schema_version"),
             sequence=sequence,
-            operation_id=str(value["operation_id"]),
-            study_id=str(value["study_id"]),
-            record_sha256s=tuple(str(item) for item in digests),
-            previous_transaction_sha256=None if previous is None else str(previous),
-            canonical_sha256=str(value["canonical_sha256"]),
+            operation_id=_strict_string(value["operation_id"], "operation_id"),
+            study_id=_strict_string(value["study_id"], "study_id"),
+            record_sha256s=tuple(digests),
+            previous_transaction_sha256=previous,
+            canonical_sha256=_strict_string(value["canonical_sha256"], "canonical_sha256"),
         )
+        if restored.to_dict() != dict(value):
+            raise LedgerStorageError("research ledger transaction is not canonical schema v1")
+        return restored
 
 
 @dataclass(frozen=True, slots=True)

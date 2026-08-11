@@ -127,6 +127,12 @@ class SolverEvaluation:
                 raise SolverEvidenceError(f"{field_name} must be finite")
         if self.lambda_value <= 0:
             raise SolverEvidenceError("lambda_value must be positive")
+        try:
+            expected_lambda = math.exp(self.log_lambda)
+        except OverflowError as error:
+            raise SolverEvidenceError("log_lambda is outside the supported finite range") from error
+        if self.lambda_value != expected_lambda:
+            raise SolverEvidenceError("lambda_value must equal exp(log_lambda)")
         if not isinstance(self.valid, bool):
             raise SolverEvidenceError("valid must be boolean")
         if self.valid:
@@ -139,9 +145,18 @@ class SolverEvaluation:
                 raise SolverEvidenceError("invalid evaluation cannot carry an objective")
             if self.invalid_reason is None:
                 raise SolverEvidenceError("invalid evaluation requires invalid_reason")
-            object.__setattr__(
-                self, "invalid_reason", require_text(self.invalid_reason, "invalid_reason")
-            )
+            reason = require_text(self.invalid_reason, "invalid_reason")
+            allowed_reasons = {
+                "non-finite-components",
+                "singular-design",
+                "non-positive-quadratic",
+                "non-positive-or-precision-limited-residual",
+                "non-finite-objective",
+                "arithmetic-error",
+            }
+            if reason not in allowed_reasons:
+                raise SolverEvidenceError("unsupported invalid evaluation reason")
+            object.__setattr__(self, "invalid_reason", reason)
 
     def to_dict(self) -> dict[str, JsonValue]:
         return {
@@ -174,7 +189,8 @@ class SolverEvaluation:
 _CERTIFICATE_PAYLOAD_FIELDS = frozenset(
     {
         "schema_version",
-        "input_sha256",
+        "source_input_sha256",
+        "analysis_input_sha256",
         "fit_schema_version",
         "fit_sha256",
         "optimizer",
@@ -207,7 +223,8 @@ _CERTIFICATE_FIELDS = _CERTIFICATE_PAYLOAD_FIELDS | {"canonical_sha256"}
 @dataclass(frozen=True, slots=True)
 class SolverCertificate:
     schema_version: str
-    input_sha256: str
+    source_input_sha256: str
+    analysis_input_sha256: str
     fit_schema_version: str
     fit_sha256: str
     optimizer: str
@@ -237,7 +254,16 @@ class SolverCertificate:
     def __post_init__(self) -> None:
         if self.schema_version != SOLVER_CERTIFICATE_SCHEMA:
             raise SolverEvidenceError("unsupported solver certificate schema")
-        object.__setattr__(self, "input_sha256", require_sha256(self.input_sha256, "input_sha256"))
+        object.__setattr__(
+            self,
+            "source_input_sha256",
+            require_sha256(self.source_input_sha256, "source_input_sha256"),
+        )
+        object.__setattr__(
+            self,
+            "analysis_input_sha256",
+            require_sha256(self.analysis_input_sha256, "analysis_input_sha256"),
+        )
         if self.fit_schema_version != FIT_SCHEMA:
             raise SolverEvidenceError("solver certificate must bind RandomInterceptFit v2")
         object.__setattr__(self, "fit_sha256", require_sha256(self.fit_sha256, "fit_sha256"))
@@ -282,17 +308,26 @@ class SolverCertificate:
             raise SolverEvidenceError("invalid solver iteration counts")
         if self.evaluation_count != len(self.evaluations) or self.evaluation_count < 2:
             raise SolverEvidenceError("evaluation_count must match the retained trace")
+        if self.evaluation_count != self.iterations + 2:
+            raise SolverEvidenceError("golden-section trace must retain iterations + 2 evaluations")
+        if self.initial_bracket != (-30.0, 30.0):
+            raise SolverEvidenceError("solver certificate v1 requires the frozen [-30, 30] bracket")
+        if self.termination_reason not in {"interval-tolerance", "max-iterations"}:
+            raise SolverEvidenceError("unsupported solver termination reason")
+        if not self.final_bracket[0] <= self.candidate_log_lambda <= self.final_bracket[1]:
+            raise SolverEvidenceError("candidate must lie inside the final bracket")
         invalid_count = sum(not item.valid for item in self.evaluations)
         if self.invalid_evaluation_count != invalid_count:
             raise SolverEvidenceError("invalid_evaluation_count must match the retained trace")
-        if not any(
+        candidate_matches = sum(
             item.valid
             and item.log_lambda == self.candidate_log_lambda
             and item.lambda_value == self.candidate_lambda
             and item.objective == self.candidate_objective
             for item in self.evaluations
-        ):
-            raise SolverEvidenceError("candidate must identify a valid retained evaluation")
+        )
+        if candidate_matches != 1:
+            raise SolverEvidenceError("candidate must identify one valid retained evaluation")
         object.__setattr__(
             self,
             "termination_reason",
@@ -319,7 +354,8 @@ class SolverCertificate:
     def payload(self) -> dict[str, JsonValue]:
         return {
             "schema_version": self.schema_version,
-            "input_sha256": self.input_sha256,
+            "source_input_sha256": self.source_input_sha256,
+            "analysis_input_sha256": self.analysis_input_sha256,
             "fit_schema_version": self.fit_schema_version,
             "fit_sha256": self.fit_sha256,
             "optimizer": self.optimizer,
@@ -371,7 +407,8 @@ class SolverCertificate:
             evaluations.append(SolverEvaluation.from_dict(item))
         restored = cls(
             schema_version=_string(value["schema_version"], "schema_version"),
-            input_sha256=_sha(value["input_sha256"], "input_sha256"),
+            source_input_sha256=_sha(value["source_input_sha256"], "source_input_sha256"),
+            analysis_input_sha256=_sha(value["analysis_input_sha256"], "analysis_input_sha256"),
             fit_schema_version=_string(value["fit_schema_version"], "fit_schema_version"),
             fit_sha256=_sha(value["fit_sha256"], "fit_sha256"),
             optimizer=_string(value["optimizer"], "optimizer"),
@@ -416,7 +453,8 @@ class SolverCertificate:
 _REPORT_PAYLOAD_FIELDS = frozenset(
     {
         "schema_version",
-        "input_sha256",
+        "source_input_sha256",
+        "analysis_input_sha256",
         "fit_schema_version",
         "fit_sha256",
         "certificate_schema_version",
@@ -451,9 +489,10 @@ _REPORT_FIELDS = _REPORT_PAYLOAD_FIELDS | {"canonical_sha256"}
 
 
 @dataclass(frozen=True, slots=True)
-class CrossValidationReport:
+class CrossValidationReportV1:
     schema_version: str
-    input_sha256: str
+    source_input_sha256: str
+    analysis_input_sha256: str
     fit_schema_version: str
     fit_sha256: str
     certificate_schema_version: str
@@ -487,7 +526,16 @@ class CrossValidationReport:
     def __post_init__(self) -> None:
         if self.schema_version != CROSS_VALIDATION_REPORT_SCHEMA:
             raise SolverEvidenceError("unsupported cross-validation report schema")
-        object.__setattr__(self, "input_sha256", require_sha256(self.input_sha256, "input_sha256"))
+        object.__setattr__(
+            self,
+            "source_input_sha256",
+            require_sha256(self.source_input_sha256, "source_input_sha256"),
+        )
+        object.__setattr__(
+            self,
+            "analysis_input_sha256",
+            require_sha256(self.analysis_input_sha256, "analysis_input_sha256"),
+        )
         if self.fit_schema_version != FIT_SCHEMA:
             raise SolverEvidenceError("cross-validation report must bind RandomInterceptFit v2")
         object.__setattr__(self, "fit_sha256", require_sha256(self.fit_sha256, "fit_sha256"))
@@ -532,6 +580,27 @@ class CrossValidationReport:
         ):
             if not isinstance(getattr(self, name), bool):
                 raise SolverEvidenceError(f"{name} must be boolean")
+        if (
+            self.effect_absolute_difference < 0
+            or self.variance_absolute_difference < 0
+            or self.effect_tolerance <= 0
+            or self.variance_tolerance <= 0
+        ):
+            raise SolverEvidenceError("differences must be non-negative and tolerances positive")
+        if self.effect_absolute_difference != abs(self.path_a_effect - self.path_b_effect):
+            raise SolverEvidenceError("effect_absolute_difference is not derived canonically")
+        expected_variance_difference = max(
+            abs(self.path_a_between_variance - self.path_b_between_variance),
+            abs(self.path_a_error_variance - self.path_b_error_variance),
+        )
+        if self.variance_absolute_difference != expected_variance_difference:
+            raise SolverEvidenceError("variance_absolute_difference is not derived canonically")
+        if self.effect_passed != (self.effect_absolute_difference <= self.effect_tolerance):
+            raise SolverEvidenceError("effect_passed is inconsistent with its tolerance")
+        if self.variance_passed != (
+            self.variance_validated and self.variance_absolute_difference <= self.variance_tolerance
+        ):
+            raise SolverEvidenceError("variance_passed is inconsistent with its tolerance")
         expected_profile = (
             DesignProfile.PAIRED_1X1
             if self.variance_validated
@@ -573,7 +642,8 @@ class CrossValidationReport:
     def payload(self) -> dict[str, JsonValue]:
         return {
             "schema_version": self.schema_version,
-            "input_sha256": self.input_sha256,
+            "source_input_sha256": self.source_input_sha256,
+            "analysis_input_sha256": self.analysis_input_sha256,
             "fit_schema_version": self.fit_schema_version,
             "fit_sha256": self.fit_sha256,
             "certificate_schema_version": self.certificate_schema_version,
@@ -611,11 +681,12 @@ class CrossValidationReport:
         return {**self.payload(), "canonical_sha256": self.canonical_sha256}
 
     @classmethod
-    def from_dict(cls, value: Mapping[str, object]) -> CrossValidationReport:
+    def from_dict(cls, value: Mapping[str, object]) -> CrossValidationReportV1:
         _exact_keys(value, _REPORT_FIELDS, "cross-validation report")
         restored = cls(
             schema_version=_string(value["schema_version"], "schema_version"),
-            input_sha256=_sha(value["input_sha256"], "input_sha256"),
+            source_input_sha256=_sha(value["source_input_sha256"], "source_input_sha256"),
+            analysis_input_sha256=_sha(value["analysis_input_sha256"], "analysis_input_sha256"),
             fit_schema_version=_string(value["fit_schema_version"], "fit_schema_version"),
             fit_sha256=_sha(value["fit_sha256"], "fit_sha256"),
             certificate_schema_version=_string(

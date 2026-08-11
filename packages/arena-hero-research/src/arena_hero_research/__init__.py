@@ -69,6 +69,7 @@ from arena_hero_research.hierarchical import (
     verify_solver_certificate,
 )
 from arena_hero_research.hierarchical_artifacts import (
+    CrossValidationReportV1,
     CrossValidationStatus,
     DesignProfile,
     SolverCertificate,
@@ -76,6 +77,13 @@ from arena_hero_research.hierarchical_artifacts import (
     SolverEvidenceError,
     SolverStatus,
     ValidationScope,
+)
+from arena_hero_research.hierarchical_evidence import (
+    HierarchicalAnalysisEvidence,
+    HierarchicalEvidenceError,
+    analyze_hierarchical_evidence,
+    commit_hierarchical_analysis_evidence,
+    load_hierarchical_analysis_evidence,
 )
 from arena_hero_research.ledger import (
     DataUseClaim,
@@ -138,6 +146,7 @@ __all__ = [
     "ClusterObservation",
     "ConclusionError",
     "CrossValidationReport",
+    "CrossValidationReportV1",
     "CrossValidationStatus",
     "DataQualityReport",
     "DataRole",
@@ -155,6 +164,8 @@ __all__ = [
     "Factor",
     "FilesystemResearchLedgerStorage",
     "FrozenResearchRecord",
+    "HierarchicalAnalysisEvidence",
+    "HierarchicalEvidenceError",
     "HierarchicalFitError",
     "Hypothesis",
     "HypothesisDirection",
@@ -212,15 +223,18 @@ __all__ = [
     "TornTailRecovery",
     "UndeclaredOutcomeError",
     "ValidationScope",
+    "analyze_hierarchical_evidence",
     "analyze_preregistered_paired_outcomes",
     "arithmetic_mean",
     "benjamini_hochberg",
     "build_replication_tasks",
+    "commit_hierarchical_analysis_evidence",
     "create_research_conclusion",
     "cross_validate_random_intercept",
     "fit_random_intercept",
     "fit_random_intercept_with_certificate",
     "generate_assignments",
+    "load_hierarchical_analysis_evidence",
     "merge_replications",
     "normal_approx_paired_sample_size",
     "paired_effect_with_bootstrap_ci",
