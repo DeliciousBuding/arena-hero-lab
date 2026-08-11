@@ -68,3 +68,26 @@ export const platformData = rawPlatform as PlatformStatus;
 export function shortSha(full: string): string {
   return full.slice(0, 10);
 }
+
+/**
+ * 平台面板渲染文案：数据源（platform.json）保留英文证据字段，展示层统一中文产品口吻。
+ * 信任边界保持显式：一致性 ≠ 竞技名次；性能/耗时仅为本机诊断。
+ */
+export const platformCopy = {
+  agentNote:
+    "回合→计划适配链已通过冻结已知答案摘要一致性校验。竞技跑分需完整策略与回合循环，本卡不代表竞技名次。",
+  simulatorNote: "性能与耗时仅为本机诊断，不构成生产性能声明。",
+  trustStatement: "一致性与差分证据描述确定性管线的可复现性，不代表竞技比赛结果。",
+  trustCompetitiveRankings:
+    "仅排行榜区反映真实比赛结果；平台卡片不参与、不改变竞争排名。",
+} as const;
+
+/** 展示用短仓库名：从完整 URL 提取 owner/repo，防止移动端溢出；href 仍使用完整 URL。 */
+export function shortRepo(repository: string): string {
+  try {
+    const short = new URL(repository).pathname.replace(/^\/+/, "").replace(/\/+$/, "");
+    return short || repository;
+  } catch {
+    return repository;
+  }
+}
