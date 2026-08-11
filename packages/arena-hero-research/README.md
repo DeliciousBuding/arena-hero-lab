@@ -227,6 +227,19 @@ signature, vulnerability scan, build attestation, or proof that every transitive
 component was captured. Callers must disclose the components relevant to their execution
 and may layer stronger external supply-chain attestations on the same digests.
 
+## Release artifact manifest
+
+`arena_hero_research.release` assembles the deterministic release bundle for
+the three Lab packages: built wheels and sdists bound to SHA-256 digests, one
+minimal SBOM per package, and a content-addressed
+`arena.lab.release-manifest.v1` document. The builder
+(`scripts/release_artifacts.py`) builds every package twice and byte-compares
+the results; identical builds are recorded as `reproducible=true`, and any
+difference is listed explicitly together with the source anchors. The manifest
+and SBOMs are canonical JSON without timestamps, so the same source state
+produces byte-identical release documents. This surface is reproducibility
+evidence for local releases; it never publishes or deploys anything.
+
 ## Durable ledger storage port
 
 `ResearchLedgerStorage` is the persistence port. The reference

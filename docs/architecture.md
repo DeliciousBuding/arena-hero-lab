@@ -124,6 +124,28 @@ larger `rounds`/`max_duration_seconds` extends to a 24h offline soak.
 Reports are machine-readable and carry per-round step digests, leak and
 exception counts, and a content hash of the emitted report.
 
+## Release artifacts
+
+`arena-hero-research` owns a deterministic release-bundle surface for the three
+Python packages (`arena-hero-sim`, `arena-hero-bench`, `arena-hero-research`).
+`scripts/release_artifacts.py` builds all packages twice from the same source
+state, byte-compares both builds, and writes a bundle to `dist/release/`:
+
+- the six built wheels and sdists, each bound to a SHA-256 digest;
+- one minimal SBOM per package (`arena.research.sbom.v1`) listing declared
+  workspace dependencies plus the Python runtime, with an explicit
+  `declared-dependencies-and-python-runtime` scope;
+- a content-addressed release manifest (`arena.lab.release-manifest.v1`)
+  recording per-artifact digests, SBOM identities, source anchors (git commit,
+  dirty flag, source-tree digest), a public environment snapshot, and the
+  reproducibility evidence from the two builds.
+
+The manifest and SBOMs are canonical JSON without timestamps, so the same
+source state produces byte-identical release documents. The command is
+offline-only and never publishes or deploys. When the two builds differ, the
+manifest records every byte difference explicitly and the command exits
+non-zero.
+
 ## Report conversion migration
 
 The Python converter in `arena-hero-bench` is authoritative. The previous TypeScript
