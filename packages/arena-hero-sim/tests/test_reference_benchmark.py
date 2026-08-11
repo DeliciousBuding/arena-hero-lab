@@ -260,4 +260,3 @@ def test_cli_writes_only_caller_path_when_output_given(
     captured = capsys.readouterr()
     assert captured.out == ""
     assert output.is_file()
-
