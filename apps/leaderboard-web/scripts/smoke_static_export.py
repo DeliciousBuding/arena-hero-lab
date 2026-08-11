@@ -1,17 +1,13 @@
-"""Local static-export smoke test (dev tool, not part of CI).
+"""Local static-export smoke test for the rankings-only public site.
 
-Starts the preview server (scripts/preview.mjs) and verifies with Playwright
-that the exported site behaves like a clean GitHub Pages static deployment:
-- home and /platform load with HTTP 200 on desktop and mobile viewports,
-- /platform/ (trailing slash) also loads,
-- no 4xx/5xx responses, no console errors, no page errors, no horizontal
-  overflow,
-- clicking internal links (platform + an entry page) navigates to real pages,
-- hash anchors still scroll (preserves native fragment behavior).
+Starts the preview server and verifies:
+- the ranking home loads on desktop and mobile without browser errors or overflow,
+- the removed public platform route returns 404,
+- the home contains no Python platform overview or platform navigation link,
+- entry-page navigation and native hash anchors still work.
 
 Usage (after `pnpm build`):
     python apps/leaderboard-web/scripts/smoke_static_export.py
-Requires: python `playwright` package with chromium installed.
 """
 
 from __future__ import annotations
@@ -19,13 +15,13 @@ from __future__ import annotations
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
 WEB_ROOT = Path(__file__).resolve().parent.parent
 BASE_PATH = "/arena-hero-lab"
 BASE_URL = f"http://localhost:4173{BASE_PATH}"
-PORT = 4173
 VIEWPORTS = [("desktop", 1440, 900), ("mobile", 375, 812)]
 
 
@@ -33,8 +29,8 @@ def wait_for_server(url: str, timeout: float = 30.0) -> None:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         try:
-            with urllib.request.urlopen(url, timeout=2) as resp:
-                if resp.status == 200:
+            with urllib.request.urlopen(url, timeout=2) as response:
+                if response.status == 200:
                     return
         except Exception:
             time.sleep(0.25)
@@ -45,11 +41,7 @@ def main() -> int:
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
-        print(
-            "playwright is not installed; skipping browser smoke test "
-            "(run: pip install playwright && playwright install chromium)",
-            file=sys.stderr,
-        )
+        print("playwright is not installed; skipping browser smoke test", file=sys.stderr)
         return 0
 
     server = subprocess.Popen(
@@ -61,106 +53,80 @@ def main() -> int:
     )
     failures: list[str] = []
 
-    def record(label: str, bad: list[str]) -> None:
-        for item in bad:
-            failures.append(f"[{label}] {item}")
-
     try:
         wait_for_server(BASE_URL + "/")
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
 
-            def probe(label: str, path: str, width: int, height: int) -> None:
+            for name, width, height in VIEWPORTS:
                 page = browser.new_page(viewport={"width": width, "height": height})
-                bad: list[str] = []
+                errors: list[str] = []
                 page.on(
                     "response",
-                    lambda r: bad.append(f"HTTP {r.status} {r.url}")
-                    if r.status >= 400
+                    lambda response: errors.append(f"HTTP {response.status} {response.url}")
+                    if response.status >= 400
                     else None,
                 )
                 page.on(
                     "console",
-                    lambda m: bad.append(f"console.{m.type}: {m.text}")
-                    if m.type in ("error", "warning")
+                    lambda message: errors.append(f"console.{message.type}: {message.text}")
+                    if message.type in ("error", "warning")
                     else None,
                 )
-                page.on("pageerror", lambda e: bad.append(f"pageerror: {e}"))
-                resp = page.goto(BASE_URL + path, wait_until="load", timeout=30000)
-                page.wait_for_timeout(1200)
-                if resp is None or resp.status != 200:
-                    bad.append(f"status={resp.status if resp else 'ERR'} for {path}")
-                overflow = page.evaluate(
+                page.on("pageerror", lambda error: errors.append(f"pageerror: {error}"))
+                response = page.goto(BASE_URL + "/", wait_until="load", timeout=30000)
+                page.wait_for_timeout(800)
+                if response is None or response.status != 200:
+                    errors.append(f"home status={response.status if response else 'ERR'}")
+                body = page.locator("body").inner_text()
+                if "Python 新一代平台" in body or "查看平台详情" in body:
+                    errors.append("removed Python platform overview is still visible")
+                if page.locator('a[href*="/platform"]').count() != 0:
+                    errors.append("removed platform navigation link is still present")
+                if page.evaluate(
                     "document.documentElement.scrollWidth > document.documentElement.clientWidth"
-                )
-                if overflow:
-                    bad.append("horizontal overflow detected")
-                record(f"{label} {width}x{height}", bad)
+                ):
+                    errors.append("horizontal overflow detected")
+                failures.extend(f"[home-{name}] {item}" for item in errors)
                 page.close()
 
-            for name, w, h in VIEWPORTS:
-                probe(f"home-{name}", "/", w, h)
-                probe(f"platform-{name}", "/platform", w, h)
-            probe("platform-slash", "/platform/", 1440, 900)
-
-            # Click navigation: home -> platform detail page.
+            # Removed route must not remain publicly exported.
             page = browser.new_page(viewport={"width": 1440, "height": 900})
-            bad: list[str] = []
-            page.on(
-                "response",
-                lambda r: bad.append(f"HTTP {r.status} {r.url}") if r.status >= 400 else None,
-            )
-            page.on(
-                "console",
-                lambda m: bad.append(f"console.{m.type}: {m.text}")
-                if m.type in ("error", "warning")
-                else None,
-            )
-            page.on("pageerror", lambda e: bad.append(f"pageerror: {e}"))
-            page.goto(BASE_URL + "/", wait_until="load", timeout=30000)
-            page.get_by_text("查看平台详情").first.click(timeout=10000)
-            page.wait_for_load_state("load", timeout=30000)
-            page.wait_for_timeout(1000)
-            if not page.url.startswith(BASE_URL + "/platform"):
-                bad.append(f"click to platform landed on {page.url}")
-            record("click-platform", bad)
+            response = page.goto(BASE_URL + "/platform", wait_until="load", timeout=30000)
+            if response is None or response.status != 404:
+                failures.append(
+                    f"[removed-platform] expected 404, got {response.status if response else 'ERR'}"
+                )
             page.close()
 
-            # Click navigation: home -> first entry page.
+            # Full-page static navigation to a ranking entry.
             page = browser.new_page(viewport={"width": 1440, "height": 900})
-            bad = []
+            errors: list[str] = []
             page.on(
                 "response",
-                lambda r: bad.append(f"HTTP {r.status} {r.url}") if r.status >= 400 else None,
-            )
-            page.on(
-                "console",
-                lambda m: bad.append(f"console.{m.type}: {m.text}")
-                if m.type in ("error", "warning")
+                lambda response: errors.append(f"HTTP {response.status} {response.url}")
+                if response.status >= 400
                 else None,
             )
+            page.on("pageerror", lambda error: errors.append(f"pageerror: {error}"))
             page.goto(BASE_URL + "/", wait_until="load", timeout=30000)
-            entry = page.locator(f'a[href^="{BASE_PATH}/entry/"]').first
+            entry = page.locator('a[href*="/entry/"]').first
+            href = entry.get_attribute("href")
             entry.click(timeout=10000)
             page.wait_for_load_state("load", timeout=30000)
-            page.wait_for_timeout(1000)
-            if not page.url.startswith(BASE_URL + "/entry/"):
-                bad.append(f"click to entry landed on {page.url}")
-            record("click-entry", bad)
+            if not href or href not in page.url:
+                errors.append(f"entry navigation landed on {page.url}, expected {href}")
+            failures.extend(f"[click-entry] {item}" for item in errors)
             page.close()
 
-            # Hash anchor: click 场景 nav item -> scrolls to #scenarios.
+            # Native fragment navigation remains available.
             page = browser.new_page(viewport={"width": 1440, "height": 900})
-            bad = []
             page.goto(BASE_URL + "/", wait_until="load", timeout=30000)
-            page.get_by_role("link", name="场景").first.click(timeout=10000)
-            page.wait_for_timeout(800)
-            fragment = page.evaluate("location.hash")
-            if fragment != "#scenarios":
-                bad.append(f"hash anchor did not scroll: fragment={fragment!r}")
-            record("hash-anchor", bad)
+            page.locator('a[href="#methodology"]').first.click(timeout=10000)
+            page.wait_for_timeout(300)
+            if page.url.split("#", 1)[-1] != "methodology":
+                failures.append(f"[hash-anchor] landed on {page.url}")
             page.close()
-
             browser.close()
     finally:
         server.terminate()
@@ -168,15 +134,16 @@ def main() -> int:
             server.wait(timeout=5)
         except subprocess.TimeoutExpired:
             server.kill()
+            server.wait(timeout=5)
 
     if failures:
-        print("Static export smoke test FAILED:")
-        for item in failures:
-            print(f"- {item}")
+        print("Static export smoke test failed:")
+        for failure in failures:
+            print(f"- {failure}")
         return 1
     print(
-        "Static export smoke test passed: home/platform desktop+mobile 200, "
-        "0 4xx, 0 console/page errors, no overflow, click nav + hash anchors OK."
+        "Static export smoke test passed: rankings-only home desktop+mobile 200, "
+        "platform route removed, 0 browser errors/overflow, entry + hash navigation OK."
     )
     return 0
 

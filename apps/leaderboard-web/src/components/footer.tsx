@@ -30,13 +30,6 @@ export function Footer() {
             数据源 arena-hero-agent-ts
             <ExternalLink className="h-3 w-3" />
           </StaticLink>
-          <Separator orientation="vertical" className="h-3" />
-          <StaticLink
-            href="/platform"
-            className="transition-colors hover:text-foreground"
-          >
-            Python 平台
-          </StaticLink>
         </div>
         <span className="tnum">
           {benchData.schema} · {new Date(benchData.generatedAt).toLocaleString("zh-CN")}

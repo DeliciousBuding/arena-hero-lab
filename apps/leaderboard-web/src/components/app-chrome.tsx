@@ -18,7 +18,6 @@ import {
 import { ThemeToggle } from "./theme-toggle";
 
 const NAV_ITEMS = [
-  { href: "/platform", label: "平台", sectionId: "platform" },
   { href: "/", label: "Leaderboard", sectionId: "rankings" },
   { href: "/#scenarios", label: "场景", sectionId: "scenarios" },
   { href: "/#scores", label: "画像", sectionId: "scores" },
