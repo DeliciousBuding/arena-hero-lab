@@ -63,6 +63,13 @@ measurement protocol, and public environment snapshot. The next implementation s
 A report with missing cases, failed/unsupported results, mismatched identities, or discarded raw
 samples is not publishable.
 
+The sim package now ships the first real measurement entrypoint: `--benchmark reference-workload`
+on `arena-hero-sim-bench` executes the canonical 9-episode workload through the real engine,
+freezes the workload and semantic run digests, and retains raw per-round durations
+(`arena.sim.reference-workload-benchmark.v1`, always `production_claim=false`). This harness is
+an in-process measurement signal; `arena-hero-bench` remains the owner of bounded execution,
+differential binding, content-addressed storage, and publication eligibility.
+
 ## Differential gate
 
 Every optimized backend must execute the exact same workload manifest and pass a fail-closed

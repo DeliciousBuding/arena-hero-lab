@@ -80,6 +80,19 @@ placeholder result construction. It sets `production_claim=false`; it does not m
 simulation throughput. Reports contain durations, median, p95, throughput, Python version,
 platform family, backend id, and engine version without host identity.
 
+The same command selects the real-engine harness against the frozen canonical workload:
+
+```bash
+uv run arena-hero-sim-bench --benchmark reference-workload --repeats 5 --batch-size 9
+```
+
+Schema: `arena.sim.reference-workload-benchmark.v1`. A round is exactly one execution of the
+canonical 9-episode reference workload through the real engine, including the known-answer
+gate and the semantic run digest. `--episodes` is rejected for this selector because a round
+is a fixed semantic unit, not a copyable scenario count. The report binds the workload and
+run digests, retains raw per-round durations with median/p95, and records backend identity
+plus Python/platform metadata without host identity. It always sets `production_claim=false`.
+
 ## Reference workload gate
 
 The backend-neutral workload contract and the mandatory reference/optimized differential gate are

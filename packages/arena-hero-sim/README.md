@@ -99,6 +99,22 @@ The existing `arena-hero-sim-bench` command still measures only contract validat
 placeholder batch dispatch. It is not an engine-throughput benchmark and always records
 `production_claim=false`.
 
+A second, versioned harness measures the real reference engine against the frozen
+canonical workload:
+
+```bash
+uv run arena-hero-sim-bench --benchmark reference-workload --repeats 5 --batch-size 9
+```
+
+Schema: `arena.sim.reference-workload-benchmark.v1`. Each round is exactly one execution
+of the canonical 9-episode `reference-movement-dependency` workload through
+`run_canonical_reference_workload`; the episode count is fixed by the manifest and cannot
+be scaled by a caller-supplied `--episodes` value. The report binds the workload digest and
+the semantic run digest, retains raw per-round `perf_counter_ns` durations with median/p95,
+records backend identity plus public Python/platform metadata, and always sets
+`production_claim=false`. Reports never include host identity: no absolute paths, user
+names, or hostnames.
+
 M4 intentionally adds no reference-engine throughput claim. The reference engine is the
 correctness oracle. `WorkloadManifest` and `WorkloadCase` now freeze a backend-neutral,
 content-addressed workload identity and deterministic request expansion; see
