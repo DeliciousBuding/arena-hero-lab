@@ -407,13 +407,25 @@ class SoakReport:
 # --- Resource probes --------------------------------------------------------
 
 
+def _win_last_error() -> int:
+    """Return the Windows last-error code for the kernel32 handle API.
+
+    ``ctypes.get_last_error`` is Windows-only, so it is resolved through
+    ``getattr`` to keep the module type-checkable on POSIX, where the member
+    does not exist in the standard library. Only Windows callers (guarded by
+    ``_kernel32 is not None``) reach this helper.
+    """
+    get_last_error = getattr(ctypes, "get_last_error")  # noqa: B009
+    return int(get_last_error())
+
+
 def _windows_handle_count() -> int:
     if _kernel32 is None:  # pragma: no cover - non-Windows
         raise ReplaySoakError("Windows handle probe unavailable")
     count = wintypes.DWORD()
     handle = _kernel32.GetCurrentProcess()
     if not _kernel32.GetProcessHandleCount(handle, ctypes.byref(count)):
-        raise ReplaySoakError(f"GetProcessHandleCount failed: {ctypes.get_last_error()}")
+        raise ReplaySoakError(f"GetProcessHandleCount failed: {_win_last_error()}")
     return int(count.value)
 
 
@@ -422,13 +434,13 @@ def _windows_process_parents() -> dict[int, int]:
         raise ReplaySoakError("Windows process snapshot unavailable")
     snapshot = _kernel32.CreateToolhelp32Snapshot(_TH32CS_SNAPPROCESS, 0)
     if snapshot == _INVALID_HANDLE_VALUE:
-        raise ReplaySoakError(f"CreateToolhelp32Snapshot failed: {ctypes.get_last_error()}")
+        raise ReplaySoakError(f"CreateToolhelp32Snapshot failed: {_win_last_error()}")
     parents: dict[int, int] = {}
     try:
         entry = _ProcessEntry32W()
         entry.dwSize = ctypes.sizeof(_ProcessEntry32W)
         if not _kernel32.Process32FirstW(snapshot, ctypes.byref(entry)):
-            raise ReplaySoakError(f"Process32FirstW failed: {ctypes.get_last_error()}")
+            raise ReplaySoakError(f"Process32FirstW failed: {_win_last_error()}")
         while True:
             parents[int(entry.th32ProcessID)] = int(entry.th32ParentProcessID)
             if not _kernel32.Process32NextW(snapshot, ctypes.byref(entry)):
