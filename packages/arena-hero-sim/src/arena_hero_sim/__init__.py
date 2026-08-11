@@ -45,6 +45,7 @@ from arena_hero_sim.reference_contracts import (
     ReferenceTurn,
     ReferenceUnit,
     ReferenceWorld,
+    ReplayArtifactIdentity,
 )
 from arena_hero_sim.reference_engine import (
     ReferenceEpisodeResult,
@@ -131,6 +132,7 @@ __all__ = [
     "ReferenceWorkloadError",
     "ReferenceWorkloadRunner",
     "ReferenceWorld",
+    "ReplayArtifactIdentity",
     "RulesetRef",
     "SimulationRequest",
     "SimulationResult",

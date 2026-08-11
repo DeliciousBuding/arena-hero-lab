@@ -25,7 +25,7 @@ from arena_hero_sim.reference_engine import (
 )
 
 REFERENCE_BACKEND_ID = "reference-engine"
-REFERENCE_ENGINE_VERSION = "0.1.1-m4"
+REFERENCE_ENGINE_VERSION = "0.2.0-replay-identity"
 REFERENCE_PROTOCOL_VERSION = "arena.sim.v1"
 REFERENCE_RULESET = RulesetRef(
     "arena-hero",
@@ -161,7 +161,7 @@ class ReferenceEngineBackend:
             ticks_completed=episode.ticks_completed,
             final_world_sha256=episode.final_world.sha256,
             metrics=episode.metrics,
-            artifact_refs=(f"replay-sha256:{episode.replay.payload_sha256}",),
+            artifact_refs=episode.replay.artifact_identity.to_artifact_refs(),
             errors=(
                 ()
                 if status is SimulationStatus.COMPLETE

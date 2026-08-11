@@ -8,6 +8,7 @@ import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
+from hashlib import sha256
 from types import MappingProxyType
 
 from arena_hero_sim.serialization import canonical_json_bytes, content_sha256
@@ -618,6 +619,28 @@ class ReferenceReplay:
     def final_world_sha256(self) -> str:
         return str(self.payload["finalWorldSha256"])
 
+    @property
+    def semantic_sha256(self) -> str:
+        """Backend-neutral identity excluding the backend-specific request id."""
+
+        semantic_payload = dict(self.payload)
+        semantic_payload.pop("requestId")
+        return content_sha256(semantic_payload)
+
+    @property
+    def envelope_sha256(self) -> str:
+        """Identity of the complete canonical replay envelope bytes."""
+
+        return sha256(self.to_bytes()).hexdigest()
+
+    @property
+    def artifact_identity(self) -> ReplayArtifactIdentity:
+        return ReplayArtifactIdentity(
+            payload_sha256=self.payload_sha256,
+            envelope_sha256=self.envelope_sha256,
+            semantic_sha256=self.semantic_sha256,
+        )
+
     def to_bytes(self) -> bytes:
         return canonical_json_bytes(
             {"payload": dict(self.payload), "payloadSha256": self.payload_sha256}
@@ -632,3 +655,68 @@ class ReferenceReplay:
         if not isinstance(payload, dict):
             raise ValueError("replay payload must be an object")
         return cls(payload, str(raw["payloadSha256"]))
+
+
+@dataclass(frozen=True, slots=True)
+class ReplayArtifactIdentity:
+    """Strict replay artifact refs separating storage and semantic identity."""
+
+    payload_sha256: str
+    envelope_sha256: str
+    semantic_sha256: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self, "payload_sha256", _sha256(self.payload_sha256, "replay payload sha256")
+        )
+        object.__setattr__(
+            self,
+            "envelope_sha256",
+            _sha256(self.envelope_sha256, "replay envelope sha256"),
+        )
+        object.__setattr__(
+            self,
+            "semantic_sha256",
+            _sha256(self.semantic_sha256, "replay semantic sha256"),
+        )
+
+    def to_artifact_refs(self, *, include_legacy_alias: bool = True) -> tuple[str, ...]:
+        refs = (
+            f"replay-payload-sha256:{self.payload_sha256}",
+            f"replay-envelope-sha256:{self.envelope_sha256}",
+            f"replay-semantic-sha256:{self.semantic_sha256}",
+        )
+        if include_legacy_alias:
+            return (f"replay-sha256:{self.payload_sha256}", *refs)
+        return refs
+
+    @classmethod
+    def from_artifact_refs(cls, refs: tuple[str, ...]) -> ReplayArtifactIdentity:
+        prefixes = {
+            "replay-sha256": "legacy",
+            "replay-payload-sha256": "payload",
+            "replay-envelope-sha256": "envelope",
+            "replay-semantic-sha256": "semantic",
+        }
+        values: dict[str, str] = {}
+        for ref in refs:
+            prefix, separator, digest = ref.partition(":")
+            field = prefixes.get(prefix)
+            if field is None:
+                continue
+            if not separator or field in values:
+                raise ValueError("replay artifact refs are malformed or duplicated")
+            values[field] = _sha256(digest, f"{prefix} digest")
+        if set(values) != {"legacy", "payload", "envelope", "semantic"}:
+            raise ValueError("replay artifact refs are incomplete")
+        if values["legacy"] != values["payload"]:
+            raise ValueError("legacy replay digest must match the explicit payload digest")
+        return cls(
+            payload_sha256=values["payload"],
+            envelope_sha256=values["envelope"],
+            semantic_sha256=values["semantic"],
+        )
+
+    def verify(self, replay: ReferenceReplay) -> None:
+        if self != replay.artifact_identity:
+            raise ValueError("replay artifact identity does not match replay content")

@@ -516,7 +516,7 @@ def test_backend_registration_and_capabilities_are_fail_closed() -> None:
         ReferenceEngineBackend((scenario, scenario))
 
     descriptor = ReferenceEngineBackend((scenario,)).descriptor
-    assert descriptor.engine_version == "0.1.1-m4"
+    assert descriptor.engine_version == "0.2.0-replay-identity"
     capabilities = descriptor.capabilities
     assert capabilities.supports_batch is True
     assert capabilities.supports_incremental_world_hash is False

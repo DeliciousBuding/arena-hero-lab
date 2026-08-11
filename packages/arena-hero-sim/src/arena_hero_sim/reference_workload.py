@@ -33,6 +33,7 @@ from arena_hero_sim.reference_contracts import (
     ReferenceTurn,
     ReferenceUnit,
     ReferenceWorld,
+    ReplayArtifactIdentity,
 )
 from arena_hero_sim.registry import BackendRegistry
 from arena_hero_sim.serialization import JsonValue, content_sha256, to_json_value
@@ -906,7 +907,9 @@ def _episode_known_answer_mismatches(
         mismatches.append("final_world_sha256")
     if dict(episode.metrics) != dict(answer.metrics):
         mismatches.append("metrics")
-    if episode.artifact_refs != answer.required_artifact_refs:
+    replay_identity = ReplayArtifactIdentity.from_artifact_refs(episode.artifact_refs)
+    legacy_refs = (f"replay-sha256:{replay_identity.payload_sha256}",)
+    if legacy_refs != answer.required_artifact_refs:
         mismatches.append("artifact_refs")
     return tuple(mismatches)
 
@@ -1048,7 +1051,7 @@ def compare_workload_runs(reference: WorkloadRun, candidate: WorkloadRun) -> Dif
         "seed",
         "ticks_completed",
         "final_world_sha256",
-        "artifact_refs",
+        "replay_semantic_sha256",
     )
     for episode_id in reference_ids:
         expected = reference_by_id[episode_id]
@@ -1057,8 +1060,25 @@ def compare_workload_runs(reference: WorkloadRun, candidate: WorkloadRun) -> Dif
             add("missing_episode", episode_id, None, episode_id=episode_id)
             continue
         for field_name in semantic_fields:
-            expected_value = getattr(expected, field_name)
-            actual_value = getattr(actual, field_name)
+            if field_name == "replay_semantic_sha256":
+                try:
+                    expected_value = ReplayArtifactIdentity.from_artifact_refs(
+                        expected.artifact_refs
+                    ).semantic_sha256
+                    actual_value = ReplayArtifactIdentity.from_artifact_refs(
+                        actual.artifact_refs
+                    ).semantic_sha256
+                except ValueError:
+                    add(
+                        "artifact_refs",
+                        expected.artifact_refs,
+                        actual.artifact_refs,
+                        episode_id=episode_id,
+                    )
+                    continue
+            else:
+                expected_value = getattr(expected, field_name)
+                actual_value = getattr(actual, field_name)
             if isinstance(expected_value, SimulationStatus):
                 expected_value = expected_value.value
                 actual_value = actual_value.value

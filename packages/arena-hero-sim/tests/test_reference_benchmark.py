@@ -23,7 +23,7 @@ from arena_hero_sim.microbenchmark import (
     run_reference_workload_benchmark,
 )
 
-_CANONICAL_RUN_SHA256 = "a6a65868a0eb8560b4ed43f133c6f4255d65c6f5a5fd1954231fb125bf6e3372"
+_CANONICAL_RUN_SHA256 = "c143ccfc73ce6c784e6abfadda237cda33af63854929ec27d8bc50c41763045e"
 
 
 def test_report_shape_and_frozen_identity() -> None:

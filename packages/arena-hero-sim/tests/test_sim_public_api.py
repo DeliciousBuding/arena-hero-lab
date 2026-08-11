@@ -39,6 +39,7 @@ _EXPECTED_PUBLIC_API = {
     "ReferencePlayer",
     "ReferenceReplay",
     "ReferenceReplayFrame",
+    "ReplayArtifactIdentity",
     "ReferenceRng",
     "ReferenceRules",
     "ReferenceScenario",
