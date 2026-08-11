@@ -58,6 +58,9 @@ jobs:
       - name: Web build
         run: pnpm build
 
+      - name: Static export integrity check
+        run: uv run python scripts/check_static_export.py
+
       - name: Platform artifact freshness
         run: |
           uv run python scripts/generate_platform.py
