@@ -135,6 +135,14 @@ def test_attribution_bar_rejects_unverified_attribution() -> None:
         render_attribution_bar_figure(attribution=restored, figure_id="fig-att", title="T")
 
 
+def test_figure_id_is_normalized_before_digest() -> None:
+    figure = render_effect_forest_figure(
+        estimates=_estimates(), figure_id="  fig-padded  ", title="T"
+    )
+    assert figure.figure_id == "fig-padded"
+    assert figure.verify()
+
+
 def test_figure_artifact_round_trip() -> None:
     figure = render_effect_forest_figure(
         estimates=_estimates(), figure_id="fig-rt", title="Round trip"

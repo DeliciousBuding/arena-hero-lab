@@ -229,11 +229,12 @@ def _build_artifact(
 ) -> FigureArtifact:
     # Validation normalizes text by stripping; the content address must be
     # computed over the same normalized payload the artifact will verify.
+    normalized_figure_id = figure_id.strip()
     normalized_title = title.strip()
     normalized_svg = svg.strip()
     return FigureArtifact(
         schema_version=FIGURE_SCHEMA,
-        figure_id=figure_id,
+        figure_id=normalized_figure_id,
         kind=kind,
         title=normalized_title,
         svg=normalized_svg,
@@ -241,7 +242,7 @@ def _build_artifact(
             {
                 "schema_version": FIGURE_SCHEMA,
                 "generator_version": FIGURE_GENERATOR_VERSION,
-                "figure_id": figure_id,
+                "figure_id": normalized_figure_id,
                 "kind": kind.value,
                 "title": normalized_title,
                 "svg": normalized_svg,
