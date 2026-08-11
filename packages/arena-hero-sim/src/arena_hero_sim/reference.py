@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from types import MappingProxyType
+from typing import Protocol
 
 from arena_hero_sim.backend import BackendDescriptor
 from arena_hero_sim.contracts import (
@@ -16,7 +18,9 @@ from arena_hero_sim.reference_contracts import (
     REFERENCE_MOVEMENT_RULE_IDENTITY,
     REFERENCE_RULES,
     ReferenceEpisodeStatus,
+    ReferenceReplay,
     ReferenceScenario,
+    ReplayArtifactIdentity,
 )
 from arena_hero_sim.reference_engine import (
     ReferenceEpisodeResult,
@@ -43,6 +47,65 @@ REFERENCE_FEATURES = frozenset(
         "versioned-replay-v1",
     }
 )
+
+
+class ReplayArtifactResolutionError(LookupError):
+    pass
+
+
+class ReplayArtifactResolver(Protocol):
+    def resolve_replay(self, envelope_sha256: str) -> ReferenceReplay: ...
+
+
+class BoundedReplayArtifactResolver:
+    """Bounded in-memory replay bytes indexed by verified envelope identity."""
+
+    def __init__(self, *, capacity: int = 4096) -> None:
+        if capacity < 1:
+            raise ValueError("replay resolver capacity must be positive")
+        self._capacity = capacity
+        self._artifacts: OrderedDict[str, bytes] = OrderedDict()
+
+    @property
+    def capacity(self) -> int:
+        return self._capacity
+
+    @property
+    def entry_count(self) -> int:
+        return len(self._artifacts)
+
+    def store_replay(self, replay: ReferenceReplay) -> ReplayArtifactIdentity:
+        encoded = replay.to_bytes()
+        decoded = ReferenceReplay.from_bytes(encoded)
+        identity = decoded.artifact_identity
+        identity.verify(decoded)
+        existing = self._artifacts.get(identity.envelope_sha256)
+        if existing is not None and existing != encoded:
+            raise ReplayArtifactResolutionError(
+                "replay envelope digest resolved to different canonical bytes"
+            )
+        self._artifacts[identity.envelope_sha256] = encoded
+        self._artifacts.move_to_end(identity.envelope_sha256)
+        while len(self._artifacts) > self._capacity:
+            self._artifacts.popitem(last=False)
+        return identity
+
+    def resolve_replay(self, envelope_sha256: str) -> ReferenceReplay:
+        try:
+            encoded = self._artifacts[envelope_sha256]
+        except KeyError as error:
+            raise ReplayArtifactResolutionError(
+                f"unknown replay envelope sha256: {envelope_sha256}"
+            ) from error
+        self._artifacts.move_to_end(envelope_sha256)
+        replay = ReferenceReplay.from_bytes(encoded)
+        identity = replay.artifact_identity
+        if identity.envelope_sha256 != envelope_sha256:
+            raise ReplayArtifactResolutionError(
+                "resolved replay bytes do not match the requested envelope identity"
+            )
+        identity.verify(replay)
+        return replay
 
 
 class ReferenceBackendPlaceholder:
@@ -110,7 +173,9 @@ class ReferenceEngineBackend:
         ),
     )
 
-    def __init__(self, scenarios: tuple[ReferenceScenario, ...]) -> None:
+    def __init__(
+        self, scenarios: tuple[ReferenceScenario, ...], *, replay_capacity: int = 4096
+    ) -> None:
         by_digest: dict[str, ReferenceScenario] = {}
         ids: set[str] = set()
         for scenario in scenarios:
@@ -121,10 +186,18 @@ class ReferenceEngineBackend:
             ids.add(scenario.scenario_id)
             by_digest[scenario.sha256] = scenario
         self._scenarios = MappingProxyType(by_digest)
+        self._replay_artifacts = BoundedReplayArtifactResolver(capacity=replay_capacity)
 
     @property
     def descriptor(self) -> BackendDescriptor:
         return self._descriptor
+
+    @property
+    def replay_artifact_resolver(self) -> ReplayArtifactResolver:
+        return self._replay_artifacts
+
+    def resolve_replay(self, envelope_sha256: str) -> ReferenceReplay:
+        return self._replay_artifacts.resolve_replay(envelope_sha256)
 
     def execute(self, request: SimulationRequest) -> ReferenceEpisodeResult:
         problem = self._support_problem(request)
@@ -149,6 +222,7 @@ class ReferenceEngineBackend:
             if episode.status is ReferenceEpisodeStatus.COMPLETE
             else SimulationStatus.PARTIAL
         )
+        replay_identity = self._replay_artifacts.store_replay(episode.replay)
         return SimulationResult(
             request_id=request.request_id,
             episode_id=request.episode_id,
@@ -161,7 +235,7 @@ class ReferenceEngineBackend:
             ticks_completed=episode.ticks_completed,
             final_world_sha256=episode.final_world.sha256,
             metrics=episode.metrics,
-            artifact_refs=episode.replay.artifact_identity.to_artifact_refs(),
+            artifact_refs=replay_identity.to_artifact_refs(),
             errors=(
                 ()
                 if status is SimulationStatus.COMPLETE

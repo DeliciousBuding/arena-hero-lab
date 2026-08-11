@@ -20,6 +20,7 @@ from arena_hero_sim.reference import (
     REFERENCE_PROTOCOL_VERSION,
     REFERENCE_RULESET,
     ReferenceEngineBackend,
+    ReplayArtifactResolver,
 )
 from arena_hero_sim.reference_contracts import (
     REFERENCE_RULES,
@@ -689,6 +690,8 @@ class WorkloadEpisodeResult:
         object.__setattr__(self, "metrics", _frozen_float_map(self.metrics))
         object.__setattr__(self, "artifact_refs", tuple(self.artifact_refs))
         object.__setattr__(self, "errors", tuple(self.errors))
+        if self.errors and (self.status is SimulationStatus.COMPLETE or self.publishable):
+            raise ValueError("complete or publishable workload episodes cannot contain errors")
 
     @classmethod
     def from_request_result(
@@ -757,6 +760,8 @@ class WorkloadRun:
         object.__setattr__(self, "issues", tuple(self.issues))
         if self.publishable and self.issues:
             raise ValueError("publishable workload runs cannot contain issues")
+        if self.publishable and any(episode.errors for episode in self.episodes):
+            raise ValueError("publishable workload runs cannot contain episode errors")
 
     @classmethod
     def create(
@@ -798,6 +803,8 @@ class WorkloadRun:
                 issues.append(f"episode {index} is not publishable")
             if result.final_world_sha256 is None:
                 issues.append(f"episode {index} has no final world digest")
+            if result.errors:
+                issues.append(f"episode {index} contains backend errors")
             if not all(math.isfinite(value) for value in result.metrics.values()):
                 issues.append(f"episode {index} contains non-finite metrics")
             episodes.append(WorkloadEpisodeResult.from_request_result(request, result))
@@ -853,10 +860,16 @@ class BackendWorkloadRunner:
         self._backend = backend
         self._registry = BackendRegistry()
         self._descriptor = self._registry.register(backend)
+        resolver = getattr(backend, "replay_artifact_resolver", None)
+        self._replay_artifact_resolver: ReplayArtifactResolver | None = resolver
 
     @property
     def backend(self) -> SimulatorBackend:
         return self._backend
+
+    @property
+    def replay_artifact_resolver(self) -> ReplayArtifactResolver | None:
+        return self._replay_artifact_resolver
 
     def run(self, manifest: WorkloadManifest, *, batch_size: int = 1) -> WorkloadRun:
         if manifest.ruleset != REFERENCE_RULESET:
@@ -889,6 +902,8 @@ class BackendWorkloadRunner:
         )
         if not run.publishable:
             raise ReferenceWorkloadError("workload backend failed closed: " + "; ".join(run.issues))
+        if self._replay_artifact_resolver is not None:
+            verify_workload_replay_artifacts(run, self._replay_artifact_resolver)
         return run
 
 
@@ -935,6 +950,28 @@ def _episode_known_answer_mismatches(
     if legacy_refs != answer.required_artifact_refs:
         mismatches.append("artifact_refs")
     return tuple(mismatches)
+
+
+def verify_workload_replay_artifacts(run: WorkloadRun, resolver: ReplayArtifactResolver) -> None:
+    """Resolve and verify every replay ref against canonical replay bytes."""
+
+    for episode in run.episodes:
+        try:
+            identity = ReplayArtifactIdentity.from_artifact_refs(episode.artifact_refs)
+            replay = resolver.resolve_replay(identity.envelope_sha256)
+            identity.verify(replay)
+        except (LookupError, ValueError) as error:
+            raise ReferenceWorkloadError(
+                f"replay artifact verification failed for {episode.episode_id}: {error}"
+            ) from error
+        if replay.payload["requestId"] != episode.request_id:
+            raise ReferenceWorkloadError(
+                f"replay request identity mismatch for {episode.episode_id}"
+            )
+        if replay.payload["episodeId"] != episode.episode_id:
+            raise ReferenceWorkloadError(
+                f"replay episode identity mismatch for {episode.episode_id}"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1009,7 +1046,13 @@ class DifferentialReport:
         return content_sha256(self.to_dict())
 
 
-def compare_workload_runs(reference: WorkloadRun, candidate: WorkloadRun) -> DifferentialReport:
+def compare_workload_runs(
+    reference: WorkloadRun,
+    candidate: WorkloadRun,
+    *,
+    reference_replay_resolver: ReplayArtifactResolver | None = None,
+    candidate_replay_resolver: ReplayArtifactResolver | None = None,
+) -> DifferentialReport:
     """Compare semantic episode evidence without treating speed as correctness."""
 
     mismatches: list[DifferentialMismatch] = []
@@ -1029,6 +1072,17 @@ def compare_workload_runs(reference: WorkloadRun, candidate: WorkloadRun) -> Dif
                 episode_id=episode_id,
             )
         )
+
+    for label, run, resolver in (
+        ("reference", reference, reference_replay_resolver),
+        ("candidate", candidate, candidate_replay_resolver),
+    ):
+        if resolver is None:
+            continue
+        try:
+            verify_workload_replay_artifacts(run, resolver)
+        except ReferenceWorkloadError as error:
+            add(f"{label}_run.replay_artifacts", "verified", str(error))
 
     for field_name in ("manifest_sha256", "workload_id", "workload_version", "ruleset"):
         expected = getattr(reference, field_name)
@@ -1074,6 +1128,7 @@ def compare_workload_runs(reference: WorkloadRun, candidate: WorkloadRun) -> Dif
         "seed",
         "ticks_completed",
         "final_world_sha256",
+        "errors",
     )
     for episode_id in reference_ids:
         expected = reference_by_id[episode_id]

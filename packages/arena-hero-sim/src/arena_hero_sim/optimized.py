@@ -117,8 +117,10 @@ class OptimizedEngineBackend(ReferenceEngineBackend):
         ),
     )
 
-    def __init__(self, scenarios: tuple[ReferenceScenario, ...]) -> None:
-        super().__init__(scenarios)
+    def __init__(
+        self, scenarios: tuple[ReferenceScenario, ...], *, replay_capacity: int = 4096
+    ) -> None:
+        super().__init__(scenarios, replay_capacity=replay_capacity)
         self._visibility_cache = _StaticVisibilityCache()
 
     def execute(self, request: SimulationRequest) -> ReferenceEpisodeResult:

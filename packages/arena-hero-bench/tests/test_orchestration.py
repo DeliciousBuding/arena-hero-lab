@@ -10,6 +10,7 @@ from arena_hero_bench.orchestration import (
     InMemoryExecutionLedger,
     LocalBatchExecutor,
     MissingShardError,
+    OrchestrationError,
     RunId,
     RunStatus,
     ShardId,
@@ -17,7 +18,13 @@ from arena_hero_bench.orchestration import (
     ShardResult,
     merge_shards,
 )
-from arena_hero_sim.contracts import RulesetRef, SimulationRequest, SimulatorConfig
+from arena_hero_sim.contracts import (
+    RulesetRef,
+    SimulationRequest,
+    SimulationResult,
+    SimulationStatus,
+    SimulatorConfig,
+)
 from arena_hero_sim.reference import ReferenceBackendPlaceholder
 from arena_hero_sim.registry import BackendRegistry
 
@@ -102,3 +109,31 @@ def test_local_executor_is_idempotent_and_placeholder_is_partial() -> None:
     assert first.status is RunStatus.PARTIAL
     assert first.publishable is False
     assert store.get(first.content_sha256)
+
+
+def test_shard_materialization_rejects_complete_result_with_errors() -> None:
+    plan = ShardPlan.create(
+        operation_id="operation-errors",
+        experiment_id=ExperimentId("experiment-errors"),
+        run_id=RunId("run-errors"),
+        shard_id=ShardId("shard-errors"),
+        requests=(request(),),
+    )
+    forged = SimulationResult(
+        request_id="request-1",
+        episode_id="episode-1",
+        backend_id="reference-placeholder",
+        engine_version="0.1.0-placeholder",
+        rules_sha256="c" * 64,
+        seed=1,
+        status=SimulationStatus.COMPLETE,
+        publishable=True,
+        ticks_completed=1,
+        final_world_sha256="f" * 64,
+        errors=("backend reported an error",),
+    )
+
+    with pytest.raises(OrchestrationError, match="cannot contain errors"):
+        from arena_hero_bench.orchestration import build_shard_result
+
+        build_shard_result(plan, (forged,), InMemoryArtifactStore())

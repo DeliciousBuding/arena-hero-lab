@@ -278,6 +278,11 @@ def build_shard_result(
         request.request_id for request in plan.requests
     ):
         raise OrchestrationError("simulation results must be in plan request order")
+    if any(
+        item.errors and (item.status is SimulationStatus.COMPLETE or item.publishable)
+        for item in results
+    ):
+        raise OrchestrationError("complete or publishable simulation results cannot contain errors")
     if any(item.status is SimulationStatus.FAILED for item in results):
         status = RunStatus.FAILED
     elif all(item.status is SimulationStatus.COMPLETE for item in results):

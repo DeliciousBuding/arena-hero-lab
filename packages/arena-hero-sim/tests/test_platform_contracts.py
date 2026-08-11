@@ -162,6 +162,37 @@ class DescriptorDriftBackend:
         return results
 
 
+class CompleteErrorBackend(DescriptorDriftBackend):
+    def simulate(self, request: SimulationRequest) -> SimulationResult:
+        return SimulationResult(
+            request_id=request.request_id,
+            episode_id=request.episode_id,
+            backend_id=request.config.backend_id,
+            engine_version=request.config.engine_version,
+            rules_sha256=request.config.ruleset.rules_sha256,
+            seed=request.config.seed,
+            status=SimulationStatus.COMPLETE,
+            publishable=True,
+            ticks_completed=1,
+            final_world_sha256="f" * 64,
+            errors=("backend reported an error",),
+        )
+
+    def simulate_batch(
+        self, requests: tuple[SimulationRequest, ...]
+    ) -> tuple[SimulationResult, ...]:
+        return tuple(self.simulate(item) for item in requests)
+
+
+def test_registry_rejects_complete_results_with_errors() -> None:
+    backend = CompleteErrorBackend()
+    value = BackendRegistry()
+    value.register(backend)
+
+    with pytest.raises(BackendContractError, match="cannot contain errors"):
+        value.simulate(request())
+
+
 class AlternatingDescriptorBackend(DescriptorDriftBackend):
     def __init__(self) -> None:
         super().__init__()

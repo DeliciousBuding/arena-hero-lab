@@ -188,3 +188,7 @@ class BackendRegistry:
         )
         if actual != expected:
             raise BackendContractError("backend result identity does not match the request")
+        if result.errors and (result.status.value == "complete" or result.publishable):
+            raise BackendContractError(
+                "complete or publishable backend results cannot contain errors"
+            )
