@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { platformData, shortSha } from "@/lib/platform";
+import { platformCopy, platformData, shortSha } from "@/lib/platform";
 import { SectionHeader } from "@/components/section-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 
 function DigestRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 text-[11px]">
+    <div className="flex items-center justify-between gap-3 text-xs">
       <span className="text-muted-foreground">{label}</span>
       <code className="tnum text-foreground">{shortSha(value)}</code>
     </div>
@@ -40,7 +40,7 @@ function PlatformCard({
             </span>
             <CardTitle>{title}</CardTitle>
           </div>
-          <Badge variant={badgeVariant}>{badge}</Badge>
+          <Badge variant={badgeVariant} className="text-xs">{badge}</Badge>
         </div>
         <p className="text-xs leading-relaxed text-muted-foreground">{description}</p>
       </CardHeader>
@@ -54,7 +54,7 @@ function PlatformCard({
  * 徽章与摘要全部来自确定性验证证据；本区不参与竞争排名。
  */
 export function PlatformOverview() {
-  const { agent, simulator, research, trust_boundary } = platformData;
+  const { agent, simulator, research } = platformData;
 
   return (
     <section className="mb-16 scroll-mt-20">
@@ -79,7 +79,7 @@ export function PlatformOverview() {
             <code className="tnum text-foreground">{agent.source_commit_short}</code>
           </div>
           <Separator className="my-1" />
-          <p className="leading-relaxed text-muted-foreground">{agent.note}</p>
+          <p className="leading-relaxed text-muted-foreground">{platformCopy.agentNote}</p>
         </PlatformCard>
 
         <PlatformCard
@@ -92,13 +92,13 @@ export function PlatformOverview() {
           <DigestRow label="差分摘要" value={simulator.evidence.differential_sha256} />
           <DigestRow label="回合顺序摘要" value={simulator.evidence.episode_order_sha256} />
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">场景 × 批次</span>
+            <span className="text-muted-foreground">场景 · 批次</span>
             <span className="tnum text-foreground">
-              {simulator.evidence.case_count} × {simulator.evidence.batch_size}
+              {simulator.evidence.case_count} 场景 · 每批 {simulator.evidence.batch_size}
             </span>
           </div>
           <Separator className="my-1" />
-          <p className="leading-relaxed text-muted-foreground">{simulator.performance.note}</p>
+          <p className="leading-relaxed text-muted-foreground">{platformCopy.simulatorNote}</p>
         </PlatformCard>
 
         <PlatformCard
@@ -112,17 +112,17 @@ export function PlatformOverview() {
           <DigestRow label="证书摘要" value={research.certificate.canonical_sha256} />
           <DigestRow label="报告摘要" value={research.report.canonical_sha256} />
           <Separator className="my-1" />
-          <p className="leading-relaxed text-muted-foreground">{trust_boundary.statement}</p>
+          <p className="leading-relaxed text-muted-foreground">{platformCopy.trustStatement}</p>
         </PlatformCard>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-card px-4 py-3">
         <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
-          {trust_boundary.competitive_rankings} 速测数据仅为本机诊断，不构成生产性能声明。
+          {platformCopy.trustCompetitiveRankings} {platformCopy.simulatorNote}
         </p>
         <Link
           href="/platform"
-          className="inline-flex items-center gap-1 text-xs font-medium text-brand transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 rounded-sm text-xs font-medium text-foreground underline decoration-foreground/40 underline-offset-4 transition-colors hover:bg-brand-soft hover:decoration-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           查看平台详情
           <ArrowRight className="h-3.5 w-3.5" />
