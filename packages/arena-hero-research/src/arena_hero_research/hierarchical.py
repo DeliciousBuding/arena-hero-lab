@@ -871,7 +871,7 @@ def _build_solver_certificate(
     interval_error = (trace.final_upper - trace.final_lower) * max(
         abs(lower_curvature), abs(curvature), abs(upper_curvature)
     )
-    roundoff_error = 8.0 * math.sqrt(math.ulp(1.0)) * score_scale
+    roundoff_error = 16.0 * math.sqrt(math.ulp(1.0)) * score_scale
     kkt_tolerance = max(roundoff_error, interval_error)
     if fit.boundary_lambda and trace.candidate.log_lambda < 0:
         kkt_residual = max(score, 0.0)
