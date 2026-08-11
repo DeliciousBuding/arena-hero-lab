@@ -32,6 +32,10 @@ class IncompleteShardError(OrchestrationError):
     pass
 
 
+class CorruptShardError(OrchestrationError):
+    pass
+
+
 class IdempotencyConflictError(OrchestrationError):
     pass
 
@@ -345,7 +349,32 @@ class LocalBatchExecutor:
         return result
 
 
-def merge_shards(expected_shards: Sequence[ShardId], results: Sequence[ShardResult]) -> MergedRun:
+def _verify_shard_content(result: ShardResult, artifact_store: ArtifactStore) -> None:
+    """Fail closed unless the shard artifact bytes match the claimed digest.
+
+    Corruption is judged by content: the artifact is fetched and re-hashed
+    against ``result.content_sha256``, never by mere presence of the result.
+    A store that cannot return the addressed bytes (missing or internally
+    corrupt object) is also a content-verification failure.
+    """
+    try:
+        payload = artifact_store.get(result.content_sha256)
+    except Exception as exc:
+        raise CorruptShardError(
+            f"shard artifact cannot be verified: {result.shard_id.value}"
+        ) from exc
+    if content_sha256(payload) != result.content_sha256:
+        raise CorruptShardError(
+            f"shard artifact content does not match its digest: {result.shard_id.value}"
+        )
+
+
+def merge_shards(
+    expected_shards: Sequence[ShardId],
+    results: Sequence[ShardResult],
+    *,
+    artifact_store: ArtifactStore | None = None,
+) -> MergedRun:
     expected = tuple(expected_shards)
     if len(expected) != len(set(expected)):
         raise DuplicateShardError("expected shard ids contain duplicates")
@@ -364,6 +393,9 @@ def merge_shards(expected_shards: Sequence[ShardId], results: Sequence[ShardResu
             details.append("unexpected=" + ",".join(sorted(item.value for item in unexpected)))
         raise MissingShardError("shard coverage mismatch: " + " ".join(details))
     ordered = tuple(by_id[item] for item in sorted(expected, key=lambda item: item.value))
+    if artifact_store is not None:
+        for item in ordered:
+            _verify_shard_content(item, artifact_store)
     run_ids = {item.run_id for item in ordered}
     if len(run_ids) != 1:
         raise OrchestrationError("all shards must belong to one run")
