@@ -29,6 +29,7 @@ from arena_hero_research.hierarchical_artifacts import (
     ValidationScope,
 )
 from arena_hero_research.hierarchical_evidence import analyze_hierarchical_evidence
+from arena_hero_sim.serialization import content_sha256, quantized_content_sha256
 
 
 def observations() -> tuple[ClusterObservation, ...]:
@@ -439,6 +440,62 @@ def test_solver_evaluation_accepts_only_bounded_cross_libm_roundoff() -> None:
                 "invalid_reason": None,
             }
         )
+
+
+def test_solver_certificate_digest_ignores_one_ulp_libm_drift() -> None:
+    """One-ULP MSVC/glibc drift in traced evaluations must not change the address."""
+    _, certificate = fit_random_intercept_with_certificate(
+        outcome_name="score", observations=observations()
+    )
+    assert certificate.verify()
+    baseline = certificate.canonical_sha256
+
+    drifted = json.loads(json.dumps(certificate.payload()))
+    drifted["evaluations"][15]["objective"] = math.nextafter(
+        drifted["evaluations"][15]["objective"], math.inf
+    )
+    drifted["evaluations"][23]["lambda_value"] = math.nextafter(
+        drifted["evaluations"][23]["lambda_value"], math.inf
+    )
+    drifted["evaluations"][23]["objective"] = math.nextafter(
+        drifted["evaluations"][23]["objective"], -math.inf
+    )
+
+    # The perturbation is real for the raw byte digest...
+    assert content_sha256(certificate.payload()) != content_sha256(drifted)
+    # ...but the quantized content address is stable across platforms.
+    assert quantized_content_sha256(drifted) == baseline
+
+
+def test_solver_certificate_digest_fails_closed_on_semantic_tamper() -> None:
+    _, certificate = fit_random_intercept_with_certificate(
+        outcome_name="score", observations=observations()
+    )
+    baseline = certificate.canonical_sha256
+
+    numeric_tamper = json.loads(json.dumps(certificate.payload()))
+    numeric_tamper["evaluations"][15]["objective"] += 1e-6
+    assert quantized_content_sha256(numeric_tamper) != baseline
+
+    status_tamper = json.loads(json.dumps(certificate.payload()))
+    status_tamper["solver_status"] = "boundary"
+    assert quantized_content_sha256(status_tamper) != baseline
+
+
+def test_report_digest_is_ulp_stable_and_fails_closed_on_tamper() -> None:
+    evidence = analyze_hierarchical_evidence(outcome_name="score", observations=observations())
+    report = evidence.report
+    assert report.verify()
+    baseline = report.canonical_sha256
+
+    drifted = json.loads(json.dumps(report.payload()))
+    drifted["path_a_effect"] = math.nextafter(drifted["path_a_effect"], math.inf)
+    assert content_sha256(report.payload()) != content_sha256(drifted)
+    assert quantized_content_sha256(drifted) == baseline
+
+    semantic_tamper = json.loads(json.dumps(report.payload()))
+    semantic_tamper["status"] = "failed"
+    assert quantized_content_sha256(semantic_tamper) != baseline
 
 
 def test_literal_hierarchical_known_answer_artifacts() -> None:

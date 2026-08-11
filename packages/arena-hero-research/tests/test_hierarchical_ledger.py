@@ -27,7 +27,7 @@ from arena_hero_research.storage import (
     ResearchLedgerTransaction,
     ResearchRecordKind,
 )
-from arena_hero_sim.serialization import content_sha256
+from arena_hero_sim.serialization import quantized_content_sha256
 
 
 def observations() -> tuple[ClusterObservation, ...]:
@@ -124,7 +124,7 @@ def test_restore_rejects_resigned_but_cross_linked_report_tamper(tmp_path) -> No
     )
     tampered = replace(
         tampered,
-        canonical_sha256=content_sha256(tampered.payload()),
+        canonical_sha256=quantized_content_sha256(tampered.payload()),
     )
     invalid_chain = (
         FrozenResearchRecord.create(
@@ -172,7 +172,7 @@ def test_boundary_certificate_cannot_be_resigned_as_fully_validated_or_restored(
     )
     forged_certificate = replace(
         forged_certificate,
-        canonical_sha256=content_sha256(forged_certificate.payload()),
+        canonical_sha256=quantized_content_sha256(forged_certificate.payload()),
     )
     forged_report = replace(
         evidence.report,
@@ -182,7 +182,9 @@ def test_boundary_certificate_cannot_be_resigned_as_fully_validated_or_restored(
         passed=True,
         canonical_sha256="0" * 64,
     )
-    forged_report = replace(forged_report, canonical_sha256=content_sha256(forged_report.payload()))
+    forged_report = replace(
+        forged_report, canonical_sha256=quantized_content_sha256(forged_report.payload())
+    )
 
     with pytest.raises(HierarchicalEvidenceError, match="reference chain"):
         HierarchicalAnalysisEvidence(
@@ -230,7 +232,7 @@ def test_unified_evidence_rejects_cross_link_mismatch() -> None:
         fit_sha256="0" * 64,
         canonical_sha256="0" * 64,
     )
-    tampered = replace(tampered, canonical_sha256=content_sha256(tampered.payload()))
+    tampered = replace(tampered, canonical_sha256=quantized_content_sha256(tampered.payload()))
 
     with pytest.raises(HierarchicalEvidenceError, match="reference chain"):
         HierarchicalAnalysisEvidence(

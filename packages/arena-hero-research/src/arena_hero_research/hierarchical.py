@@ -61,7 +61,7 @@ from arena_hero_research.validation import (
     require_sha256,
     require_text,
 )
-from arena_hero_sim.serialization import JsonValue, content_sha256
+from arena_hero_sim.serialization import JsonValue, content_sha256, quantized_content_sha256
 
 
 def _estimand(control_level: str, treatment_level: str) -> str:
@@ -1036,7 +1036,7 @@ def _build_solver_certificate(
         evaluations=evaluations,
         canonical_sha256="0" * 64,
     )
-    return replace(provisional, canonical_sha256=content_sha256(provisional.payload()))
+    return replace(provisional, canonical_sha256=quantized_content_sha256(provisional.payload()))
 
 
 def fit_random_intercept_with_certificate(

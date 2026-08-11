@@ -187,11 +187,12 @@ or production suitability claim.
 
 The checked-in literal corpus is a strict, content-addressed reference artifact for its
 recorded runtime. Fit v2 remains byte-stable across the supported CI matrix. Solver traces
-contain binary64/libm-sensitive intermediate evaluations, so cross-platform recomputation
-verifies exact identities and statuses plus explicit numerical tolerances; redundant
-`lambda = exp(log_lambda)` fields permit at most four ULP of loader roundoff. The platform
-does not claim that certificate or report digests are identical across operating systems or
-math libraries.
+contain binary64/libm-sensitive intermediate evaluations that can differ by one ULP between
+math libraries (MSVC CRT vs glibc), so certificate and report content addresses quantize
+every float to 12 significant digits with exact decimal arithmetic before hashing. The
+quantized address is identical across Windows and Linux while full-precision values remain
+stored and verified; redundant `lambda = exp(log_lambda)` fields permit at most four ULP of
+loader roundoff, and any semantic change still changes the digest.
 
 Fail-closed gates (no silent fallback):
 

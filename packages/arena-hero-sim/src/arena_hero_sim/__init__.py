@@ -85,7 +85,12 @@ from arena_hero_sim.reference_workload import (
     run_canonical_reference_workload,
 )
 from arena_hero_sim.registry import BackendRegistry
-from arena_hero_sim.serialization import canonical_json_bytes, content_sha256
+from arena_hero_sim.serialization import (
+    canonical_json_bytes,
+    content_sha256,
+    quantize_float,
+    quantized_content_sha256,
+)
 from arena_hero_sim.workload import (
     WORKLOAD_MANIFEST_SCHEMA,
     WorkloadCase,
@@ -164,6 +169,8 @@ __all__ = [
     "compare_workload_runs",
     "content_sha256",
     "observe_world",
+    "quantize_float",
+    "quantized_content_sha256",
     "run_canonical_reference_workload",
     "run_contract_dispatch_microbenchmark",
     "run_reference_episode",

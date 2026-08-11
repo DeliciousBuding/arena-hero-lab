@@ -20,7 +20,7 @@
   "research": {
     "certificate": {
       "boundary": false,
-      "canonical_sha256": "2ddd9cbfe54fe9f39794aa48b3a7d5d4ef0495f02490c371e7c4117a0aad8a60",
+      "canonical_sha256": "906ed164c045531a43ec84bdc6badc7873bc8995fd273cea75456b3c050f8f40",
       "precision_limited": false,
       "schema_version": "arena.research.profile-reml-solver-certificate.v1",
       "solver_status": "verified-interior"
@@ -34,7 +34,7 @@
       "schema_version": "arena.research.random-intercept-fit.v2"
     },
     "report": {
-      "canonical_sha256": "886617a218f89660b328a94816d815cf08f973d57660a18805ded2656e8b93bb",
+      "canonical_sha256": "60fcb5d9b768e142185a6a81311f89fc6e1c73765bf7f1996d2b177f4e0d0754",
       "passed": true,
       "schema_version": "arena.research.cross-validation-report.v1",
       "status": "fully-validated"

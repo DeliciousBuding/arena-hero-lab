@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from arena_hero_research.validation import require_identifier, require_sha256, require_text
-from arena_hero_sim.serialization import JsonValue, content_sha256
+from arena_hero_sim.serialization import JsonValue, quantized_content_sha256
 
 SOLVER_CERTIFICATE_SCHEMA = "arena.research.profile-reml-solver-certificate.v1"
 CROSS_VALIDATION_REPORT_SCHEMA = "arena.research.cross-validation-report.v1"
@@ -422,7 +422,9 @@ class SolverCertificate:
         }
 
     def verify(self) -> bool:
-        return content_sha256(self.payload()) == self.canonical_sha256
+        # The content address quantizes floats so traced libm-sensitive solver
+        # evaluations (one-ULP MSVC/glibc drift) keep one digest across platforms.
+        return quantized_content_sha256(self.payload()) == self.canonical_sha256
 
     def to_dict(self) -> dict[str, JsonValue]:
         return {**self.payload(), "canonical_sha256": self.canonical_sha256}
@@ -714,7 +716,9 @@ class CrossValidationReportV1:
         }
 
     def verify(self) -> bool:
-        return content_sha256(self.payload()) == self.canonical_sha256
+        # Float fields are quantized for the content address so the report keeps
+        # one digest across platforms despite libm ULP drift in traced values.
+        return quantized_content_sha256(self.payload()) == self.canonical_sha256
 
     def to_dict(self) -> dict[str, JsonValue]:
         return {**self.payload(), "canonical_sha256": self.canonical_sha256}

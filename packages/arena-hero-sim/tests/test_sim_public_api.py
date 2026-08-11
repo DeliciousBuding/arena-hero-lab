@@ -75,6 +75,8 @@ _EXPECTED_PUBLIC_API = {
     "canonical_reference_workload_manifest",
     "compare_workload_runs",
     "content_sha256",
+    "quantize_float",
+    "quantized_content_sha256",
     "observe_world",
     "run_canonical_reference_workload",
     "run_contract_dispatch_microbenchmark",

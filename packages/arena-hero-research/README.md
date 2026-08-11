@@ -100,10 +100,13 @@ allocation-unbalanced designs remain effect diagnostics and do not validate vari
 boundary or indeterminate solver certificate disables aggregate validation. The certificate
 does not prove global unimodality or global optimality and is not a signature or third-party
 attestation.
- Literal certificate/report bytes remain strict reference artifacts, while
-cross-platform recomputation compares their declared identities, statuses, and numerical
-fields under explicit tolerances because traced binary64/libm intermediates are not promised
-to have one digest across all platforms.
+ Literal certificate/report bytes remain strict reference artifacts. Their content
+addresses are computed over a platform-independent canonical form: every float is quantized
+to 12 significant digits with exact decimal arithmetic before hashing, so traced
+binary64/libm intermediates (which can differ by one ULP between MSVC CRT and glibc) keep one
+digest across Windows and Linux. Full-precision values are still stored and validated, and
+any semantic change (status, identity, or a numerically meaningful value change) still
+changes the digest.
 
 Design gates fail closed: fewer than two clusters, non-finite or numerically overflowing
 values, duplicate observation identities within a cluster, missing levels (under a strict

@@ -25,6 +25,11 @@ from arena_hero_research.platform_status import (
 
 KNOWN_DIFFERENTIAL_DIGEST = "1b65d7c39a5175f67a9319336746f5e15a2a5279c23163d24d82ca2a00c1ea7e"
 KNOWN_FIXTURE_CANONICAL_SHA256 = "6e076a91fa4bc06f3f52ec82c34aa35afb4bea9485c1bf918170c3c42afff080"
+# Research certificate/report content addresses are computed over quantized
+# floats, so they are reproducible on Windows and Linux (one-ULP libm drift is
+# absorbed; semantic tamper still changes the digest).
+KNOWN_RESEARCH_CERT_DIGEST = "906ed164c045531a43ec84bdc6badc7873bc8995fd273cea75456b3c050f8f40"
+KNOWN_RESEARCH_REPORT_DIGEST = "60fcb5d9b768e142185a6a81311f89fc6e1c73765bf7f1996d2b177f4e0d0754"
 
 
 @pytest.fixture()
@@ -70,6 +75,8 @@ def test_platform_schema_and_known_values(tmp_output: Path) -> None:
     research = platform["research"]
     assert research["status"] == "verified-evidence-chain"
     assert research["fit"]["canonical_sha256"] == FIT_PAIRED_KNOWN_ANSWER_DIGEST
+    assert research["certificate"]["canonical_sha256"] == KNOWN_RESEARCH_CERT_DIGEST
+    assert research["report"]["canonical_sha256"] == KNOWN_RESEARCH_REPORT_DIGEST
     assert research["certificate"]["solver_status"] == "verified-interior"
     assert research["report"]["status"] == "fully-validated"
     assert research["report"]["passed"] is True

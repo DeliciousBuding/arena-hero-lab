@@ -8,7 +8,7 @@
         "candidate_lambda": 25.490196078431385,
         "candidate_log_lambda": 3.238293910725303,
         "candidate_objective": -1.1336774783159616,
-        "canonical_sha256": "2ddd9cbfe54fe9f39794aa48b3a7d5d4ef0495f02490c371e7c4117a0aad8a60",
+        "canonical_sha256": "906ed164c045531a43ec84bdc6badc7873bc8995fd273cea75456b3c050f8f40",
         "evaluation_count": 68,
         "evaluations": [
           {
@@ -606,9 +606,9 @@
         "analysis_input_sha256": "b0bde7beea9ff5998cd785d150630bd086dbc240e2bc7f2d8ba11c891baf960e",
         "authoritative": "random-intercept-reml",
         "balanced": true,
-        "canonical_sha256": "886617a218f89660b328a94816d815cf08f973d57660a18805ded2656e8b93bb",
+        "canonical_sha256": "60fcb5d9b768e142185a6a81311f89fc6e1c73765bf7f1996d2b177f4e0d0754",
         "certificate_schema_version": "arena.research.profile-reml-solver-certificate.v1",
-        "certificate_sha256": "2ddd9cbfe54fe9f39794aa48b3a7d5d4ef0495f02490c371e7c4117a0aad8a60",
+        "certificate_sha256": "906ed164c045531a43ec84bdc6badc7873bc8995fd273cea75456b3c050f8f40",
         "cluster_count": 4,
         "control_level": "control",
         "design_profile": "paired-1x1",
@@ -645,7 +645,7 @@
         "candidate_lambda": 797.5097222222087,
         "candidate_log_lambda": 6.681494025458934,
         "candidate_objective": -13.404184504159218,
-        "canonical_sha256": "8fd7224b0e04f7462ae8d92e3c748540c88fc0e46a48464983c64fe0e98e53e8",
+        "canonical_sha256": "e17451b7f8b08d96f4129da51dccfd633a7bddc657f236ca7ee3f29a1784e9d2",
         "evaluation_count": 66,
         "evaluations": [
           {
@@ -1285,9 +1285,9 @@
         "analysis_input_sha256": "94d6dca6c030ebedd0a6959286f0d64d206ef8b29c6660e1c21f96e0f16c4387",
         "authoritative": "random-intercept-reml",
         "balanced": true,
-        "canonical_sha256": "6d264a147651cc24d14cbdeb3417a973b3fe6c8094bddadd682b3d66fdd977ab",
+        "canonical_sha256": "8cf102bcfcc9aa12b8496e67565b6c724afef960e9b3e9e245a1abedb7594f1a",
         "certificate_schema_version": "arena.research.profile-reml-solver-certificate.v1",
-        "certificate_sha256": "8fd7224b0e04f7462ae8d92e3c748540c88fc0e46a48464983c64fe0e98e53e8",
+        "certificate_sha256": "e17451b7f8b08d96f4129da51dccfd633a7bddc657f236ca7ee3f29a1784e9d2",
         "cluster_count": 4,
         "control_level": "control",
         "design_profile": "balanced-repeated",
@@ -1324,7 +1324,7 @@
         "candidate_lambda": 7.036837046458829,
         "candidate_log_lambda": 1.951158786038564,
         "candidate_objective": -8.090542723044896,
-        "canonical_sha256": "cf90f0f4561bf6af1a11d5c60167652e823a5e9238f39cdb4c4b6cd29437fb41",
+        "canonical_sha256": "928d0b1b8cfdf882c1cc4b19c96fbb64e2cb5ea479cf76a3b62b88338cf036bc",
         "evaluation_count": 71,
         "evaluations": [
           {
@@ -2006,9 +2006,9 @@
         "analysis_input_sha256": "ee848965063edb4b7155be01a9ecf5f9f772da81dba3c19d314f88c830354bbb",
         "authoritative": "random-intercept-reml",
         "balanced": false,
-        "canonical_sha256": "3d15a9406bf0450eae0e763cc4853146b84f6c4f2c1a7dd64998d64f4a18c244",
+        "canonical_sha256": "1aa9c6fb686e7714035860d61b0fdcffc79adf7bd297e13929c07de40e0f65db",
         "certificate_schema_version": "arena.research.profile-reml-solver-certificate.v1",
-        "certificate_sha256": "cf90f0f4561bf6af1a11d5c60167652e823a5e9238f39cdb4c4b6cd29437fb41",
+        "certificate_sha256": "928d0b1b8cfdf882c1cc4b19c96fbb64e2cb5ea479cf76a3b62b88338cf036bc",
         "cluster_count": 4,
         "control_level": "control",
         "design_profile": "allocation-unbalanced",

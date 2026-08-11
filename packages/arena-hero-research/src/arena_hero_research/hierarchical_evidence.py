@@ -30,7 +30,7 @@ from arena_hero_research.storage import (
     ResearchRecordKind,
 )
 from arena_hero_research.validation import require_identifier
-from arena_hero_sim.serialization import content_sha256
+from arena_hero_sim.serialization import quantized_content_sha256
 
 
 class HierarchicalEvidenceError(SolverEvidenceError):
@@ -194,7 +194,7 @@ def _versioned_cross_validation_report(
         authoritative=legacy_report.authoritative,
         canonical_sha256="0" * 64,
     )
-    return replace(provisional, canonical_sha256=content_sha256(provisional.payload()))
+    return replace(provisional, canonical_sha256=quantized_content_sha256(provisional.payload()))
 
 
 def analyze_hierarchical_evidence(
