@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "arena.bench.replay-soak.v1",
+  "soak_id": "soak-burnin-20260802-a-v1",
+  "rounds": 2,
+  "max_duration_seconds": 120,
+  "handle_tolerance": 32,
+  "steps": [
+    {
+      "id": "replay-differential",
+      "kind": "differential",
+      "manifest": "../differential/run-burnin-20260802-a-v1.json"
+    },
+    {
+      "id": "kpi-differential",
+      "kind": "kpi_differential",
+      "manifest": "../kpi_differential/run-burnin-20260802-a-v1.json"
+    },
+    {
+      "id": "process-executor",
+      "kind": "process_executor",
+      "max_workers": 1,
+      "scenario_count": 3
+    }
+  ]
+}

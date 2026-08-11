@@ -23,6 +23,7 @@ from arena_hero_bench.differential import (
 )
 from arena_hero_bench.kpi_differential import run_kpi_differential_from_manifest
 from arena_hero_bench.manifest import ArtifactManifest
+from arena_hero_bench.soak import ReplaySoakError, SoakStatus, run_soak
 from arena_hero_bench.storage import ArtifactStoreError, FilesystemArtifactStore
 from arena_hero_sim.serialization import canonical_json_bytes
 
@@ -90,6 +91,17 @@ def _parser() -> argparse.ArgumentParser:
         metavar="MANIFEST",
         help="KPI differential run manifest JSON (paths are relative to the manifest)",
     )
+    soak = subparsers.add_parser(
+        "soak",
+        help="run a bounded offline replay soak and emit a content-addressed report",
+    )
+    soak.add_argument(
+        "--run",
+        required=True,
+        type=Path,
+        metavar="MANIFEST",
+        help="soak run manifest JSON (paths are relative to the manifest)",
+    )
     import_run.add_argument(
         "--store",
         type=Path,
@@ -146,6 +158,16 @@ def _kpi_differential_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _soak_command(args: argparse.Namespace) -> int:
+    try:
+        report = run_soak(args.run)
+    except ReplaySoakError as exc:
+        print(f"arena-hero-bench: error: {exc}", file=sys.stderr)
+        return 2
+    print(json.dumps(report.to_json(), ensure_ascii=False, indent=2, sort_keys=True))
+    return 0 if report.status is SoakStatus.PASS else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     if args.command == "convert":
@@ -167,6 +189,8 @@ def main(argv: list[str] | None = None) -> int:
         return _differential_command(args)
     if args.command == "kpi-differential":
         return _kpi_differential_command(args)
+    if args.command == "soak":
+        return _soak_command(args)
     raise AssertionError(f"unhandled command: {args.command}")
 
 
