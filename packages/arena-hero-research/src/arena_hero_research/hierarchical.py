@@ -22,11 +22,12 @@ Design boundaries (fail closed, never silently approximated):
 
 The authoritative estimator is a profile restricted-maximum-likelihood fit
 (``estimator = random-intercept-reml``). An independent method-of-moments /
-ANOVA path is provided for cross-validation; the two paths must agree within a
-declared numerical tolerance on balanced fixtures. Under allocation imbalance,
-effect agreement is reported separately but variance is explicitly marked
-unvalidated, so the aggregate report cannot pass. The paired design (one control
-and one treatment per cluster) is the balanced degenerate case, and the bridge adapter
+ANOVA path is provided for cross-validation. Allocation-balanced designs use a
+strict effect-agreement tolerance; variance-component conformance is currently
+preregistered only for one-control/one-treatment pairs. Balanced repeated and
+allocation-unbalanced designs therefore report effect diagnostics but mark variance
+unvalidated, so their aggregate report cannot pass. The paired design is the
+calibrated balanced degenerate case, and the bridge adapter
 :func:`paired_to_cluster_observations` lets callers verify that the REML
 treatment effect reproduces the existing paired mean difference.
 
