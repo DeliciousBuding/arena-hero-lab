@@ -1,0 +1,78 @@
+{
+  "agent": {
+    "evidence": {
+      "captured_on": "2026-08-11",
+      "fixture_sha256": "836a0d7d51c1855ad326d316ca65b61a889fc48751ae993b2adb167704064ec5",
+      "plan_sha256": "6704ea79a7711a01e66bf3534f4d032591ffad41040b92c8431c12c5a76a7a68",
+      "rules_version": "v0.14"
+    },
+    "name": "arena-hero-agent",
+    "note": "Turn-to-plan adaptation chain passes the frozen known-answer digest. Competitive race results require the complete policy and tick loop; this card is not a ranking entry.",
+    "repository": "https://github.com/DeliciousBuding/arena-hero-agent",
+    "sdk": {
+      "name": "arena-hero",
+      "version": "0.2.9"
+    },
+    "source_commit": "c7b5ce290baeee7c68377ff8af38ea5f6a40a5d1",
+    "source_commit_short": "c7b5ce2",
+    "status": "verified-conformance"
+  },
+  "research": {
+    "certificate": {
+      "boundary": false,
+      "canonical_sha256": "2ddd9cbfe54fe9f39794aa48b3a7d5d4ef0495f02490c371e7c4117a0aad8a60",
+      "precision_limited": false,
+      "schema_version": "arena.research.profile-reml-solver-certificate.v1",
+      "solver_status": "verified-interior"
+    },
+    "evidence": {
+      "round_trip_verified": true,
+      "schema": "arena.research.hierarchical-evidence.v1"
+    },
+    "fit": {
+      "canonical_sha256": "d8e6ab3b4ce189eee6c9d603ca54ff7bcb2a9adac890e85d3b4cdd05507bd42f",
+      "schema_version": "arena.research.random-intercept-fit.v2"
+    },
+    "report": {
+      "canonical_sha256": "886617a218f89660b328a94816d815cf08f973d57660a18805ded2656e8b93bb",
+      "passed": true,
+      "schema_version": "arena.research.cross-validation-report.v1",
+      "status": "fully-validated"
+    },
+    "status": "verified-evidence-chain"
+  },
+  "schema": "arena.platform.status.v1",
+  "simulator": {
+    "backends": {
+      "optimized": "optimized-python-v1",
+      "reference": "reference-engine"
+    },
+    "engine_versions": {
+      "optimized": "0.1.0",
+      "reference": "0.2.0-replay-identity"
+    },
+    "evidence": {
+      "batch_size": 9,
+      "case_count": 9,
+      "differential_schema": "arena.sim.differential-report.v1",
+      "differential_sha256": "1b65d7c39a5175f67a9319336746f5e15a2a5279c23163d24d82ca2a00c1ea7e",
+      "episode_count": 9,
+      "episode_order_sha256": "fa16f1f00796a0b489d514aea903c019cc0545d45c1dbb23445c3dc3b64a8bb4"
+    },
+    "performance": {
+      "note": "Speed measurements are machine-local diagnostics and are not published as production claims.",
+      "status": "local-diagnostic-only"
+    },
+    "status": "verified-differential",
+    "workload": {
+      "id": "reference-movement-dependency",
+      "sha256": "7b7267499afa6032585f40d069e605cc767bbb473e889cbb8ebfc63c4193fc0c",
+      "version": "2026-08-10.v1"
+    }
+  },
+  "source_date": "2026-08-11",
+  "trust_boundary": {
+    "competitive_rankings": "Only the leaderboard section reflects real match outcomes; platform cards never alter or replace competitive ranks.",
+    "statement": "Conformance and differential evidence describe reproducibility of deterministic pipelines, not competitive match results."
+  }
+}

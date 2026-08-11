@@ -1,0 +1,275 @@
+{
+  "captured_on": "2026-08-11",
+  "decision": {
+    "core_intent": {
+      "action": "spawn",
+      "direction": null,
+      "unit_role": "worker"
+    },
+    "tick": 7,
+    "unit_intents": [
+      {
+        "action": "move",
+        "direction": "east",
+        "expected_cell": null,
+        "target_id": null,
+        "unit_id": "aaaaaaaa-0000-0000-0000-000000000001"
+      },
+      {
+        "action": "shoot",
+        "direction": null,
+        "expected_cell": [
+          3,
+          1
+        ],
+        "target_id": "bbbbbbbb-0000-0000-0000-000000000003",
+        "unit_id": "aaaaaaaa-0000-0000-0000-000000000002"
+      }
+    ]
+  },
+  "description": "Offline canonical adaptation chain for arena-hero SDK 0.2.9: SDK AsyncTurn/PlayerState -> application TurnObservation/WorldProjection -> Decision -> SDK CommandPlan payload and its deterministic SHA-256. Purely deterministic input and output; no network, credentials, or machine-specific paths are involved.",
+  "observation": {
+    "events": [
+      {
+        "actor_id": "aaaaaaaa-0000-0000-0000-000000000001",
+        "id": "dddddddd-0000-0000-0000-000000000005",
+        "kind": "HARVEST_SUCCEEDED",
+        "position": null,
+        "reason": "OK",
+        "target_id": null,
+        "tick": 7
+      }
+    ],
+    "lifecycle": "active",
+    "population": 2,
+    "projection": {
+      "beacon": {
+        "carrier_id": null,
+        "position": [
+          1,
+          2
+        ],
+        "status": "unknown"
+      },
+      "core": {
+        "destination": null,
+        "health": 10,
+        "id": "cccccccc-0000-0000-0000-000000000004",
+        "owner": "player",
+        "position": [
+          0,
+          0
+        ],
+        "shield": 4,
+        "state": "normal"
+      },
+      "entities": [
+        {
+          "health": 2,
+          "id": "bbbbbbbb-0000-0000-0000-000000000003",
+          "kind": "unit",
+          "owner": null,
+          "position": [
+            3,
+            1
+          ],
+          "unit_role": "vanguard"
+        }
+      ],
+      "resources": [
+        {
+          "position": [
+            6,
+            6
+          ],
+          "remaining": null
+        }
+      ],
+      "rules_version": "v0.14",
+      "terrain": [
+        {
+          "position": [
+            4,
+            4
+          ],
+          "state": "blocked"
+        },
+        {
+          "position": [
+            5,
+            5
+          ],
+          "state": "blocked"
+        }
+      ],
+      "tick": 7,
+      "units": [
+        {
+          "cargo": 1,
+          "health": 4,
+          "id": "aaaaaaaa-0000-0000-0000-000000000001",
+          "position": [
+            0,
+            0
+          ],
+          "role": "worker"
+        },
+        {
+          "cargo": 0,
+          "health": 3,
+          "id": "aaaaaaaa-0000-0000-0000-000000000002",
+          "position": [
+            2,
+            1
+          ],
+          "role": "ranger"
+        }
+      ]
+    },
+    "resources": 3,
+    "respawn_at_tick": null,
+    "tick": 7
+  },
+  "plan": {
+    "core_action": {
+      "type": "SPAWN",
+      "unit_type": "WORKER"
+    },
+    "tick": 7,
+    "unit_actions": [
+      {
+        "action": {
+          "direction": "RIGHT",
+          "type": "MOVE"
+        },
+        "unit_id": "aaaaaaaa-0000-0000-0000-000000000001"
+      },
+      {
+        "action": {
+          "expected_cell": [
+            3,
+            1
+          ],
+          "target_id": "bbbbbbbb-0000-0000-0000-000000000003",
+          "type": "SHOOT"
+        },
+        "unit_id": "aaaaaaaa-0000-0000-0000-000000000002"
+      }
+    ]
+  },
+  "plan_sha256": "6704ea79a7711a01e66bf3534f4d032591ffad41040b92c8431c12c5a76a7a68",
+  "rules_version": "v0.14",
+  "sdk": {
+    "name": "arena-hero",
+    "version": "0.2.9"
+  },
+  "turn": {
+    "state": {
+      "champion_beacon": {
+        "carrier_id": null,
+        "position": [
+          1,
+          2
+        ],
+        "status": null
+      },
+      "events": [
+        {
+          "actor_id": "aaaaaaaa-0000-0000-0000-000000000001",
+          "event_id": "dddddddd-0000-0000-0000-000000000005",
+          "event_type": "HARVEST_SUCCEEDED",
+          "position": null,
+          "reason_code": "OK",
+          "target_id": null,
+          "tick": 7,
+          "values": {
+            "amount": 1
+          }
+        }
+      ],
+      "objects": [
+        {
+          "cargo": 1,
+          "controlled": true,
+          "hp": 4,
+          "id": "aaaaaaaa-0000-0000-0000-000000000001",
+          "kind": "UNIT",
+          "position": [
+            0,
+            0
+          ],
+          "unit_type": "WORKER"
+        },
+        {
+          "cargo": null,
+          "controlled": true,
+          "hp": 3,
+          "id": "aaaaaaaa-0000-0000-0000-000000000002",
+          "kind": "UNIT",
+          "position": [
+            2,
+            1
+          ],
+          "unit_type": "RANGER"
+        },
+        {
+          "cargo": null,
+          "controlled": false,
+          "hp": 2,
+          "id": "bbbbbbbb-0000-0000-0000-000000000003",
+          "kind": "UNIT",
+          "position": [
+            3,
+            1
+          ],
+          "unit_type": "VANGUARD"
+        },
+        {
+          "controlled": true,
+          "destination": null,
+          "hp": 10,
+          "id": "cccccccc-0000-0000-0000-000000000004",
+          "kind": "CORE",
+          "move_direction": null,
+          "move_progress": null,
+          "move_required_ticks": null,
+          "owner_username": "player",
+          "position": [
+            0,
+            0
+          ],
+          "shield": 4,
+          "state": "NORMAL"
+        },
+        {
+          "kind": "OBSTACLE",
+          "positions": [
+            [
+              4,
+              4
+            ],
+            [
+              5,
+              5
+            ]
+          ]
+        },
+        {
+          "kind": "RESOURCE",
+          "positions": [
+            [
+              6,
+              6
+            ]
+          ]
+        }
+      ],
+      "population": 2,
+      "resources": 3,
+      "respawn_at_tick": null,
+      "status": "ACTIVE"
+    },
+    "tick": 7
+  },
+  "version": 1
+}

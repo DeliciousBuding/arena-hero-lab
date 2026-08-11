@@ -1,0 +1,21 @@
+{
+  "schema": "arena.platform.external-evidence.v1",
+  "source": {
+    "repository": "DeliciousBuding/arena-hero-agent",
+    "repository_url": "https://github.com/DeliciousBuding/arena-hero-agent",
+    "commit": "c7b5ce290baeee7c68377ff8af38ea5f6a40a5d1",
+    "commit_short": "c7b5ce2",
+    "sdk": {
+      "name": "arena-hero",
+      "version": "0.2.9"
+    }
+  },
+  "artifact": {
+    "path": "tests/adapters/sdk/fixtures/turn_to_plan_known_answers_v1.json",
+    "sha256": "836a0d7d51c1855ad326d316ca65b61a889fc48751ae993b2adb167704064ec5",
+    "plan_sha256": "6704ea79a7711a01e66bf3534f4d032591ffad41040b92c8431c12c5a76a7a68",
+    "rules_version": "v0.14",
+    "captured_on": "2026-08-11"
+  },
+  "description": "Frozen offline known-answer evidence for the Python agent turn-to-plan adaptation chain (SDK AsyncTurn/PlayerState to domain observation to decision to CommandPlan payload SHA-256). The fixture is deterministic and environment-neutral: no network, credentials, or machine-specific paths."
+}
