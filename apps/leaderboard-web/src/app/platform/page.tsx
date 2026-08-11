@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, ExternalLink } from "lucide-react";
-import { platformData } from "@/lib/platform";
+import { platformCopy, platformData, shortRepo } from "@/lib/platform";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -44,9 +44,11 @@ function DetailCard({
             <span className="text-lg" aria-hidden="true">
               {icon}
             </span>
-            <CardTitle>{title}</CardTitle>
+            <CardTitle asChild>
+              <h2>{title}</h2>
+            </CardTitle>
           </div>
-          <Badge variant={badgeVariant}>{badge}</Badge>
+          <Badge variant={badgeVariant} className="text-xs">{badge}</Badge>
         </div>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
@@ -56,7 +58,7 @@ function DetailCard({
 }
 
 export default function PlatformPage() {
-  const { agent, simulator, research, trust_boundary, schema, source_date } = platformData;
+  const { agent, simulator, research, schema, source_date } = platformData;
 
   return (
     <div className="container-page px-4 py-10 sm:px-6">
@@ -87,19 +89,19 @@ export default function PlatformPage() {
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Stat>
-          <StatLabel>Agent 一致性</StatLabel>
+          <StatLabel className="text-xs">Agent 一致性</StatLabel>
           <StatValue>已核验</StatValue>
-          <StatHint>turn→plan 已知答案摘要一致</StatHint>
+          <StatHint className="text-xs">turn→plan 已知答案摘要一致</StatHint>
         </Stat>
         <Stat>
-          <StatLabel>模拟器差分</StatLabel>
+          <StatLabel className="text-xs">模拟器差分</StatLabel>
           <StatValue>{simulator.evidence.case_count} 场景</StatValue>
-          <StatHint>参考 vs 优化语义一致</StatHint>
+          <StatHint className="text-xs">参考 vs 优化语义一致</StatHint>
         </Stat>
         <Stat>
-          <StatLabel>科研证据链</StatLabel>
+          <StatLabel className="text-xs">科研证据链</StatLabel>
           <StatValue>全链路</StatValue>
-          <StatHint>拟合 → 证书 → 报告可复核</StatHint>
+          <StatHint className="text-xs">拟合 → 证书 → 报告可复核</StatHint>
         </Stat>
       </div>
 
@@ -114,15 +116,15 @@ export default function PlatformPage() {
           <DetailRow label="状态" value={agent.status} />
           <DetailRow label="来源仓库" value={agent.name} />
           <div className="flex items-center gap-1 py-1 text-xs">
-            <span className="text-muted-foreground">公开源码</span>
+            <span className="shrink-0 text-muted-foreground">公开源码</span>
             <Link
               href={agent.repository}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 text-brand transition-colors hover:text-foreground"
+              className="inline-flex min-w-0 flex-1 items-center gap-1 break-all rounded-sm text-foreground underline decoration-foreground/40 underline-offset-4 transition-colors hover:bg-brand-soft hover:decoration-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-              {agent.repository}
-              <ExternalLink className="h-3 w-3" />
+              {shortRepo(agent.repository)}
+              <ExternalLink className="h-3 w-3 shrink-0" />
             </Link>
           </div>
           <DetailRow label="来源提交" value={agent.source_commit} />
@@ -132,7 +134,7 @@ export default function PlatformPage() {
           <DetailRow label="证据文件摘要" value={agent.evidence.fixture_canonical_sha256} />
           <DetailRow label="规则版本" value={agent.evidence.rules_version} />
           <DetailRow label="采集日期" value={agent.evidence.captured_on} />
-          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{agent.note}</p>
+          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{platformCopy.agentNote}</p>
         </DetailCard>
 
         <DetailCard
@@ -153,7 +155,7 @@ export default function PlatformPage() {
           <DetailRow label="差分摘要" value={simulator.evidence.differential_sha256} />
           <DetailRow label="回合顺序摘要" value={simulator.evidence.episode_order_sha256} />
           <DetailRow label="差分模式" value={simulator.evidence.differential_schema} />
-          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{simulator.performance.note}</p>
+          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{platformCopy.simulatorNote}</p>
         </DetailCard>
 
         <DetailCard
@@ -185,8 +187,8 @@ export default function PlatformPage() {
             <span className="text-sm font-semibold text-foreground">信任边界</span>
             <Badge variant="outline">Trust Boundary</Badge>
           </div>
-          <p className="text-xs leading-relaxed text-muted-foreground">{trust_boundary.statement}</p>
-          <p className="text-xs leading-relaxed text-muted-foreground">{trust_boundary.competitive_rankings}</p>
+          <p className="text-xs leading-relaxed text-muted-foreground">{platformCopy.trustStatement}</p>
+          <p className="text-xs leading-relaxed text-muted-foreground">{platformCopy.trustCompetitiveRankings}</p>
         </CardContent>
       </Card>
 
