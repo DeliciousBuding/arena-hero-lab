@@ -18,6 +18,12 @@ from arena_hero_research.assignment import (
     AssignmentUnit,
     generate_assignments,
 )
+from arena_hero_research.attribution import (
+    AttributionError,
+    BehaviorAttribution,
+    DimensionAttribution,
+    attribute_behavior_effects,
+)
 from arena_hero_research.conclusion import (
     ConclusionError,
     OutcomeConclusion,
@@ -53,6 +59,13 @@ from arena_hero_research.execution import (
     ReplicationResultStatus,
     ReplicationTask,
     build_replication_tasks,
+)
+from arena_hero_research.figures import (
+    FigureArtifact,
+    FigureError,
+    FigureKind,
+    render_attribution_bar_figure,
+    render_effect_forest_figure,
 )
 from arena_hero_research.hierarchical import (
     ClusterIdentifiabilityError,
@@ -141,6 +154,8 @@ __all__ = [
     "AssignmentManifest",
     "AssignmentRecord",
     "AssignmentUnit",
+    "AttributionError",
+    "BehaviorAttribution",
     "ClusterIdentifiabilityError",
     "ClusterMissingPolicy",
     "ClusterObservation",
@@ -153,6 +168,7 @@ __all__ = [
     "DataUseClaim",
     "DataUseLedger",
     "DesignProfile",
+    "DimensionAttribution",
     "DroppedPair",
     "DurableResearchLedger",
     "DurableResearchLedgerError",
@@ -162,6 +178,9 @@ __all__ = [
     "ExecutionProvenance",
     "ExperimentDesign",
     "Factor",
+    "FigureArtifact",
+    "FigureError",
+    "FigureKind",
     "FilesystemResearchLedgerStorage",
     "FrozenResearchRecord",
     "HierarchicalAnalysisEvidence",
@@ -226,6 +245,7 @@ __all__ = [
     "analyze_hierarchical_evidence",
     "analyze_preregistered_paired_outcomes",
     "arithmetic_mean",
+    "attribute_behavior_effects",
     "benjamini_hochberg",
     "build_replication_tasks",
     "commit_hierarchical_analysis_evidence",
@@ -239,6 +259,8 @@ __all__ = [
     "normal_approx_paired_sample_size",
     "paired_effect_with_bootstrap_ci",
     "paired_to_cluster_observations",
+    "render_attribution_bar_figure",
+    "render_effect_forest_figure",
     "simulate_monte_carlo_power",
     "verify_solver_certificate",
 ]
