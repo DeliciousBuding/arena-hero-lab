@@ -8,6 +8,7 @@ import inspect
 import arena_hero_bench
 
 _EXPECTED_PUBLIC_API = {
+    "COMPARATIVE_PERFORMANCE_EVIDENCE_SCHEMA",
     "ArtifactIndexError",
     "ArtifactManifest",
     "ArtifactStatus",
@@ -16,6 +17,7 @@ _EXPECTED_PUBLIC_API = {
     "ConfigResolver",
     "ConfigSchema",
     "ContestantManifest",
+    "ComparativePerformanceEvidence",
     "ContestantRegistry",
     "DistributedExecutor",
     "FilesystemArtifactStore",
@@ -41,6 +43,7 @@ _EXPECTED_PUBLIC_API = {
     "StaleScanError",
     "StoreScan",
     "build_gc_plan",
+    "measure_comparative_workloads",
     "measure_reference_workload",
     "merge_shards",
     "reference_engine_process_executor",

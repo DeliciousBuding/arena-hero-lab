@@ -23,13 +23,16 @@ from arena_hero_bench.orchestration import (
     merge_shards,
 )
 from arena_hero_bench.performance import (
+    COMPARATIVE_PERFORMANCE_EVIDENCE_SCHEMA,
     MEASUREMENT_PROTOCOL_SCHEMA,
     MINIMUM_CREDIBLE_SAMPLE_NS,
     PERFORMANCE_EVIDENCE_SCHEMA,
+    ComparativePerformanceEvidence,
     MeasurementProtocol,
     PerformanceEvidence,
     PerformanceMeasurementError,
     PublicEnvironment,
+    measure_comparative_workloads,
     measure_reference_workload,
 )
 from arena_hero_bench.process_executor import (
@@ -41,6 +44,7 @@ from arena_hero_bench.process_executor import (
 from arena_hero_bench.storage import FilesystemArtifactStore
 
 __all__ = [
+    "COMPARATIVE_PERFORMANCE_EVIDENCE_SCHEMA",
     "MEASUREMENT_PROTOCOL_SCHEMA",
     "MINIMUM_CREDIBLE_SAMPLE_NS",
     "PERFORMANCE_EVIDENCE_SCHEMA",
@@ -49,6 +53,7 @@ __all__ = [
     "ArtifactStatus",
     "ArtifactStore",
     "BackendProcessSpec",
+    "ComparativePerformanceEvidence",
     "ConfigResolver",
     "ConfigSchema",
     "ContestantManifest",
@@ -74,6 +79,7 @@ __all__ = [
     "StaleScanError",
     "StoreScan",
     "build_gc_plan",
+    "measure_comparative_workloads",
     "measure_reference_workload",
     "merge_shards",
     "reference_engine_process_executor",

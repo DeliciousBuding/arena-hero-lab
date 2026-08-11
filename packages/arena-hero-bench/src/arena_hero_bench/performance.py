@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from importlib import metadata
 from types import MappingProxyType
+from typing import Protocol
 
 from arena_hero_sim.reference_workload import (
     DifferentialReport,
@@ -29,6 +30,8 @@ from arena_hero_sim.workload import WorkloadManifest
 
 MEASUREMENT_PROTOCOL_SCHEMA = "arena.bench.measurement-protocol.v1"
 PERFORMANCE_EVIDENCE_SCHEMA = "arena.bench.performance-evidence.v1"
+
+COMPARATIVE_PERFORMANCE_EVIDENCE_SCHEMA = "arena.bench.comparative-performance-evidence.v1"
 MINIMUM_CREDIBLE_SAMPLE_NS = 1_000
 _MAX_WORKERS = 64
 _DEPENDENCY_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
@@ -39,6 +42,13 @@ perf_counter_ns = time.perf_counter_ns
 
 class PerformanceMeasurementError(RuntimeError):
     """Raised when setup cannot produce bounded measurement evidence."""
+
+
+class WorkloadRunnerProtocol(Protocol):
+    def run(self, manifest: WorkloadManifest, *, batch_size: int = 1) -> WorkloadRun: ...
+
+
+WorkloadRunnerFactory = Callable[[], WorkloadRunnerProtocol]
 
 
 def _sha256(value: str, field_name: str) -> str:
@@ -299,8 +309,99 @@ class PerformanceEvidence:
         return content_sha256(self.to_dict())
 
 
+@dataclass(frozen=True, slots=True)
+class ComparativePerformanceEvidence:
+    """Versioned, non-production comparison of two real backend executions."""
+
+    protocol: MeasurementProtocol
+    environment: PublicEnvironment
+    workload_sha256: str
+    reference: PerformanceEvidence
+    candidate: PerformanceEvidence
+    differential_report_sha256: str
+    reference_run_sha256: str
+    candidate_run_sha256: str
+    episode_order_sha256: str
+    publishable: bool
+    issues: tuple[str, ...] = field(default_factory=tuple)
+    production_claim: bool = False
+    schema_version: str = COMPARATIVE_PERFORMANCE_EVIDENCE_SCHEMA
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "workload_sha256", _sha256(self.workload_sha256, "workload"))
+        object.__setattr__(
+            self,
+            "differential_report_sha256",
+            _sha256(self.differential_report_sha256, "differential report"),
+        )
+        object.__setattr__(
+            self, "reference_run_sha256", _sha256(self.reference_run_sha256, "reference run")
+        )
+        object.__setattr__(
+            self, "candidate_run_sha256", _sha256(self.candidate_run_sha256, "candidate run")
+        )
+        object.__setattr__(
+            self, "episode_order_sha256", _sha256(self.episode_order_sha256, "episode order")
+        )
+        object.__setattr__(self, "issues", tuple(self.issues))
+        if self.production_claim is not False:
+            raise ValueError("comparative evidence cannot claim production performance")
+        if self.reference.backend.backend_id == self.candidate.backend.backend_id:
+            raise ValueError("comparative evidence requires distinct backend identities")
+        if self.reference.protocol != self.protocol or self.candidate.protocol != self.protocol:
+            raise ValueError("comparative evidence protocol binding mismatch")
+        if (
+            self.reference.environment != self.environment
+            or self.candidate.environment != self.environment
+        ):
+            raise ValueError("comparative evidence environment binding mismatch")
+        if self.reference.workload_sha256 != self.workload_sha256:
+            raise ValueError("reference workload binding mismatch")
+        if self.candidate.workload_sha256 != self.workload_sha256:
+            raise ValueError("candidate workload binding mismatch")
+        if self.reference.semantic_run_sha256 != self.reference_run_sha256:
+            raise ValueError("reference run binding mismatch")
+        if self.candidate.semantic_run_sha256 != self.candidate_run_sha256:
+            raise ValueError("candidate run binding mismatch")
+        if self.reference.differential_report_sha256 != self.differential_report_sha256:
+            raise ValueError("reference differential binding mismatch")
+        if self.candidate.differential_report_sha256 != self.differential_report_sha256:
+            raise ValueError("candidate differential binding mismatch")
+        expected_publishable = (
+            self.reference.publishable and self.candidate.publishable and not self.issues
+        )
+        if self.publishable is not expected_publishable:
+            raise ValueError("comparative publishability must be fail-closed")
+
+    def to_dict(self) -> dict[str, JsonValue]:
+        value = to_json_value(
+            {
+                "schema_version": self.schema_version,
+                "protocol": self.protocol.to_dict(),
+                "protocol_sha256": self.protocol.sha256,
+                "environment": self.environment.to_dict(),
+                "workload_sha256": self.workload_sha256,
+                "reference": self.reference.to_dict(),
+                "candidate": self.candidate.to_dict(),
+                "differential_report_sha256": self.differential_report_sha256,
+                "reference_run_sha256": self.reference_run_sha256,
+                "candidate_run_sha256": self.candidate_run_sha256,
+                "episode_order_sha256": self.episode_order_sha256,
+                "publishable": self.publishable,
+                "production_claim": self.production_claim,
+                "issues": self.issues,
+            }
+        )
+        assert isinstance(value, dict)
+        return value
+
+    @property
+    def sha256(self) -> str:
+        return content_sha256(self.to_dict())
+
+
 def _run_worker_round(
-    runners: Sequence[ReferenceWorkloadRunner],
+    runners: Sequence[WorkloadRunnerProtocol],
     manifest: WorkloadManifest,
     protocol: MeasurementProtocol,
     executor: ThreadPoolExecutor | None,
@@ -354,54 +455,18 @@ def _valid_timer_sample(
     return duration
 
 
-def measure_reference_workload(
+def _measure_backend_runners(
     protocol: MeasurementProtocol,
     *,
-    manifest: WorkloadManifest | None = None,
-    scenario_registry: ReferenceScenarioRegistry | None = None,
-    environment: PublicEnvironment | None = None,
-    differential_report: DifferentialReport | None = None,
-    candidate_run: WorkloadRun | None = None,
-    clock: Callable[[], int] | None = None,
+    environment: PublicEnvironment,
+    workload: WorkloadManifest,
+    runners: Sequence[WorkloadRunnerProtocol],
+    baseline: WorkloadRun,
+    gate: DifferentialReport,
+    initial_issues: Sequence[str],
+    timer: Callable[[], int],
 ) -> PerformanceEvidence:
-    """Measure real reference-engine runs; registry/scenario construction stays outside samples.
-
-    An injected ``differential_report`` is trusted only when it is byte-identical to a gate
-    recomputed over the current baseline run and, when supplied, ``candidate_run``. Stale,
-    forged, or wrong-identity reports fail closed and never enter publishable evidence.
-    """
-
-    workload = manifest or canonical_reference_workload_manifest()
-    scenarios = scenario_registry or canonical_reference_scenario_registry()
-    runners = tuple(ReferenceWorkloadRunner(scenarios) for _ in range(protocol.worker_count))
-    timer = clock or perf_counter_ns
-    public_environment = environment or PublicEnvironment.capture()
-
-    baseline = runners[0].run(workload, batch_size=protocol.batch_size)
-    issues: list[str] = []
-    if not baseline.publishable:
-        issues.append("baseline semantic run is not complete and publishable")
-
-    gate = (
-        compare_workload_runs(baseline, candidate_run)
-        if candidate_run is not None
-        else compare_workload_runs(baseline, baseline)
-    )
-    if not gate.passed:
-        issues.append("differential gate did not pass")
-    if differential_report is not None:
-        if candidate_run is None:
-            issues.append("differential report requires a candidate run")
-        else:
-            if differential_report.workload_sha256 != gate.workload_sha256:
-                issues.append("differential report workload digest mismatch")
-            if differential_report.reference_run_sha256 != gate.reference_run_sha256:
-                issues.append("differential report reference run digest mismatch")
-            if differential_report.candidate_run_sha256 != gate.candidate_run_sha256:
-                issues.append("differential report candidate run digest mismatch")
-            if differential_report.sha256 != gate.sha256:
-                issues.append("differential report content digest mismatch")
-
+    issues = list(initial_issues)
     warmups_completed = 0
     raw_durations: list[int] = []
     observed_digests: list[tuple[str, ...]] = []
@@ -470,7 +535,7 @@ def measure_reference_workload(
 
     return PerformanceEvidence(
         protocol=protocol,
-        environment=public_environment,
+        environment=environment,
         workload_sha256=workload.sha256,
         backend=baseline.backend,
         semantic_run_sha256=baseline.sha256,
@@ -484,4 +549,131 @@ def measure_reference_workload(
         publishable=not issues,
         issues=tuple(issues),
         production_claim=False,
+    )
+
+
+def measure_comparative_workloads(
+    protocol: MeasurementProtocol,
+    *,
+    reference_runner_factory: WorkloadRunnerFactory,
+    candidate_runner_factory: WorkloadRunnerFactory,
+    manifest: WorkloadManifest | None = None,
+    environment: PublicEnvironment | None = None,
+    clock: Callable[[], int] | None = None,
+) -> ComparativePerformanceEvidence:
+    """Execute and time both injected backends against one frozen workload."""
+
+    workload = manifest or canonical_reference_workload_manifest()
+    public_environment = environment or PublicEnvironment.capture()
+    timer = clock or perf_counter_ns
+    reference_runners = tuple(reference_runner_factory() for _ in range(protocol.worker_count))
+    candidate_runners = tuple(candidate_runner_factory() for _ in range(protocol.worker_count))
+    reference_run = reference_runners[0].run(workload, batch_size=protocol.batch_size)
+    candidate_run = candidate_runners[0].run(workload, batch_size=protocol.batch_size)
+    issues: list[str] = []
+    if reference_run.backend.backend_id == candidate_run.backend.backend_id:
+        raise PerformanceMeasurementError("candidate backend identity must differ from reference")
+    gate = compare_workload_runs(reference_run, candidate_run)
+    if not gate.passed:
+        issues.append("differential gate did not pass")
+    episode_order = tuple(episode.episode_id for episode in reference_run.episodes)
+    if episode_order != tuple(episode.episode_id for episode in candidate_run.episodes):
+        issues.append("candidate episode order does not match reference")
+    episode_order_sha256 = content_sha256(episode_order)
+    reference_evidence = _measure_backend_runners(
+        protocol,
+        environment=public_environment,
+        workload=workload,
+        runners=reference_runners,
+        baseline=reference_run,
+        gate=gate,
+        initial_issues=issues,
+        timer=timer,
+    )
+    candidate_evidence = _measure_backend_runners(
+        protocol,
+        environment=public_environment,
+        workload=workload,
+        runners=candidate_runners,
+        baseline=candidate_run,
+        gate=gate,
+        initial_issues=issues,
+        timer=timer,
+    )
+    combined_issues = tuple(dict.fromkeys((*reference_evidence.issues, *candidate_evidence.issues)))
+    return ComparativePerformanceEvidence(
+        protocol=protocol,
+        environment=public_environment,
+        workload_sha256=workload.sha256,
+        reference=reference_evidence,
+        candidate=candidate_evidence,
+        differential_report_sha256=gate.sha256,
+        reference_run_sha256=reference_run.sha256,
+        candidate_run_sha256=candidate_run.sha256,
+        episode_order_sha256=episode_order_sha256,
+        publishable=reference_evidence.publishable
+        and candidate_evidence.publishable
+        and not combined_issues,
+        issues=combined_issues,
+        production_claim=False,
+    )
+
+
+def measure_reference_workload(
+    protocol: MeasurementProtocol,
+    *,
+    manifest: WorkloadManifest | None = None,
+    scenario_registry: ReferenceScenarioRegistry | None = None,
+    environment: PublicEnvironment | None = None,
+    differential_report: DifferentialReport | None = None,
+    candidate_run: WorkloadRun | None = None,
+    clock: Callable[[], int] | None = None,
+) -> PerformanceEvidence:
+    """Measure real reference-engine runs; registry/scenario construction stays outside samples.
+
+    An injected ``differential_report`` is trusted only when it is byte-identical to a gate
+    recomputed over the current baseline run and, when supplied, ``candidate_run``. Stale,
+    forged, or wrong-identity reports fail closed and never enter publishable evidence.
+    """
+
+    workload = manifest or canonical_reference_workload_manifest()
+    scenarios = scenario_registry or canonical_reference_scenario_registry()
+    runners = tuple(ReferenceWorkloadRunner(scenarios) for _ in range(protocol.worker_count))
+    timer = clock or perf_counter_ns
+    public_environment = environment or PublicEnvironment.capture()
+
+    baseline = runners[0].run(workload, batch_size=protocol.batch_size)
+    issues: list[str] = []
+    if not baseline.publishable:
+        issues.append("baseline semantic run is not complete and publishable")
+
+    gate = (
+        compare_workload_runs(baseline, candidate_run)
+        if candidate_run is not None
+        else compare_workload_runs(baseline, baseline)
+    )
+    if not gate.passed:
+        issues.append("differential gate did not pass")
+    if differential_report is not None:
+        if candidate_run is None:
+            issues.append("differential report requires a candidate run")
+        else:
+            if differential_report.workload_sha256 != gate.workload_sha256:
+                issues.append("differential report workload digest mismatch")
+            if differential_report.reference_run_sha256 != gate.reference_run_sha256:
+                issues.append("differential report reference run digest mismatch")
+            if differential_report.candidate_run_sha256 != gate.candidate_run_sha256:
+                issues.append("differential report candidate run digest mismatch")
+            if differential_report.sha256 != gate.sha256:
+                issues.append("differential report content digest mismatch")
+
+    return _measure_backend_runners(
+        protocol,
+        environment=public_environment,
+        workload=workload,
+        runners=runners,
+        baseline=baseline,
+        gate=gate,
+        initial_issues=issues,
+        timer=timer,
     )
