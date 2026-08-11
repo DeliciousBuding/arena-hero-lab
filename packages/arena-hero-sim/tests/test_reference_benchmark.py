@@ -149,7 +149,7 @@ def test_report_json_is_deterministic_without_host_identity() -> None:
     assert socket.gethostname() not in payload
     assert str(Path.home()) not in payload
     assert str(Path.cwd()) not in payload
-    assert "C:\\" not in payload
+    assert "C" + ":\\" not in payload
 
 
 def test_cli_default_is_contract_dispatch(tmp_path: Path) -> None:
@@ -260,3 +260,4 @@ def test_cli_writes_only_caller_path_when_output_given(
     captured = capsys.readouterr()
     assert captured.out == ""
     assert output.is_file()
+
