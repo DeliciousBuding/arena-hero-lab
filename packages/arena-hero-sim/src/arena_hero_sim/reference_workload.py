@@ -852,7 +852,7 @@ class BackendWorkloadRunner:
         self._scenarios = scenarios
         self._backend = backend
         self._registry = BackendRegistry()
-        self._registry.register(backend)
+        self._descriptor = self._registry.register(backend)
 
     @property
     def backend(self) -> SimulatorBackend:
@@ -861,22 +861,24 @@ class BackendWorkloadRunner:
     def run(self, manifest: WorkloadManifest, *, batch_size: int = 1) -> WorkloadRun:
         if manifest.ruleset != REFERENCE_RULESET:
             raise ReferenceWorkloadError("manifest rules identity is not the reference ruleset")
-        if batch_size < 1 or batch_size > self._backend.descriptor.capabilities.max_batch_size:
+        self._registry.verify_backend(self._descriptor.backend_id)
+        if batch_size < 1 or batch_size > self._descriptor.capabilities.max_batch_size:
             raise ReferenceWorkloadError("batch_size is outside backend capabilities")
         for case in manifest.cases:
             self._scenarios.resolve(case)
         requests = tuple(
             manifest.iter_requests(
-                backend_id=self._backend.descriptor.backend_id,
-                engine_version=self._backend.descriptor.engine_version,
+                backend_id=self._descriptor.backend_id,
+                engine_version=self._descriptor.engine_version,
                 protocol_version=REFERENCE_PROTOCOL_VERSION,
             )
         )
         results: list[SimulationResult] = []
         for offset in range(0, len(requests), batch_size):
             results.extend(self._registry.simulate_batch(requests[offset : offset + batch_size]))
+        self._registry.verify_backend(self._descriptor.backend_id)
         identity = WorkloadBackendIdentity.from_descriptor(
-            self._backend.descriptor,
+            self._descriptor,
             protocol_version=REFERENCE_PROTOCOL_VERSION,
         )
         run = WorkloadRun.create(

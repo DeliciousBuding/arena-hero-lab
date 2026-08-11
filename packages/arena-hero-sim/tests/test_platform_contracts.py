@@ -1,19 +1,22 @@
 from __future__ import annotations
 
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, replace
 
 import pytest
 
+from arena_hero_sim.backend import BackendDescriptor
 from arena_hero_sim.contracts import (
     BackendCapabilities,
     RulesetRef,
     SimulationRequest,
+    SimulationResult,
     SimulationStatus,
     SimulatorConfig,
 )
 from arena_hero_sim.microbenchmark import run_contract_dispatch_microbenchmark
 from arena_hero_sim.reference import ReferenceBackendPlaceholder
 from arena_hero_sim.registry import (
+    BackendContractError,
     BackendRegistry,
     DuplicateBackendError,
     ProtocolNegotiationError,
@@ -110,3 +113,119 @@ def test_microbenchmark_report_is_non_production_contract_measurement() -> None:
 def test_batch_capability_invariants() -> None:
     with pytest.raises(ValueError, match="non-batch"):
         BackendCapabilities(protocol_versions=("v1",), supports_batch=False, max_batch_size=2)
+
+
+class DescriptorDriftBackend:
+    def __init__(self) -> None:
+        self._descriptor = ReferenceBackendPlaceholder().descriptor
+        self._delegate = ReferenceBackendPlaceholder()
+        self._drift_after_call = False
+
+    @property
+    def descriptor(self) -> BackendDescriptor:
+        return self._descriptor
+
+    def drift(self, field: str) -> None:
+        capabilities = self._descriptor.capabilities
+        if field == "engine_version":
+            self._descriptor = replace(self._descriptor, engine_version="0.1.1-drift")
+        elif field == "features":
+            self._descriptor = replace(
+                self._descriptor,
+                capabilities=replace(capabilities, features=frozenset({"drift"})),
+            )
+        elif field == "max_batch_size":
+            self._descriptor = replace(
+                self._descriptor,
+                capabilities=replace(capabilities, max_batch_size=512),
+            )
+        elif field == "protocol_versions":
+            self._descriptor = replace(
+                self._descriptor,
+                capabilities=replace(capabilities, protocol_versions=("arena.sim.v2",)),
+            )
+        else:
+            raise AssertionError(field)
+
+    def simulate(self, request: SimulationRequest) -> SimulationResult:
+        result = self._delegate.simulate(request)
+        if self._drift_after_call:
+            self.drift("features")
+        return result
+
+    def simulate_batch(
+        self, requests: tuple[SimulationRequest, ...]
+    ) -> tuple[SimulationResult, ...]:
+        results = self._delegate.simulate_batch(requests)
+        if self._drift_after_call:
+            self.drift("max_batch_size")
+        return results
+
+
+class AlternatingDescriptorBackend(DescriptorDriftBackend):
+    def __init__(self) -> None:
+        super().__init__()
+        self.descriptor_calls = 0
+        self._base = self._descriptor
+        self._alternate = replace(
+            self._base,
+            capabilities=replace(
+                self._base.capabilities,
+                features=frozenset({"contract-validation", "drift-a"}),
+                max_batch_size=512,
+            ),
+        )
+
+    @property
+    def descriptor(self) -> BackendDescriptor:
+        self.descriptor_calls += 1
+        if self.descriptor_calls <= 2:
+            return self._base
+        return self._base if self.descriptor_calls % 2 else self._alternate
+
+
+def test_registry_rejects_alternating_descriptor_instead_of_recording_last_value() -> None:
+    backend = AlternatingDescriptorBackend()
+    value = BackendRegistry()
+    snapshot = value.register(backend)
+
+    assert snapshot.capabilities.max_batch_size == 1024
+    value.verify_backend(snapshot.backend_id)
+    with pytest.raises(BackendContractError, match="descriptor changed"):
+        value.verify_backend(snapshot.backend_id)
+
+
+@pytest.mark.parametrize(
+    "field",
+    ("engine_version", "features", "max_batch_size", "protocol_versions"),
+)
+def test_registry_rejects_descriptor_drift_before_execution(field: str) -> None:
+    backend = DescriptorDriftBackend()
+    value = BackendRegistry()
+    snapshot = value.register(backend)
+    backend.drift(field)
+
+    with pytest.raises(BackendContractError, match="descriptor changed"):
+        value.simulate(request())
+    assert snapshot.engine_version == "0.1.0-placeholder"
+    assert snapshot.capabilities.max_batch_size == 1024
+
+
+def test_registry_rejects_descriptor_drift_during_single_execution() -> None:
+    backend = DescriptorDriftBackend()
+    value = BackendRegistry()
+    value.register(backend)
+    backend._drift_after_call = True
+
+    with pytest.raises(BackendContractError, match="descriptor changed"):
+        value.simulate(request())
+
+
+def test_registry_rejects_descriptor_drift_during_batch_execution() -> None:
+    backend = DescriptorDriftBackend()
+    value = BackendRegistry()
+    value.register(backend)
+    backend._drift_after_call = True
+
+    with pytest.raises(BackendContractError, match="descriptor changed"):
+        value.simulate_batch((request(),))
