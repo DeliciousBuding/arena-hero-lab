@@ -99,6 +99,10 @@ allocation-unbalanced designs remain effect diagnostics and do not validate vari
 boundary or indeterminate solver certificate disables aggregate validation. The certificate
 does not prove global unimodality or global optimality and is not a signature or third-party
 attestation.
+ Literal certificate/report bytes remain strict reference artifacts, while
+cross-platform recomputation compares their declared identities, statuses, and numerical
+fields under explicit tolerances because traced binary64/libm intermediates are not promised
+to have one digest across all platforms.
 
 Design gates fail closed: fewer than two clusters, non-finite or numerically overflowing
 values, duplicate observation identities within a cluster, missing levels (under a strict

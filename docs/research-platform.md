@@ -185,6 +185,12 @@ algorithm and bounded search interval. It does **not** prove global unimodality 
 optimum. It is not a digital signature, independent implementation, third-party attestation,
 or production suitability claim.
 
+The checked-in literal corpus is a strict, content-addressed reference artifact for its
+recorded runtime. Fit v2 remains byte-stable across the supported CI matrix. Solver traces
+contain binary64/libm-sensitive intermediate evaluations, so cross-platform recomputation
+verifies exact identities and statuses plus explicit numerical tolerances; it does not claim
+that certificate or report digests are identical across operating systems or math libraries.
+
 Fail-closed gates (no silent fallback):
 
 - fewer than two complete clusters, non-finite or numerically overflowing values, or

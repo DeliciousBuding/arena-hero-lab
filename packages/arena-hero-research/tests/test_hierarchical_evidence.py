@@ -281,14 +281,103 @@ def test_literal_hierarchical_known_answer_artifacts() -> None:
         "balanced-repeated": ("verified-interior", "effect-diagnostic", False),
         "allocation-unbalanced": ("verified-interior", "effect-diagnostic", False),
     }
+    certificate_numeric_fields = (
+        "candidate_log_lambda",
+        "candidate_lambda",
+        "candidate_objective",
+        "profile_score",
+        "profile_curvature",
+        "kkt_residual",
+        "kkt_tolerance",
+        "backward_error",
+        "newton_correction",
+    )
+    report_numeric_fields = (
+        "path_a_effect",
+        "path_b_effect",
+        "path_a_between_variance",
+        "path_a_error_variance",
+        "path_b_between_variance",
+        "path_b_error_variance",
+        "effect_absolute_difference",
+        "variance_absolute_difference",
+        "effect_tolerance",
+        "variance_tolerance",
+    )
     for case in fixture["cases"]:
         data = tuple(ClusterObservation.from_dict(item) for item in case["observations"])
         evidence = analyze_hierarchical_evidence(
             outcome_name=case["outcome_name"], observations=data
         )
+        literal_certificate = SolverCertificate.from_dict(case["certificate"])
+        literal_report = CrossValidationReportV1.from_dict(case["report"])
+        assert literal_certificate.verify()
+        assert literal_report.verify()
+        assert literal_report.certificate_sha256 == literal_certificate.canonical_sha256
+
+        # Fit v2 remains a byte-stable compatibility contract. The traced solver artifact
+        # records libm-sensitive intermediate evaluations, so cross-platform recomputation
+        # checks its numerical/scientific contract rather than claiming an identical digest.
         assert evidence.fit.to_dict() == case["fit"]
-        assert evidence.certificate.to_dict() == case["certificate"]
-        assert evidence.report.to_dict() == case["report"]
+        assert evidence.certificate.source_input_sha256 == literal_certificate.source_input_sha256
+        assert (
+            evidence.certificate.analysis_input_sha256 == literal_certificate.analysis_input_sha256
+        )
+        assert evidence.certificate.fit_sha256 == literal_certificate.fit_sha256
+        assert evidence.certificate.optimizer == literal_certificate.optimizer
+        assert evidence.certificate.initial_bracket == literal_certificate.initial_bracket
+        assert evidence.certificate.tolerance == literal_certificate.tolerance
+        assert evidence.certificate.max_iterations == literal_certificate.max_iterations
+        assert evidence.certificate.iterations == literal_certificate.iterations
+        assert evidence.certificate.evaluation_count == literal_certificate.evaluation_count
+        assert (
+            evidence.certificate.invalid_evaluation_count
+            == literal_certificate.invalid_evaluation_count
+        )
+        assert evidence.certificate.termination_reason == literal_certificate.termination_reason
+        assert evidence.certificate.boundary is literal_certificate.boundary
+        assert evidence.certificate.precision_limited is literal_certificate.precision_limited
+        assert evidence.certificate.solver_status is literal_certificate.solver_status
+        for field_name in certificate_numeric_fields:
+            actual = getattr(evidence.certificate, field_name)
+            expected = getattr(literal_certificate, field_name)
+            if expected is None:
+                assert actual is None
+            else:
+                assert actual == pytest.approx(expected, rel=1e-10, abs=1e-12)
+        assert len(evidence.certificate.evaluations) == len(literal_certificate.evaluations)
+        for actual, expected in zip(
+            evidence.certificate.evaluations,
+            literal_certificate.evaluations,
+            strict=True,
+        ):
+            assert actual.valid is expected.valid
+            assert actual.invalid_reason == expected.invalid_reason
+            assert actual.log_lambda == pytest.approx(expected.log_lambda, rel=1e-10, abs=1e-12)
+            assert actual.lambda_value == pytest.approx(expected.lambda_value, rel=1e-10, abs=1e-12)
+            if expected.objective is None:
+                assert actual.objective is None
+            else:
+                assert actual.objective == pytest.approx(expected.objective, rel=1e-10, abs=1e-12)
+
+        assert evidence.report.source_input_sha256 == literal_report.source_input_sha256
+        assert evidence.report.analysis_input_sha256 == literal_report.analysis_input_sha256
+        assert evidence.report.fit_sha256 == literal_report.fit_sha256
+        assert evidence.report.design_profile is literal_report.design_profile
+        assert evidence.report.validation_scope is literal_report.validation_scope
+        assert evidence.report.status is literal_report.status
+        assert evidence.report.cluster_count == literal_report.cluster_count
+        assert evidence.report.observation_count == literal_report.observation_count
+        assert evidence.report.balanced is literal_report.balanced
+        assert evidence.report.effect_passed is literal_report.effect_passed
+        assert evidence.report.variance_validated is literal_report.variance_validated
+        assert evidence.report.variance_passed is literal_report.variance_passed
+        assert evidence.report.passed is literal_report.passed
+        for field_name in report_numeric_fields:
+            assert getattr(evidence.report, field_name) == pytest.approx(
+                getattr(literal_report, field_name), rel=1e-10, abs=1e-12
+            )
+
         solver_status, report_status, passed = expected_statuses[case["name"]]
         assert evidence.certificate.solver_status.value == solver_status
         assert evidence.report.status.value == report_status
