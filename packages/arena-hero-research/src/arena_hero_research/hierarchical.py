@@ -187,6 +187,20 @@ def _strict_optional_float(value: object, field_name: str) -> float | None:
     return _strict_float(value, field_name)
 
 
+def _strict_json_float(value: object, field_name: str) -> float:
+    if type(value) is not float:
+        raise HierarchicalFitError(f"{field_name} must be a JSON float")
+    if not math.isfinite(value):
+        raise HierarchicalFitError(f"{field_name} must be finite")
+    return value
+
+
+def _strict_optional_json_float(value: object, field_name: str) -> float | None:
+    if value is None:
+        return None
+    return _strict_json_float(value, field_name)
+
+
 def _strict_int(value: object, field_name: str) -> int:
     try:
         return require_int(value, field_name)
@@ -258,7 +272,7 @@ class ClusterObservation:
             cluster_id=_strict_string(value["cluster_id"], "cluster_id"),
             observation_id=_strict_string(value["observation_id"], "observation_id"),
             treatment=_strict_string(value["treatment"], "treatment"),
-            value=_strict_float(value["value"], "value"),
+            value=_strict_json_float(value["value"], "value"),
         )
 
 
@@ -531,25 +545,27 @@ class RandomInterceptFit:
                     value["effect_size_method"], "effect_size_method"
                 ),
                 ci_method=_strict_string(value["ci_method"], "ci_method"),
-                confidence_level=_strict_float(value["confidence_level"], "confidence_level"),
+                confidence_level=_strict_json_float(value["confidence_level"], "confidence_level"),
                 estimand=_strict_string(value["estimand"], "estimand"),
                 cluster_count=_strict_int(value["cluster_count"], "cluster_count"),
                 observation_count=_strict_int(value["observation_count"], "observation_count"),
                 dropped_clusters=_strict_int(value["dropped_clusters"], "dropped_clusters"),
-                intercept=_strict_float(value["intercept"], "intercept"),
-                treatment_effect=_strict_float(value["treatment_effect"], "treatment_effect"),
-                standard_error=_strict_optional_float(value["standard_error"], "standard_error"),
-                between_variance=_strict_float(value["between_variance"], "between_variance"),
-                error_variance=_strict_float(value["error_variance"], "error_variance"),
-                icc=_strict_float(value["icc"], "icc"),
-                hierarchical_effect=_strict_optional_float(
+                intercept=_strict_json_float(value["intercept"], "intercept"),
+                treatment_effect=_strict_json_float(value["treatment_effect"], "treatment_effect"),
+                standard_error=_strict_optional_json_float(
+                    value["standard_error"], "standard_error"
+                ),
+                between_variance=_strict_json_float(value["between_variance"], "between_variance"),
+                error_variance=_strict_json_float(value["error_variance"], "error_variance"),
+                icc=_strict_json_float(value["icc"], "icc"),
+                hierarchical_effect=_strict_optional_json_float(
                     value["hierarchical_effect"], "hierarchical_effect"
                 ),
                 degrees_of_freedom=_strict_int(value["degrees_of_freedom"], "degrees_of_freedom"),
-                confidence_lower=_strict_optional_float(
+                confidence_lower=_strict_optional_json_float(
                     value["confidence_lower"], "confidence_lower"
                 ),
-                confidence_upper=_strict_optional_float(
+                confidence_upper=_strict_optional_json_float(
                     value["confidence_upper"], "confidence_upper"
                 ),
                 singular=_strict_bool(value["singular"], "singular"),

@@ -50,7 +50,7 @@ class HierarchicalAnalysisEvidence:
             raise HierarchicalEvidenceError("hierarchical evidence reference chain is invalid")
 
     def verify(self) -> bool:
-        return (
+        references_match = (
             self.fit.verify()
             and self.certificate.verify()
             and self.report.verify()
@@ -63,6 +63,33 @@ class HierarchicalAnalysisEvidence:
             and self.report.certificate_schema_version == self.certificate.schema_version
             and self.report.certificate_sha256 == self.certificate.canonical_sha256
         )
+        if not references_match:
+            return False
+        fit_fields_match = (
+            self.report.outcome_name == self.fit.outcome_name
+            and self.report.control_level == self.fit.control_level
+            and self.report.treatment_level == self.fit.treatment_level
+            and self.report.cluster_count == self.fit.cluster_count
+            and self.report.observation_count == self.fit.observation_count
+            and self.report.path_b_effect == self.fit.treatment_effect
+            and self.report.path_b_between_variance == self.fit.between_variance
+            and self.report.path_b_error_variance == self.fit.error_variance
+        )
+        if not fit_fields_match:
+            return False
+        if self.certificate.solver_status is not SolverStatus.VERIFIED_INTERIOR:
+            return (
+                self.report.validation_scope is ValidationScope.NONE
+                and self.report.status is CrossValidationStatus.INDETERMINATE
+                and not self.report.passed
+            )
+        if self.report.status is CrossValidationStatus.FULLY_VALIDATED:
+            return (
+                self.report.design_profile is DesignProfile.PAIRED_1X1
+                and self.report.validation_scope is ValidationScope.EFFECT_AND_VARIANCE
+                and self.report.passed
+            )
+        return not self.report.passed
 
     def verify_recomputed(
         self,

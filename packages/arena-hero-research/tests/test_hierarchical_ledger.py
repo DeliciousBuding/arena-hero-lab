@@ -7,6 +7,11 @@ from dataclasses import replace
 import pytest
 
 from arena_hero_research.hierarchical import ClusterObservation
+from arena_hero_research.hierarchical_artifacts import (
+    CrossValidationStatus,
+    SolverStatus,
+    ValidationScope,
+)
 from arena_hero_research.hierarchical_evidence import (
     HierarchicalAnalysisEvidence,
     HierarchicalEvidenceError,
@@ -14,6 +19,7 @@ from arena_hero_research.hierarchical_evidence import (
     commit_hierarchical_analysis_evidence,
     load_hierarchical_analysis_evidence,
 )
+from arena_hero_research.ledger import LedgerConflictError
 from arena_hero_research.storage import (
     FilesystemResearchLedgerStorage,
     FrozenResearchRecord,
@@ -155,6 +161,68 @@ def test_restore_rejects_resigned_but_cross_linked_report_tamper(tmp_path) -> No
         )
 
 
+def test_boundary_certificate_cannot_be_resigned_as_fully_validated_or_restored(tmp_path) -> None:
+    storage = FilesystemResearchLedgerStorage(tmp_path / "ledger")
+    evidence = analyze_hierarchical_evidence(outcome_name="score", observations=observations())
+    forged_certificate = replace(
+        evidence.certificate,
+        boundary=True,
+        solver_status=SolverStatus.BOUNDARY,
+        canonical_sha256="0" * 64,
+    )
+    forged_certificate = replace(
+        forged_certificate,
+        canonical_sha256=content_sha256(forged_certificate.payload()),
+    )
+    forged_report = replace(
+        evidence.report,
+        certificate_sha256=forged_certificate.canonical_sha256,
+        validation_scope=ValidationScope.EFFECT_AND_VARIANCE,
+        status=CrossValidationStatus.FULLY_VALIDATED,
+        passed=True,
+        canonical_sha256="0" * 64,
+    )
+    forged_report = replace(forged_report, canonical_sha256=content_sha256(forged_report.payload()))
+
+    with pytest.raises(HierarchicalEvidenceError, match="reference chain"):
+        HierarchicalAnalysisEvidence(
+            fit=evidence.fit,
+            certificate=forged_certificate,
+            report=forged_report,
+        )
+
+    records = (
+        FrozenResearchRecord.create(
+            study_id="study.alpha",
+            kind=ResearchRecordKind.HIERARCHICAL_FIT,
+            subject_id="score.primary",
+            payload=evidence.fit.to_dict(),
+        ),
+        FrozenResearchRecord.create(
+            study_id="study.alpha",
+            kind=ResearchRecordKind.SOLVER_CERTIFICATE,
+            subject_id="score.primary",
+            payload=forged_certificate.to_dict(),
+        ),
+        FrozenResearchRecord.create(
+            study_id="study.alpha",
+            kind=ResearchRecordKind.CROSS_VALIDATION_REPORT,
+            subject_id="score.primary",
+            payload=forged_report.to_dict(),
+        ),
+    )
+    storage.commit(
+        operation_id="hierarchical.forged.boundary",
+        study_id="study.alpha",
+        records=records,
+        expected_head_sha256=None,
+    )
+    with pytest.raises(HierarchicalEvidenceError, match="reference chain"):
+        load_hierarchical_analysis_evidence(
+            storage, study_id="study.alpha", analysis_id="score.primary"
+        )
+
+
 def test_unified_evidence_rejects_cross_link_mismatch() -> None:
     evidence = analyze_hierarchical_evidence(outcome_name="score", observations=observations())
     tampered = replace(
@@ -172,43 +240,27 @@ def test_unified_evidence_rejects_cross_link_mismatch() -> None:
         )
 
 
-def test_restore_rejects_cross_transaction_backfill(tmp_path) -> None:
+def test_generic_commit_rejects_orphan_hierarchical_record(tmp_path) -> None:
     storage = FilesystemResearchLedgerStorage(tmp_path / "ledger")
     evidence = analyze_hierarchical_evidence(outcome_name="score", observations=observations())
-    records = (
-        FrozenResearchRecord.create(
-            study_id="study.alpha",
-            kind=ResearchRecordKind.HIERARCHICAL_FIT,
-            subject_id="score.primary",
-            payload=evidence.fit.to_dict(),
-        ),
-        FrozenResearchRecord.create(
-            study_id="study.alpha",
-            kind=ResearchRecordKind.SOLVER_CERTIFICATE,
-            subject_id="score.primary",
-            payload=evidence.certificate.to_dict(),
-        ),
-        FrozenResearchRecord.create(
-            study_id="study.alpha",
-            kind=ResearchRecordKind.CROSS_VALIDATION_REPORT,
-            subject_id="score.primary",
-            payload=evidence.report.to_dict(),
-        ),
+    orphan = FrozenResearchRecord.create(
+        study_id="study.alpha",
+        kind=ResearchRecordKind.SOLVER_CERTIFICATE,
+        subject_id="score.primary",
+        payload=evidence.certificate.to_dict(),
     )
-    head = None
-    for index, record in enumerate(records):
-        transaction = storage.commit(
-            operation_id=f"hierarchical.backfill.{index}",
-            study_id="study.alpha",
-            records=(record,),
-            expected_head_sha256=head,
-        )
-        head = transaction.canonical_sha256
 
-    with pytest.raises(HierarchicalEvidenceError, match="one atomic transaction"):
-        load_hierarchical_analysis_evidence(
-            storage, study_id="study.alpha", analysis_id="score.primary"
+    with pytest.raises(LedgerConflictError, match="only three records"):
+        storage.commit(
+            operation_id="hierarchical.orphan.certificate",
+            study_id="study.alpha",
+            records=(orphan,),
+            expected_head_sha256=None,
         )
+
+    state = storage.load()
+    assert state.transactions == ()
+    assert state.records == ()
 
 
 def test_outer_ledger_loaders_reject_unknown_fields_and_type_coercion() -> None:

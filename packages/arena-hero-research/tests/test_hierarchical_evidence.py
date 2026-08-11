@@ -273,6 +273,44 @@ def test_cross_validation_report_tamper_fails_closed(field: str) -> None:
         CrossValidationReportV1.from_dict(payload)
 
 
+def test_strict_json_float_fields_reject_integer_lexical_forms() -> None:
+    fit, certificate = fit_random_intercept_with_certificate(
+        outcome_name="score", observations=observations()
+    )
+    report = analyze_hierarchical_evidence(outcome_name="score", observations=observations()).report
+
+    fit_payload = fit.to_dict()
+    fit_payload["intercept"] = 1
+    with pytest.raises(hierarchical.HierarchicalFitError, match="JSON float"):
+        hierarchical.RandomInterceptFit.from_dict(fit_payload)
+
+    observation_payload = observations()[0].to_dict()
+    observation_payload["value"] = 1
+    with pytest.raises(hierarchical.HierarchicalFitError, match="JSON float"):
+        ClusterObservation.from_dict(observation_payload)
+
+    certificate_payload = certificate.to_dict()
+    initial_bracket = certificate_payload["initial_bracket"]
+    assert isinstance(initial_bracket, list)
+    initial_bracket[0] = -30
+    with pytest.raises(SolverEvidenceError, match="JSON float"):
+        SolverCertificate.from_dict(certificate_payload)
+
+    certificate_payload = certificate.to_dict()
+    evaluations = certificate_payload["evaluations"]
+    assert isinstance(evaluations, list)
+    first_evaluation = evaluations[0]
+    assert isinstance(first_evaluation, dict)
+    first_evaluation["objective"] = -1
+    with pytest.raises(SolverEvidenceError, match="JSON float"):
+        SolverCertificate.from_dict(certificate_payload)
+
+    report_payload = report.to_dict()
+    report_payload["path_a_effect"] = 1
+    with pytest.raises(SolverEvidenceError, match="JSON float"):
+        CrossValidationReportV1.from_dict(report_payload)
+
+
 def test_solver_evaluation_accepts_only_bounded_cross_libm_roundoff() -> None:
     log_lambda = 3.238259894893683
     expected_lambda = math.exp(log_lambda)

@@ -179,6 +179,30 @@ class FrozenResearchRecord:
         return restored
 
 
+_HIERARCHICAL_RECORD_KINDS = frozenset(
+    {
+        ResearchRecordKind.HIERARCHICAL_FIT,
+        ResearchRecordKind.SOLVER_CERTIFICATE,
+        ResearchRecordKind.CROSS_VALIDATION_REPORT,
+    }
+)
+
+
+def _hierarchical_transaction_error(
+    records: Sequence[FrozenResearchRecord],
+) -> str | None:
+    hierarchical = tuple(record for record in records if record.kind in _HIERARCHICAL_RECORD_KINDS)
+    if not hierarchical:
+        return None
+    if len(records) != 3 or len(hierarchical) != 3:
+        return "hierarchical evidence must be the only three records in one transaction"
+    if frozenset(record.kind for record in hierarchical) != _HIERARCHICAL_RECORD_KINDS:
+        return "hierarchical evidence requires one fit, certificate, and report"
+    if len({record.subject_id for record in hierarchical}) != 1:
+        return "hierarchical evidence records must share one subject id"
+    return None
+
+
 @dataclass(frozen=True, slots=True)
 class ResearchLedgerTransaction:
     """One atomic operation in the append-only hash-chained journal."""
@@ -403,6 +427,9 @@ class FilesystemResearchLedgerStorage:
             raise LedgerConflictError("all records must belong to the transaction study")
         if any(not record.verify() for record in proposed):
             raise LedgerConflictError("all records must pass content verification")
+        hierarchical_error = _hierarchical_transaction_error(proposed)
+        if hierarchical_error is not None:
+            raise LedgerConflictError(hierarchical_error)
         keys = tuple((item.study_id, item.kind, item.subject_id) for item in proposed)
         if len(keys) != len(set(keys)):
             raise LedgerConflictError("operation contains duplicate immutable record keys")
@@ -554,6 +581,7 @@ class FilesystemResearchLedgerStorage:
         records_by_sha: dict[str, FrozenResearchRecord] = {}
         immutable_index: dict[tuple[str, ResearchRecordKind, str], str] = {}
         for transaction in transactions:
+            transaction_records: list[FrozenResearchRecord] = []
             for digest in transaction.record_sha256s:
                 record = records_by_sha.get(digest)
                 if record is None:
@@ -569,6 +597,10 @@ class FilesystemResearchLedgerStorage:
                 if prior is not None and prior != record.canonical_sha256:
                     raise LedgerCorruptionError("immutable research record key was rewritten")
                 immutable_index[key] = record.canonical_sha256
+                transaction_records.append(record)
+            hierarchical_error = _hierarchical_transaction_error(transaction_records)
+            if hierarchical_error is not None:
+                raise LedgerCorruptionError(hierarchical_error)
 
         return ResearchLedgerState(tuple(transactions), tuple(records))
 

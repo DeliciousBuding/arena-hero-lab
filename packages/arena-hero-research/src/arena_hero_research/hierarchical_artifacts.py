@@ -81,12 +81,11 @@ def _sha(value: object, field_name: str) -> str:
 
 
 def _float(value: object, field_name: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, int | float):
-        raise SolverEvidenceError(f"{field_name} must be a JSON number")
-    result = float(value)
-    if not math.isfinite(result):
+    if type(value) is not float:
+        raise SolverEvidenceError(f"{field_name} must be a JSON float")
+    if not math.isfinite(value):
         raise SolverEvidenceError(f"{field_name} must be finite")
-    return result
+    return value
 
 
 def _optional_float(value: object, field_name: str) -> float | None:
