@@ -15,7 +15,10 @@ from importlib import metadata
 from types import MappingProxyType
 from typing import Protocol
 
+from arena_hero_sim.backend import SimulatorBackend
+from arena_hero_sim.reference_contracts import ReferenceReplay, ReplayArtifactIdentity
 from arena_hero_sim.reference_workload import (
+    BackendWorkloadRunner,
     DifferentialReport,
     ReferenceScenarioRegistry,
     ReferenceWorkloadRunner,
@@ -31,7 +34,10 @@ from arena_hero_sim.workload import WorkloadManifest
 MEASUREMENT_PROTOCOL_SCHEMA = "arena.bench.measurement-protocol.v1"
 PERFORMANCE_EVIDENCE_SCHEMA = "arena.bench.performance-evidence.v1"
 
-COMPARATIVE_PERFORMANCE_EVIDENCE_SCHEMA = "arena.bench.comparative-performance-evidence.v1"
+COMPARATIVE_PERFORMANCE_EVIDENCE_SCHEMA_V1 = "arena.bench.comparative-performance-evidence.v1"
+COMPARATIVE_PERFORMANCE_EVIDENCE_SCHEMA = "arena.bench.comparative-performance-evidence.v2"
+REPLAY_ATTESTATION_VERIFIED = "verified"
+REPLAY_ATTESTATION_UNATTESTED = "self-reported/unattested"
 MINIMUM_CREDIBLE_SAMPLE_NS = 1_000
 PERF_COUNTER_CLOCK = "perf_counter_ns"
 INJECTED_TEST_CLOCK = "injected-test-clock"
@@ -48,6 +54,12 @@ class PerformanceMeasurementError(RuntimeError):
 
 class WorkloadRunnerProtocol(Protocol):
     def run(self, manifest: WorkloadManifest, *, batch_size: int = 1) -> WorkloadRun: ...
+
+
+class ReplayArtifactResolver(Protocol):
+    """Resolve canonical replay envelope bytes by their claimed artifact identity."""
+
+    def resolve(self, identity: ReplayArtifactIdentity) -> bytes: ...
 
 
 WorkloadRunnerFactory = Callable[[], WorkloadRunnerProtocol]
@@ -543,7 +555,7 @@ class PerformanceEvidence:
 
 @dataclass(frozen=True, slots=True)
 class ComparativePerformanceEvidence:
-    """Versioned, non-production comparison of two real backend executions."""
+    """Versioned local comparison with explicit replay-attestation provenance."""
 
     protocol: MeasurementProtocol
     environment: PublicEnvironment
@@ -554,12 +566,17 @@ class ComparativePerformanceEvidence:
     reference_run_sha256: str
     candidate_run_sha256: str
     episode_order_sha256: str
+    replay_attestation: str
+    attested_replay_count: int
+    expected_replay_count: int
     publishable: bool
     issues: tuple[str, ...] = field(default_factory=tuple)
     production_claim: bool = False
     schema_version: str = COMPARATIVE_PERFORMANCE_EVIDENCE_SCHEMA
 
     def __post_init__(self) -> None:
+        if self.schema_version != COMPARATIVE_PERFORMANCE_EVIDENCE_SCHEMA:
+            raise ValueError("unsupported comparative performance evidence schema")
         object.__setattr__(self, "workload_sha256", _sha256(self.workload_sha256, "workload"))
         object.__setattr__(
             self,
@@ -576,6 +593,17 @@ class ComparativePerformanceEvidence:
             self, "episode_order_sha256", _sha256(self.episode_order_sha256, "episode order")
         )
         object.__setattr__(self, "issues", tuple(self.issues))
+        if self.replay_attestation not in {
+            REPLAY_ATTESTATION_VERIFIED,
+            REPLAY_ATTESTATION_UNATTESTED,
+        }:
+            raise ValueError("replay_attestation is unsupported")
+        _safe_int(self.attested_replay_count, "attested_replay_count", minimum=0)
+        _safe_int(self.expected_replay_count, "expected_replay_count", minimum=1)
+        if self.attested_replay_count > self.expected_replay_count:
+            raise ValueError("attested replay count exceeds expected count")
+        if not isinstance(self.publishable, bool):
+            raise ValueError("publishable must be a boolean")
         if self.production_claim is not False:
             raise ValueError("comparative evidence cannot claim production performance")
         if self.reference.backend.backend_id == self.candidate.backend.backend_id:
@@ -599,11 +627,77 @@ class ComparativePerformanceEvidence:
             raise ValueError("reference differential binding mismatch")
         if self.candidate.differential_report_sha256 != self.differential_report_sha256:
             raise ValueError("candidate differential binding mismatch")
+        attested = (
+            self.replay_attestation == REPLAY_ATTESTATION_VERIFIED
+            and self.attested_replay_count == self.expected_replay_count
+        )
         expected_publishable = (
-            self.reference.publishable and self.candidate.publishable and not self.issues
+            self.reference.publishable
+            and self.candidate.publishable
+            and attested
+            and not self.issues
         )
         if self.publishable is not expected_publishable:
             raise ValueError("comparative publishability must be fail-closed")
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, object]) -> ComparativePerformanceEvidence:
+        expected = {
+            "schema_version",
+            "protocol",
+            "protocol_sha256",
+            "environment",
+            "workload_sha256",
+            "reference",
+            "candidate",
+            "differential_report_sha256",
+            "reference_run_sha256",
+            "candidate_run_sha256",
+            "episode_order_sha256",
+            "replay_attestation",
+            "attested_replay_count",
+            "expected_replay_count",
+            "publishable",
+            "production_claim",
+            "issues",
+        }
+        if set(value) != expected:
+            raise ValueError("comparative performance evidence fields mismatch")
+        protocol = MeasurementProtocol.from_dict(_strict_mapping(value["protocol"], "protocol"))
+        protocol.verify(_strict_str(value["protocol_sha256"], "protocol_sha256"))
+        result = cls(
+            protocol=protocol,
+            environment=PublicEnvironment.from_dict(
+                _strict_mapping(value["environment"], "environment")
+            ),
+            workload_sha256=_strict_str(value["workload_sha256"], "workload_sha256"),
+            reference=PerformanceEvidence.from_dict(
+                _strict_mapping(value["reference"], "reference")
+            ),
+            candidate=PerformanceEvidence.from_dict(
+                _strict_mapping(value["candidate"], "candidate")
+            ),
+            differential_report_sha256=_strict_str(
+                value["differential_report_sha256"], "differential_report_sha256"
+            ),
+            reference_run_sha256=_strict_str(value["reference_run_sha256"], "reference_run_sha256"),
+            candidate_run_sha256=_strict_str(value["candidate_run_sha256"], "candidate_run_sha256"),
+            episode_order_sha256=_strict_str(value["episode_order_sha256"], "episode_order_sha256"),
+            replay_attestation=_strict_str(value["replay_attestation"], "replay_attestation"),
+            attested_replay_count=_strict_int(
+                value["attested_replay_count"], "attested_replay_count"
+            ),
+            expected_replay_count=_strict_int(
+                value["expected_replay_count"], "expected_replay_count"
+            ),
+            publishable=_strict_bool(value["publishable"], "publishable"),
+            issues=tuple(
+                _strict_str(item, "issue") for item in _strict_list(value["issues"], "issues")
+            ),
+            production_claim=_strict_bool(value["production_claim"], "production_claim"),
+            schema_version=_strict_str(value["schema_version"], "schema_version"),
+        )
+        return result
 
     def to_dict(self) -> dict[str, JsonValue]:
         value = to_json_value(
@@ -619,6 +713,9 @@ class ComparativePerformanceEvidence:
                 "reference_run_sha256": self.reference_run_sha256,
                 "candidate_run_sha256": self.candidate_run_sha256,
                 "episode_order_sha256": self.episode_order_sha256,
+                "replay_attestation": self.replay_attestation,
+                "attested_replay_count": self.attested_replay_count,
+                "expected_replay_count": self.expected_replay_count,
                 "publishable": self.publishable,
                 "production_claim": self.production_claim,
                 "issues": self.issues,
@@ -630,6 +727,12 @@ class ComparativePerformanceEvidence:
     @property
     def sha256(self) -> str:
         return content_sha256(self.to_dict())
+
+    def verify(self, expected_sha256: str | None = None) -> None:
+        if expected_sha256 is not None and self.sha256 != _sha256(
+            expected_sha256, "comparative evidence"
+        ):
+            raise ValueError("comparative evidence digest mismatch")
 
 
 def _run_worker_round(
@@ -657,6 +760,8 @@ def _record_round_issues(
     for index, run in enumerate(runs):
         if not run.publishable:
             issues.append(f"{label} worker {index} did not return a complete publishable run")
+        if any(episode.errors for episode in run.episodes):
+            issues.append(f"{label} worker {index} returned episode errors")
         if run.sha256 != expected_sha256:
             issues.append(f"{label} worker {index} semantic run digest drifted")
     return digests
@@ -784,32 +889,114 @@ def _measure_backend_runners(
     )
 
 
+def _require_simulator_backend(value: object, field_name: str) -> SimulatorBackend:
+    if not isinstance(value, SimulatorBackend):
+        raise PerformanceMeasurementError(f"{field_name} must implement SimulatorBackend")
+    return value
+
+
+def _attest_run_replays(
+    run: WorkloadRun,
+    *,
+    resolver: ReplayArtifactResolver | None,
+    label: str,
+) -> tuple[int, tuple[str, ...]]:
+    if resolver is None:
+        return 0, (f"{label} replay artifacts are self-reported and unattested",)
+    verified = 0
+    issues: list[str] = []
+    for index, episode in enumerate(run.episodes):
+        try:
+            identity = ReplayArtifactIdentity.from_artifact_refs(episode.artifact_refs)
+            replay_bytes = resolver.resolve(identity)
+            if not isinstance(replay_bytes, bytes):
+                raise TypeError("resolver did not return bytes")
+            replay = ReferenceReplay.from_bytes(replay_bytes)
+            identity.verify(replay)
+        except Exception as error:
+            issues.append(f"{label} replay {index} attestation failed: {type(error).__name__}")
+        else:
+            verified += 1
+    return verified, tuple(issues)
+
+
 def measure_comparative_workloads(
+    protocol: MeasurementProtocol,
+    *,
+    reference_backend: SimulatorBackend,
+    candidate_backend: SimulatorBackend,
+    replay_resolver: ReplayArtifactResolver | None = None,
+    manifest: WorkloadManifest | None = None,
+    scenario_registry: ReferenceScenarioRegistry | None = None,
+    environment: PublicEnvironment | None = None,
+) -> ComparativePerformanceEvidence:
+    """Measure concrete backends; publish only after replay bytes are verified."""
+
+    reference = _require_simulator_backend(reference_backend, "reference_backend")
+    candidate = _require_simulator_backend(candidate_backend, "candidate_backend")
+    scenarios = scenario_registry or canonical_reference_scenario_registry()
+    return _measure_comparative_workloads_with_runners(
+        protocol,
+        reference_runner_factory=lambda: BackendWorkloadRunner(scenarios, reference),
+        candidate_runner_factory=lambda: BackendWorkloadRunner(scenarios, candidate),
+        replay_resolver=replay_resolver,
+        manifest=manifest,
+        environment=environment,
+        timer=perf_counter_ns,
+        injected_runners=False,
+    )
+
+
+def _measure_comparative_workloads_for_testing(
     protocol: MeasurementProtocol,
     *,
     reference_runner_factory: WorkloadRunnerFactory,
     candidate_runner_factory: WorkloadRunnerFactory,
     manifest: WorkloadManifest | None = None,
     environment: PublicEnvironment | None = None,
-    clock: Callable[[], int] | None = None,
+    clock: Callable[[], int],
 ) -> ComparativePerformanceEvidence:
-    """Execute and time both injected backends against one frozen workload."""
+    """Private runner-injection seam; it can never create publishable evidence."""
 
+    return _measure_comparative_workloads_with_runners(
+        replace(protocol, clock=INJECTED_TEST_CLOCK),
+        reference_runner_factory=reference_runner_factory,
+        candidate_runner_factory=candidate_runner_factory,
+        replay_resolver=None,
+        manifest=manifest,
+        environment=environment,
+        timer=clock,
+        injected_runners=True,
+    )
+
+
+def _measure_comparative_workloads_with_runners(
+    protocol: MeasurementProtocol,
+    *,
+    reference_runner_factory: WorkloadRunnerFactory,
+    candidate_runner_factory: WorkloadRunnerFactory,
+    replay_resolver: ReplayArtifactResolver | None,
+    manifest: WorkloadManifest | None,
+    environment: PublicEnvironment | None,
+    timer: Callable[[], int],
+    injected_runners: bool,
+) -> ComparativePerformanceEvidence:
     workload = manifest or canonical_reference_workload_manifest()
     public_environment = environment or PublicEnvironment.capture()
-    effective_protocol = protocol if clock is None else replace(protocol, clock=INJECTED_TEST_CLOCK)
-    timer = perf_counter_ns if clock is None else clock
-    reference_runners = tuple(
-        reference_runner_factory() for _ in range(effective_protocol.worker_count)
-    )
-    candidate_runners = tuple(
-        candidate_runner_factory() for _ in range(effective_protocol.worker_count)
-    )
+    reference_runners = tuple(reference_runner_factory() for _ in range(protocol.worker_count))
+    candidate_runners = tuple(candidate_runner_factory() for _ in range(protocol.worker_count))
     reference_run = reference_runners[0].run(workload, batch_size=protocol.batch_size)
     candidate_run = candidate_runners[0].run(workload, batch_size=protocol.batch_size)
     issues: list[str] = []
+    if injected_runners:
+        issues.append("injected workload runners are test-only and unattested")
     if reference_run.backend.backend_id == candidate_run.backend.backend_id:
         raise PerformanceMeasurementError("candidate backend identity must differ from reference")
+    for label, run in (("reference", reference_run), ("candidate", candidate_run)):
+        if not run.publishable:
+            issues.append(f"{label} baseline is not complete and publishable")
+        if any(episode.errors for episode in run.episodes):
+            issues.append(f"{label} baseline contains episode errors")
     gate = compare_workload_runs(reference_run, candidate_run)
     if not gate.passed:
         issues.append("differential gate did not pass")
@@ -817,35 +1004,46 @@ def measure_comparative_workloads(
     if episode_order != tuple(episode.episode_id for episode in candidate_run.episodes):
         issues.append("candidate episode order does not match reference")
     episode_order_sha256 = content_sha256(episode_order)
+    reference_count, reference_attestation_issues = _attest_run_replays(
+        reference_run, resolver=replay_resolver, label="reference"
+    )
+    candidate_count, candidate_attestation_issues = _attest_run_replays(
+        candidate_run, resolver=replay_resolver, label="candidate"
+    )
+    issues.extend(reference_attestation_issues)
+    issues.extend(candidate_attestation_issues)
+    expected_replays = len(reference_run.episodes) + len(candidate_run.episodes)
+    attested_replays = reference_count + candidate_count
+    replay_attestation = (
+        REPLAY_ATTESTATION_VERIFIED
+        if not reference_attestation_issues
+        and not candidate_attestation_issues
+        and attested_replays == expected_replays
+        else REPLAY_ATTESTATION_UNATTESTED
+    )
     reference_evidence = _measure_backend_runners(
-        effective_protocol,
+        protocol,
         environment=public_environment,
         workload=workload,
         runners=reference_runners,
         baseline=reference_run,
         gate=gate,
-        initial_issues=(
-            *issues,
-            *(("injected test clock is not publishable",) if clock is not None else ()),
-        ),
+        initial_issues=issues,
         timer=timer,
     )
     candidate_evidence = _measure_backend_runners(
-        effective_protocol,
+        protocol,
         environment=public_environment,
         workload=workload,
         runners=candidate_runners,
         baseline=candidate_run,
         gate=gate,
-        initial_issues=(
-            *issues,
-            *(("injected test clock is not publishable",) if clock is not None else ()),
-        ),
+        initial_issues=issues,
         timer=timer,
     )
     combined_issues = tuple(dict.fromkeys((*reference_evidence.issues, *candidate_evidence.issues)))
     return ComparativePerformanceEvidence(
-        protocol=effective_protocol,
+        protocol=protocol,
         environment=public_environment,
         workload_sha256=workload.sha256,
         reference=reference_evidence,
@@ -854,9 +1052,15 @@ def measure_comparative_workloads(
         reference_run_sha256=reference_run.sha256,
         candidate_run_sha256=candidate_run.sha256,
         episode_order_sha256=episode_order_sha256,
-        publishable=reference_evidence.publishable
-        and candidate_evidence.publishable
-        and not combined_issues,
+        replay_attestation=replay_attestation,
+        attested_replay_count=attested_replays,
+        expected_replay_count=expected_replays,
+        publishable=(
+            reference_evidence.publishable
+            and candidate_evidence.publishable
+            and replay_attestation == REPLAY_ATTESTATION_VERIFIED
+            and not combined_issues
+        ),
         issues=combined_issues,
         production_claim=False,
     )
