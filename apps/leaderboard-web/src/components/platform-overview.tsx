@@ -73,7 +73,7 @@ export function PlatformOverview() {
           badgeVariant="success"
         >
           <DigestRow label="计划摘要" value={agent.evidence.plan_sha256} />
-          <DigestRow label="证据来源" value={agent.evidence.fixture_sha256} />
+          <DigestRow label="证据来源" value={agent.evidence.fixture_canonical_sha256} />
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">来源提交</span>
             <code className="tnum text-foreground">{agent.source_commit_short}</code>

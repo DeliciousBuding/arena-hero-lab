@@ -25,7 +25,7 @@ DEFAULT_OUTPUT = Path("apps/leaderboard-web/src/data/platform.json")
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Generate arena.platform.status.v1")
+    parser = argparse.ArgumentParser(description="Generate arena.platform.status.v2")
     parser.add_argument(
         "--output",
         type=Path,

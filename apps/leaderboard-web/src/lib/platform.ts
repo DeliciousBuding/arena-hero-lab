@@ -1,12 +1,12 @@
 /**
  * 平台面板静态数据层：直接 import scripts/generate_platform.py 生成的
- * platform.json（arena.platform.status.v1）。所有徽章与摘要均来自
+ * platform.json（arena.platform.status.v2）。所有徽章与摘要均来自
  * 确定性验证证据，不包含任何 mock 或竞争排名。
  */
 import rawPlatform from "@/data/platform.json";
 
 export interface AgentEvidence {
-  fixture_sha256: string;
+  fixture_canonical_sha256: string;
   plan_sha256: string;
   rules_version: string;
   captured_on: string;

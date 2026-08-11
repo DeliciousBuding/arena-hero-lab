@@ -129,7 +129,7 @@ export default function PlatformPage() {
           <DetailRow label="SDK" value={`${agent.sdk.name} ${agent.sdk.version}`} />
           <Separator className="my-2" />
           <DetailRow label="计划摘要" value={agent.evidence.plan_sha256} />
-          <DetailRow label="证据文件摘要" value={agent.evidence.fixture_sha256} />
+          <DetailRow label="证据文件摘要" value={agent.evidence.fixture_canonical_sha256} />
           <DetailRow label="规则版本" value={agent.evidence.rules_version} />
           <DetailRow label="采集日期" value={agent.evidence.captured_on} />
           <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{agent.note}</p>

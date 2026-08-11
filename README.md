@@ -101,7 +101,7 @@ that reports deterministic conformance evidence for the Python vNext pipeline:
 
 - **Python Agent**: turn-to-plan known-answer conformance frozen from
   [arena-hero-agent](https://github.com/DeliciousBuding/arena-hero-agent) with a
-  provenance manifest (source commit, SDK version, content and plan digests).
+  provenance manifest (source commit, SDK version, canonical content and plan digests).
 - **Simulator**: the canonical reference-vs-optimized differential is re-executed on
   every generation; the panel records backend identities, case and episode counts, and
   differential / episode-order digests. Speed remains a local diagnostic and is never
@@ -110,7 +110,7 @@ that reports deterministic conformance evidence for the Python vNext pipeline:
   cross-validation report) is recomputed and round-tripped through its ledger; digests
   and statuses are recorded only after every check passes.
 
-The document schema is `arena.platform.status.v1`. Generate it deterministically with:
+The document schema is `arena.platform.status.v2`. Generate it deterministically with:
 
 ```bash
 pnpm convert:platform
