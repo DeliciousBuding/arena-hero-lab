@@ -106,12 +106,12 @@ def test_profile_reml_trace_preserves_fit_v2_digest_and_explicit_evaluations() -
     assert len(trace.evaluations) == trace.iterations + 2
     assert trace.candidate.valid
     assert trace.candidate.objective is not None
-    assert all(
-        evaluation.objective is None
-        if not evaluation.valid
-        else math.isfinite(evaluation.objective)
-        for evaluation in trace.evaluations
-    )
+    for evaluation in trace.evaluations:
+        if evaluation.valid:
+            assert evaluation.objective is not None
+            assert math.isfinite(evaluation.objective)
+        else:
+            assert evaluation.objective is None
 
 
 def test_balanced_fit_known_answer_and_ci() -> None:
