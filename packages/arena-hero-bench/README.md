@@ -11,6 +11,29 @@ Platform services for reproducible Arena Hero benchmark execution:
 It depends on `arena-hero-sim`; the simulator never depends on it. Partial and failed shards
 cannot be merged into a publishable run.
 
+## Offline differential surfaces
+
+`arena-hero-bench` exposes two content-addressed, CLI-only differential
+commands that never change public ranking semantics:
+
+- `differential --run <manifest>` classifies a TS-legacy replay against a
+  Python-agent replay per tick and per run (`arena.bench.replay-differential.v1`).
+- `kpi-differential --run <manifest>` classifies an evolve-baseline replay
+  against a Python-agent run across six independently computed behavior
+  dimensions: tick alignment, resource growth, collection/delivery,
+  population/forces, survival/terminal, and decision distribution
+  (`arena.bench.kpi-differential.v1`).
+
+Every comparison is classified into exactly one of `MATCH`, `MISMATCH`,
+`EXPECTED_UNKNOWN`, or `INCONCLUSIVE`; nothing is left unclassified. Reports are
+deterministic and content-addressed: identical inputs produce the same artifact
+digest and input reordering does not change it. The Python side is consumed
+through the versioned offline importer, so torn tails, corrupt records,
+duplicate ticks, tenant mismatches, and companion-fixture tick-set mismatches
+fail closed. Wire-contract gaps are declared as `EXPECTED_UNKNOWN`; a run
+manifest may bind sanitized companion fixtures whose provenance is surfaced as
+`evidence_kind` (the committed corpus declares `sanitized_fixture`).
+
 ## Filesystem artifact store
 
 `arena_hero_bench.storage.FilesystemArtifactStore` is a reference

@@ -81,6 +81,34 @@ The foundation manifest fields are:
 commit identifier. `content_sha256` identifies canonical artifact content. `partial` and
 `failed` manifests must set `publishable=false`.
 
+## Offline differential evidence
+
+`arena-hero-bench` compares replay sides through two content-addressed,
+CLI-only surfaces that never change public ranking semantics:
+
+- `differential` (P6-2) classifies a TS-legacy replay against a Python-agent
+  replay per tick and per run (`arena.bench.replay-differential.v1`).
+- `kpi-differential` (P6-3) classifies an evolve-baseline replay against a
+  Python-agent run across six independently computed behavior dimensions:
+  `tick_alignment`, `resource_growth`, `collection_delivery`,
+  `population_forces`, `survival_terminal`, and `decision_distribution`
+  (`arena.bench.kpi-differential.v1`).
+
+Every comparison is classified into exactly one of `MATCH`, `MISMATCH`,
+`EXPECTED_UNKNOWN`, or `INCONCLUSIVE`; nothing is left unclassified. Both
+reports are deterministic and content-addressed (identical inputs produce the
+same artifact digest, input reordering does not change it). The Python side is
+always consumed through the versioned offline importer, so torn tails, corrupt
+records, duplicate ticks, and tenant mismatches fail closed.
+
+Wire-contract gaps are declared, not inferred: `agent-run-v1` does not carry
+world state and `differential-record-v1` does not carry decisions, so those
+dimensions default to `EXPECTED_UNKNOWN`. A run manifest may bind sanitized
+companion fixtures (an evolve decision trace and Python observation
+snapshots) whose provenance is surfaced as `evidence_kind` in the report; the
+committed corpus declares `sanitized_fixture`. Companion fixtures must cover
+exactly the side's tick set and are validated fail-closed.
+
 ## Report conversion migration
 
 The Python converter in `arena-hero-bench` is authoritative. The previous TypeScript
