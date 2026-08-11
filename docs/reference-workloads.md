@@ -49,8 +49,8 @@ Unsupported slices must remain explicit and non-publishable.
 
 ## Measurement protocol
 
-A performance evidence artifact must bind the workload digest, backend descriptor, engine build,
-measurement protocol, and public environment snapshot. The next implementation slice will freeze:
+A performance evidence artifact binds the workload digest, backend descriptor, engine build,
+measurement protocol, and public environment snapshot. The comparative implementation freezes:
 
 - warmup rounds separate from measured rounds;
 - ordered batch-size and worker-count matrices;
@@ -75,18 +75,28 @@ differential binding, content-addressed storage, and publication eligibility.
 Every optimized backend must execute the exact same workload manifest and pass a fail-closed
 comparison against the reference backend before its performance samples can be interpreted.
 At minimum the gate compares aligned episode ids, status, ticks completed, rules digest, seed,
-final world digest, deterministic metrics, and required artifact digests. Backend and request ids
-are expected to differ and are not semantic mismatches.
+final world digest, deterministic metrics, and backend-neutral semantic replay identity. Backend
+and request ids, replay payload digests, and replay envelope digests are expected to differ and
+are not semantic mismatches. Malformed, incomplete, duplicated, or tampered replay artifact refs
+fail the gate.
 
 The gate runs before performance aggregation. A faster result that fails semantic equivalence is
 recorded as a failed differential artifact, never as a benchmark improvement.
 
-The measurement entrypoint recomputes the gate from the current baseline run and, when
-supplied, a candidate run. An injected differential report is trusted only when it is
+The reference-only measurement entrypoint recomputes the gate from the current baseline run and,
+when supplied, a candidate run. An injected differential report is trusted only when it is
 byte-identical to that recomputed gate: workload, reference-run, candidate-run, and content
 digests must all match, so stale or forged reports cannot reach publishable evidence. Timer
 outputs are validated against the integer wall-clock contract (non-integer, non-finite,
 boolean, or backwards values fail closed and discard the sample).
+
+`measure_comparative_workloads` is the real candidate path. It accepts independent runner
+factories, executes both backends for baseline, warmup, and measured rounds, rejects identical or
+wrong candidate backend identity, and emits
+`arena.bench.comparative-performance-evidence.v1`. The evidence binds workload, protocol, public
+environment, both backend/run identities, differential digest, episode-order digest, and both raw
+duration series. It never converts a reference timing into candidate evidence and always keeps
+`production_claim=false`.
 
 ## Ownership and extension path
 
@@ -98,6 +108,7 @@ boolean, or backwards values fail closed and discard the sample).
   or simulator correctness.
 - New backends register explicitly and do not silently fall back to the reference engine.
 
-An optimized backend is intentionally scheduled after the first real reference workload and its
-known-answer/differential gate. This prevents optimizing placeholder dispatch or freezing an
-implementation-specific contract.
+The first optimized backend is `optimized-python-v1@0.1.0`. It changes only internal visibility
+geometry evaluation through a complete-key static cache and runs the same nine-case workload at
+batch sizes 1, 3, and 9. Final worlds, metrics, semantic replay identities, and episode order must
+match the reference backend exactly; any mismatch invalidates comparative evidence.

@@ -115,10 +115,22 @@ records backend identity plus public Python/platform metadata, and always sets
 `production_claim=false`. Reports never include host identity: no absolute paths, user
 names, or hostnames.
 
-M4 intentionally adds no reference-engine throughput claim. The reference engine is the
-correctness oracle. `WorkloadManifest` and `WorkloadCase` now freeze a backend-neutral,
+The reference engine remains the correctness oracle and carries no hardware-independent
+throughput claim. `WorkloadManifest` and `WorkloadCase` freeze a backend-neutral,
 content-addressed workload identity and deterministic request expansion; see
-[`../../docs/reference-workloads.md`](../../docs/reference-workloads.md). The first runner must
-execute the implemented movement scenarios, retain raw samples, and pass a reference/optimized
-differential gate. It must keep `production_claim=false` until an independently reviewed
-production-equivalent protocol exists.
+[`../../docs/reference-workloads.md`](../../docs/reference-workloads.md). Comparative evidence
+must execute both backends, retain raw samples, pass the reference/optimized differential gate,
+and keep `production_claim=false` until an independently reviewed production-equivalent protocol
+exists.
+
+## Optimized Python backend
+
+`OptimizedEngineBackend` registers `optimized-python-v1@0.1.0` independently from the reference
+engine. It is pure Python/stdlib and optimizes static visibility geometry with precomputed
+supercover rays and a complete `(width, height, obstacles, origin, radius)` cache key. The cache
+stores immutable values and never crosses the public result boundary. The backend advertises no
+incremental hashing, zero-copy, native, NumPy, or Numba capability.
+
+Replay envelopes stay on `arena.reference.replay.v1`. Results expose legacy/payload, envelope, and
+backend-neutral semantic replay SHA-256 refs. Differential workload comparison requires semantic
+replay equality while allowing backend-specific request, payload, and envelope identities.

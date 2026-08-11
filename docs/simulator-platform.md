@@ -7,7 +7,10 @@ results, rules identities, capability negotiation, backend registration, batch e
 performance evidence without coupling the platform to one engine implementation.
 
 The built-in `reference-placeholder` backend validates integration contracts only. It always
-returns `unsupported` and is not a game-rules engine.
+returns `unsupported` and is not a game-rules engine. The readable `reference-engine` is the
+correctness oracle. `optimized-python-v1` is a separate stdlib-only backend that reuses the same
+rules implementation while caching static visibility geometry; it does not use incremental
+hashing, native code, NumPy, or Numba.
 
 ## Components
 
@@ -15,12 +18,12 @@ returns `unsupported` and is not a game-rules engine.
 graph TD
     REQUEST["SimulationRequest"] --> REGISTRY["BackendRegistry"]
     REGISTRY --> NEGOTIATE["Protocol and capability negotiation"]
-    NEGOTIATE --> REF["Reference placeholder"]
-    NEGOTIATE --> PY["Future deterministic Python backend"]
-    NEGOTIATE --> NATIVE["Future optimized/native backend"]
-    REF --> RESULT["SimulationResult"]
-    PY --> RESULT
-    NATIVE --> RESULT
+    NEGOTIATE --> PLACEHOLDER["Reference placeholder"]
+    NEGOTIATE --> REF["Reference engine"]
+    NEGOTIATE --> OPT["Optimized Python v1"]
+    PLACEHOLDER --> RESULT["SimulationResult"]
+    REF --> RESULT
+    OPT --> RESULT
     RESULT --> ARTIFACTS["Content-addressed artifacts"]
 ```
 
@@ -52,6 +55,16 @@ The contracts deliberately permit several replaceable hot-path implementations:
 NumPy, Pandas, Arrow, native extensions, and GPU runtimes are not core dependencies. A backend
 may add them behind capabilities and must pass the same conformance suite.
 
+### Optimized Python v1 boundary
+
+`optimized-python-v1@0.1.0` precomputes relative supercover rays and caches visibility by the
+complete static namespace `(width, height, obstacles, origin, radius)`. The current world schema
+has no clipping rectangle, so width and height are derived from the world geometry and are cache
+namespace inputs only; they do not clip or reinterpret visibility. Cached cells are immutable
+`frozenset` values, and every public observation, replay, result, and workload run remains frozen.
+The backend advertises `optimized-static-visibility-cache-v1` and explicitly keeps
+`supports_incremental_world_hash=false`.
+
 ## Capability negotiation
 
 A request selects exactly one backend id and engine version. The registry rejects:
@@ -64,6 +77,21 @@ A request selects exactly one backend id and engine version. The registry reject
 - results whose request, rules, seed, or engine identity differs from the request.
 
 This prevents an optimized backend from silently dropping a rule or feature.
+
+
+## Replay identities
+
+The replay envelope remains `arena.reference.replay.v1`. Four artifact refs make identity roles
+explicit without changing those canonical replay bytes:
+
+- `replay-sha256` is the legacy alias for the payload digest;
+- `replay-payload-sha256` identifies the v1 payload;
+- `replay-envelope-sha256` identifies the complete canonical envelope bytes;
+- `replay-semantic-sha256` excludes only the backend-specific request id.
+
+Strict parsing requires all four refs, rejects duplicates, and requires the legacy alias to match
+the explicit payload digest. Differential comparison uses the semantic replay identity, while
+storage and provenance may retain the backend-specific payload and envelope identities.
 
 ## Microbenchmark harness
 
@@ -79,6 +107,9 @@ The harness measures immutable request validation, registry negotiation, batch c
 placeholder result construction. It sets `production_claim=false`; it does not measure game
 simulation throughput. Reports contain durations, median, p95, throughput, Python version,
 platform family, backend id, and engine version without host identity.
+ `MicrobenchmarkReport` validates that raw sample count matches `repeats`, every duration is a
+positive integer, median/p95 and throughput agree with those raw durations, and
+`production_claim` is exactly `false`.
 
 The same command selects the real-engine harness against the frozen canonical workload:
 
@@ -99,6 +130,9 @@ The backend-neutral workload contract and the mandatory reference/optimized diff
 defined in [`reference-workloads.md`](reference-workloads.md). A real performance claim must bind a
 content-addressed workload manifest and retain raw measurement samples. Contract dispatch remains
 a separate overhead signal and cannot be promoted into engine-throughput evidence.
+`arena_hero_bench.measure_comparative_workloads` executes both injected runner factories, binds the
+reference and candidate run identities plus the differential and episode-order digests, retains
+both raw timing series, and always records `production_claim=false`.
 
 ## Performance budgets
 
@@ -161,8 +195,11 @@ receive canonical SHA-256 digests so a run can be reproduced without embedding c
 
 ### Execution and merge
 
-`ShardPlan` binds experiment, run, shard, operation, request identities, and a canonical plan
-digest. `LocalBatchExecutor` executes in-process through the backend registry. The bounded
+`ShardPlan` binds experiment, run, shard, operation, and the complete canonical request identity:
+request/episode ids, backend/engine/rules, seed, tick budget, protocol, determinism, requested
+features, parameters, initial/scenario artifact digests, contestants, and labels. This prevents a
+different scenario or execution contract from colliding with a resumable plan digest.
+`LocalBatchExecutor` executes in-process through the backend registry. The bounded
 `ProcessExecutor` uses explicit backend specifications, spawn-safe versioned envelopes,
 timeouts, process-tree cleanup, output limits, and deterministic result ordering; it never
 silently falls back to in-process execution and is not a contestant security sandbox.
@@ -180,8 +217,10 @@ one run id, complete status, and publishable artifacts. Input order does not aff
 - **M4 — deterministic reference engine:** immutable world, visibility, replay, harvest/deposit,
   and simultaneous unit movement chains/swaps/cycles are implemented against pinned oracle
   evidence. Combat, Beacon, Core movement, and official winner/score remain unsupported.
-- **M5 — optimized backend:** SoA/ECS storage, real-engine profiling, bounded allocation, and
-  differential regression budgets against M4 semantics remain planned.
+- **M5 — optimized backend:** the first stdlib-only backend is implemented with precomputed
+  visibility rays, a complete-key immutable cache boundary, backend-neutral replay identity, and
+  real candidate comparative evidence. SoA/ECS storage, bounded allocation work, and broader
+  differential regression budgets remain future slices.
 - **M6 — local scale:** deterministic sharding/resume, the filesystem artifact store, and a
   bounded spawn-safe process executor are implemented as reference adapters. Arrow, resource
   isolation, and contestant sandboxing remain planned.

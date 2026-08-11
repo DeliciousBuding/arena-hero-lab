@@ -81,6 +81,9 @@ pre-registers only the deterministic `reference-engine` backend.
   that inherits the output pipes.
 - The same operation id/plan resume contract as `LocalBatchExecutor` applies,
   and shard artifacts share the identical `arena.bench.shard-result.v1` schema.
+  The plan digest covers every resume-sensitive request field, including scenario input,
+  tick/protocol/determinism settings, requested features, parameters, and labels; reusing an
+  operation id for any changed request fails closed instead of resuming the old scenario.
 - Cancellation (`close`) terminates active process trees; spawn bookkeeping is
   lock-serialized, so no child can be spawned after `close`.
 - Trust boundary: the allowlist constrains request routing only. Constructing a
@@ -108,6 +111,14 @@ of the canonical content-addressed workload and returns a raw, content-addressed
   evidence not publishable.
 - `median_ns`, `p95_ns`, and `p99_ns` are derived only from complete, credible raw samples.
 - `production_claim` is fixed to `false`; publishable evidence can never carry issues.
+
+For an actual candidate comparison, use `measure_comparative_workloads` with independent
+reference and candidate runner factories. The function executes both factories for baseline,
+warmup, and measured rounds; a precomputed reference run cannot masquerade as candidate timing.
+The `arena.bench.comparative-performance-evidence.v1` artifact binds workload, protocol, public
+environment, reference/candidate backend and run identities, the recomputed differential digest,
+episode-order digest, and both raw timing series. Identical backend identities, semantic drift,
+incomplete samples, or timer failures are non-publishable. `production_claim` is always `false`.
 
 The differential gate is recomputed inside the measurement from the current baseline run and,
 when supplied, a candidate run (`compare_workload_runs(baseline, candidate)`). An externally

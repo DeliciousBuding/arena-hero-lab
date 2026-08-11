@@ -28,9 +28,12 @@ graph TD
 ### `arena-hero-sim`
 
 Owns deterministic domain primitives, canonical serialization, world-state evolution,
-visibility, and replay projection. The package is dependency-light and excludes benchmark,
-research, web, agent, SciPy, and Pandas dependencies. Platform contracts and performance
-evolution are documented in [Simulator platform](simulator-platform.md).
+visibility, replay projection, and explicit backend registration. The readable
+`reference-engine` and stdlib-only `optimized-python-v1` backend share one workload runner and
+fail-closed differential corpus; optimized caches remain internal and do not change immutable
+public results. The package is dependency-light and excludes benchmark, research, web, agent,
+SciPy, and Pandas dependencies. Platform contracts and performance evolution are documented in
+[Simulator platform](simulator-platform.md).
 
 ### `arena-hero-bench`
 
