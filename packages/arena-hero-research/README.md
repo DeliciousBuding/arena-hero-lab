@@ -51,6 +51,27 @@ outcomes after they are observed.
   evidence, data quality, minimum successful replications, and replication support
   together. A p-value alone never qualifies a conclusion.
 
+### Figures and behavior attribution
+
+- `attribute_behavior_effects` attributes paired treatment-minus-control effects to
+  concrete behavior dimensions using the same vocabulary as the P6-3 KPI differential
+  (`arena_hero_bench.kpi_differential.KpiDimension`): `tick_alignment`,
+  `resource_growth`, `collection_delivery`, `population_forces`, `survival_terminal`,
+  and `decision_distribution`. The caller declares an explicit outcome -> dimension
+  mapping; unmapped outcomes, unknown dimensions, and duplicate mappings fail closed.
+- The `BehaviorAttribution` document records each dimension's effect estimate (mean
+  difference, bootstrap confidence interval, adjusted p-value), its signed direction,
+  and its contribution weight `|mean_difference| / sum(|mean_difference|)`. It is
+  canonical JSON with a cross-platform quantized content digest
+  (`arena.research.behavior-attribution.v1`), consumable directly by a leaderboard or
+  report renderer.
+- `render_effect_forest_figure` and `render_attribution_bar_figure` emit hand-built SVG
+  figures (stdlib only, no display server or rendering backend): identical inputs
+  produce byte-identical files with a stable content digest
+  (`arena.research.figure.v1`), so figures are reproducible anchors in headless
+  environments. All labels are XML-escaped and every coordinate derives
+  deterministically from the data.
+
 ## Approximation assumptions and limits
 
 The Monte Carlo planner is **not exact**. It assumes normally distributed paired
