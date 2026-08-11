@@ -96,6 +96,53 @@ def test_plan_identity_is_canonical_for_unordered_sets_and_mappings() -> None:
     assert _plan(reordered).plan_sha256 == _plan(original).plan_sha256
 
 
+def test_direct_construction_rejects_a_forged_plan_digest() -> None:
+    baseline = _plan(_request())
+
+    with pytest.raises(ValueError, match="complete shard plan identity"):
+        ShardPlan(
+            operation_id=baseline.operation_id,
+            experiment_id=baseline.experiment_id,
+            run_id=baseline.run_id,
+            shard_id=baseline.shard_id,
+            requests=baseline.requests,
+            plan_sha256="0" * 64,
+        )
+
+
+def test_dataclasses_replace_rejects_request_change_with_stale_digest() -> None:
+    baseline = _plan(_request())
+    changed = replace(_request(), input_artifact_sha256="d" * 64)
+
+    with pytest.raises(ValueError, match="complete shard plan identity"):
+        replace(baseline, requests=(changed,))
+
+
+def test_deserialized_fields_reject_request_change_with_stale_digest() -> None:
+    baseline = _plan(_request())
+    changed = replace(_request(), config=replace(_request().config, max_ticks=99))
+    decoded = {
+        "operation_id": baseline.operation_id,
+        "experiment_id": baseline.experiment_id,
+        "run_id": baseline.run_id,
+        "shard_id": baseline.shard_id,
+        "requests": (changed,),
+        "plan_sha256": baseline.plan_sha256,
+    }
+
+    with pytest.raises(ValueError, match="complete shard plan identity"):
+        ShardPlan(**decoded)
+
+
+def test_explicit_verify_rejects_low_level_frozen_object_mutation() -> None:
+    baseline = _plan(_request())
+    changed = replace(_request(), labels={"case": "forged"})
+    object.__setattr__(baseline, "requests", (changed,))
+
+    with pytest.raises(ValueError, match="complete shard plan identity"):
+        baseline.verify()
+
+
 def test_resume_rejects_same_operation_for_a_different_scenario_plan() -> None:
     ledger = InMemoryExecutionLedger()
     baseline = _plan(_request())

@@ -89,9 +89,51 @@ class ShardPlan:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "operation_id", _id(self.operation_id, "operation_id"))
+        object.__setattr__(self, "requests", tuple(self.requests))
         object.__setattr__(self, "plan_sha256", _sha(self.plan_sha256, "plan_sha256"))
         if not self.requests:
             raise ValueError("shard requests must not be empty")
+        self.verify()
+
+    def identity_payload(self) -> dict[str, object]:
+        return {
+            "operation_id": self.operation_id,
+            "experiment_id": self.experiment_id.value,
+            "run_id": self.run_id.value,
+            "shard_id": self.shard_id.value,
+            "requests": [self._request_identity(item) for item in self.requests],
+        }
+
+    def verify(self) -> None:
+        expected = content_sha256(self.identity_payload())
+        if self.plan_sha256 != expected:
+            raise OrchestrationError("plan_sha256 does not match the complete shard plan identity")
+
+    @staticmethod
+    def _request_identity(item: SimulationRequest) -> dict[str, object]:
+        return {
+            "request_id": item.request_id,
+            "episode_id": item.episode_id,
+            "config": {
+                "backend_id": item.config.backend_id,
+                "engine_version": item.config.engine_version,
+                "ruleset": {
+                    "name": item.config.ruleset.name,
+                    "version": item.config.ruleset.version,
+                    "rules_sha256": item.config.ruleset.rules_sha256,
+                },
+                "seed": item.config.seed,
+                "max_ticks": item.config.max_ticks,
+                "protocol_version": item.config.protocol_version,
+                "deterministic": item.config.deterministic,
+                "requested_features": sorted(item.config.requested_features),
+                "parameters": dict(item.config.parameters),
+            },
+            "initial_state_sha256": item.initial_state_sha256,
+            "input_artifact_sha256": item.input_artifact_sha256,
+            "contestant_ids": list(item.contestant_ids),
+            "labels": dict(item.labels),
+        }
 
     @classmethod
     def create(
@@ -104,38 +146,12 @@ class ShardPlan:
         requests: Sequence[SimulationRequest],
     ) -> ShardPlan:
         request_tuple = tuple(requests)
-        identity = [
-            {
-                "request_id": item.request_id,
-                "episode_id": item.episode_id,
-                "config": {
-                    "backend_id": item.config.backend_id,
-                    "engine_version": item.config.engine_version,
-                    "ruleset": {
-                        "name": item.config.ruleset.name,
-                        "version": item.config.ruleset.version,
-                        "rules_sha256": item.config.ruleset.rules_sha256,
-                    },
-                    "seed": item.config.seed,
-                    "max_ticks": item.config.max_ticks,
-                    "protocol_version": item.config.protocol_version,
-                    "deterministic": item.config.deterministic,
-                    "requested_features": sorted(item.config.requested_features),
-                    "parameters": dict(item.config.parameters),
-                },
-                "initial_state_sha256": item.initial_state_sha256,
-                "input_artifact_sha256": item.input_artifact_sha256,
-                "contestant_ids": list(item.contestant_ids),
-                "labels": dict(item.labels),
-            }
-            for item in request_tuple
-        ]
         payload = {
             "operation_id": operation_id,
             "experiment_id": experiment_id.value,
             "run_id": run_id.value,
             "shard_id": shard_id.value,
-            "requests": identity,
+            "requests": [cls._request_identity(item) for item in request_tuple],
         }
         return cls(
             operation_id=operation_id,
@@ -254,6 +270,7 @@ def build_shard_result(
     shards produce byte-identical artifacts for identical engine results.
     Results must arrive in plan request order.
     """
+    plan.verify()
     results = tuple(simulation_results)
     if len(results) != len(plan.requests):
         raise OrchestrationError("simulation result count must match the shard plan")
@@ -313,6 +330,7 @@ class LocalBatchExecutor:
         self.ledger = ledger
 
     def execute(self, plan: ShardPlan) -> ShardResult:
+        plan.verify()
         resumed = self.ledger.resume(plan.operation_id, plan.plan_sha256)
         if resumed is not None:
             return resumed
