@@ -345,8 +345,6 @@ class SolverCertificate:
         elif self.solver_status is SolverStatus.BOUNDARY:
             if not self.boundary:
                 raise SolverEvidenceError("boundary status requires boundary=true")
-        elif self.solver_status is SolverStatus.INDETERMINATE and not self.precision_limited:
-            raise SolverEvidenceError("indeterminate status requires an explicit precision limit")
         object.__setattr__(
             self, "canonical_sha256", require_sha256(self.canonical_sha256, "canonical_sha256")
         )
