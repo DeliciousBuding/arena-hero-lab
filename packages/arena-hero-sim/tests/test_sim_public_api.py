@@ -1,0 +1,87 @@
+"""Freeze the package-root simulator public API across feature integration."""
+
+from __future__ import annotations
+
+import arena_hero_sim
+
+_EXPECTED_PUBLIC_API = {
+    "BackendCapabilities",
+    "BackendDescriptor",
+    "BackendRegistry",
+    "CANONICAL_REFERENCE_WORKLOAD_ID",
+    "CANONICAL_REFERENCE_WORKLOAD_SHA256",
+    "CANONICAL_REFERENCE_WORKLOAD_VERSION",
+    "DIFFERENTIAL_REPORT_SCHEMA",
+    "DifferentialMismatch",
+    "DifferentialReport",
+    "KnownAnswer",
+    "MICROBENCHMARK_SCHEMA",
+    "MicrobenchmarkReport",
+    "REFERENCE_BACKEND_ID",
+    "REFERENCE_ENGINE_VERSION",
+    "REFERENCE_FEATURES",
+    "REFERENCE_MOVEMENT_RULE_IDENTITY",
+    "REFERENCE_PROTOCOL_VERSION",
+    "REFERENCE_RULES",
+    "REFERENCE_RULESET",
+    "REFERENCE_WORKLOAD_BENCHMARK_SCHEMA",
+    "REFERENCE_WORKLOAD_RUN_SCHEMA",
+    "ReferenceActionKind",
+    "ReferenceBackendPlaceholder",
+    "ReferenceCommand",
+    "ReferenceCore",
+    "ReferenceDirection",
+    "ReferenceEngineBackend",
+    "ReferenceEpisodeResult",
+    "ReferenceEpisodeStatus",
+    "ReferenceEvent",
+    "ReferenceObservation",
+    "ReferencePlayer",
+    "ReferenceReplay",
+    "ReferenceReplayFrame",
+    "ReferenceRng",
+    "ReferenceRules",
+    "ReferenceScenario",
+    "ReferenceScenarioRegistry",
+    "ReferenceTerrain",
+    "ReferenceTurn",
+    "ReferenceUnit",
+    "ReferenceWorkloadBenchmarkReport",
+    "ReferenceWorkloadError",
+    "ReferenceWorkloadRunner",
+    "ReferenceWorld",
+    "RulesetRef",
+    "SimulationRequest",
+    "SimulationResult",
+    "SimulationStatus",
+    "SimulatorBackend",
+    "SimulatorConfig",
+    "UnsupportedReferenceSliceError",
+    "VerifiedReferenceScenario",
+    "WORKLOAD_MANIFEST_SCHEMA",
+    "WorkloadBackendIdentity",
+    "WorkloadCase",
+    "WorkloadEpisodeResult",
+    "WorkloadManifest",
+    "WorkloadRun",
+    "canonical_json_bytes",
+    "canonical_reference_scenario_registry",
+    "canonical_reference_workload_manifest",
+    "compare_workload_runs",
+    "content_sha256",
+    "observe_world",
+    "run_canonical_reference_workload",
+    "run_contract_dispatch_microbenchmark",
+    "run_reference_episode",
+    "run_reference_workload_benchmark",
+    "settle_reference_turn",
+    "verify_reference_replay",
+}
+
+
+def test_package_root_public_api_is_complete_and_unique() -> None:
+    exported = arena_hero_sim.__all__
+
+    assert len(exported) == len(set(exported))
+    assert set(exported) == _EXPECTED_PUBLIC_API
+    assert all(hasattr(arena_hero_sim, name) for name in exported)
