@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -263,6 +264,49 @@ def test_manifest_record_roundtrip(tmp_path: Path) -> None:
     records = list(store.manifest_records())
     assert len(records) == 1
     assert records[0].to_dict() == artifact.to_dict()
+
+
+def _create_windows_junction(link: Path, target: Path) -> None:
+    result = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(target)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        pytest.skip(f"junction creation is not permitted here: {result.stderr.strip()}")
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows junction test")
+def test_manifests_root_junction_fails_closed_without_reading_outside(
+    tmp_path: Path,
+) -> None:
+    store = FilesystemArtifactStore(tmp_path / "store")
+    outside = tmp_path / "outside-manifests"
+    outside.mkdir()
+    decoy = artifact_for(canonical_json_bytes({"run": "outside-decoy"}))
+    decoy_body = canonical_json_bytes(decoy.to_dict())
+    decoy_digest = content_sha256(to_json_value(decoy.to_dict()))
+    decoy_path = outside / f"{decoy_digest}.json"
+    decoy_path.write_bytes(decoy_body)
+
+    manifests_root = store.root / "manifests"
+    manifests_root.rmdir()
+    try:
+        _create_windows_junction(manifests_root, outside)
+
+        with pytest.raises(ArtifactStoreError, match="reparse point"):
+            list(store.manifest_records())
+
+        digest = store.put(b"inside object")
+        with pytest.raises(ArtifactStoreError, match="reparse point"):
+            store.is_publishable(digest)
+    finally:
+        if os.path.isjunction(manifests_root):
+            # Remove only the junction link; the outside target must survive.
+            os.rmdir(manifests_root)
+
+    assert not manifests_root.exists()
+    assert decoy_path.read_bytes() == decoy_body
 
 
 def test_store_lock_serializes_and_releases(tmp_path: Path) -> None:

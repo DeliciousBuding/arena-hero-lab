@@ -39,6 +39,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 import threading
 import time
 import uuid
@@ -76,6 +77,21 @@ def _validated_digest(value: str, field_name: str = "digest") -> str:
     if not _SHA256.fullmatch(value):
         raise ArtifactStoreError(f"{field_name} must be a lowercase SHA-256 digest")
     return value
+
+
+def _is_reparse_or_symlink(path: Path) -> bool:
+    """Return whether a path is a symlink or a Windows reparse point.
+
+    A junction or symlink at a layout root can redirect reads outside the
+    store, so read paths must reject it before opening anything through it.
+    """
+    try:
+        entry = path.lstat()
+    except OSError:
+        return False
+    return stat.S_ISLNK(entry.st_mode) or bool(
+        getattr(entry, "st_file_attributes", 0) & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+    )
 
 
 class StoreLock(AbstractContextManager["StoreLock"]):
@@ -246,8 +262,15 @@ class FilesystemArtifactStore:
 
         A record is yielded only when its filename stem is a legal SHA-256 and
         equals the canonical digest of the parsed record; wrong names and
-        tampered records fail closed by being skipped.
+        tampered records fail closed by being skipped. The manifests root
+        itself is fail-closed: if it is a symlink or Windows reparse point
+        (for example a junction) that could redirect reads outside the store,
+        enumeration raises :class:`ArtifactStoreError` before reading anything.
         """
+        if _is_reparse_or_symlink(self._manifests):
+            raise ArtifactStoreError(
+                f"manifests root is a symlink or reparse point: {self._manifests}"
+            )
         for path in sorted(self._manifests.glob("*.json")):
             if not _SHA256.fullmatch(path.stem):
                 continue
@@ -269,7 +292,9 @@ class FilesystemArtifactStore:
         """Return whether any stored manifest marks this content publishable.
 
         The object itself must first verify; a missing or corrupt object is
-        never publishable.
+        never publishable. Raises :class:`ArtifactStoreError` when the
+        manifests root is a symlink or reparse point; a redirectable manifests
+        root is never consulted.
         """
         validated = _validated_digest(digest)
         if not self.verify(validated):
