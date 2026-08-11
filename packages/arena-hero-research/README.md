@@ -86,6 +86,20 @@ design. Balanced repeated-observation and allocation-unbalanced designs therefor
 `paired_to_cluster_observations` bridges pairs so the REML effect reproduces the existing
 paired mean difference.
 
+The additive evidence API `analyze_hierarchical_evidence` preserves those legacy surfaces
+while returning an acyclic Fit v2 → SolverCertificate v1 → CrossValidationReport v1 chain.
+The certificate records the traced profile optimizer, analytic score/curvature, KKT and
+backward-error diagnostics, source and retained-analysis identities, and the unchanged Fit v2
+digest. `commit_hierarchical_analysis_evidence` stores all three artifacts in one immutable
+ledger transaction; `load_hierarchical_analysis_evidence` rejects missing, cross-transaction,
+malformed, tampered, or cross-linked records.
+
+Only `paired-1x1` may reach `fully-validated` / `passed=true`. Balanced repeated and
+allocation-unbalanced designs remain effect diagnostics and do not validate variance. A
+boundary or indeterminate solver certificate disables aggregate validation. The certificate
+does not prove global unimodality or global optimality and is not a signature or third-party
+attestation.
+
 Design gates fail closed: fewer than two clusters, non-finite or numerically overflowing
 values, duplicate observation identities within a cluster, missing levels (under a strict
 `ClusterMissingPolicy.FAIL` / `ClusterMissingPolicy.DROP_CLUSTER` policy), and

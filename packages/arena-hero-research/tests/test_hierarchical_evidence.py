@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
@@ -268,3 +270,26 @@ def test_cross_validation_report_tamper_fails_closed(field: str) -> None:
     payload[field] = False if field == "passed" else "tampered"
     with pytest.raises((SolverEvidenceError, ValueError)):
         CrossValidationReportV1.from_dict(payload)
+
+
+def test_literal_hierarchical_known_answer_artifacts() -> None:
+    fixture_path = Path(__file__).parent / "fixtures" / "hierarchical-known-answers-v1.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    assert fixture["schema_version"] == "arena.research.hierarchical-known-answers.v1"
+    expected_statuses = {
+        "paired-1x1": ("verified-interior", "fully-validated", True),
+        "balanced-repeated": ("verified-interior", "effect-diagnostic", False),
+        "allocation-unbalanced": ("verified-interior", "effect-diagnostic", False),
+    }
+    for case in fixture["cases"]:
+        data = tuple(ClusterObservation.from_dict(item) for item in case["observations"])
+        evidence = analyze_hierarchical_evidence(
+            outcome_name=case["outcome_name"], observations=data
+        )
+        assert evidence.fit.to_dict() == case["fit"]
+        assert evidence.certificate.to_dict() == case["certificate"]
+        assert evidence.report.to_dict() == case["report"]
+        solver_status, report_status, passed = expected_statuses[case["name"]]
+        assert evidence.certificate.solver_status.value == solver_status
+        assert evidence.report.status.value == report_status
+        assert evidence.report.passed is passed

@@ -154,6 +154,37 @@ independent of lexical label ordering.
   statistics are formed; duplicate observation identities within a cluster are rejected, so
   input permutation cannot change a fit identity.
 
+### Solver certificate and cross-validation evidence
+
+The compatibility entrypoints remain frozen: `fit_random_intercept` still emits
+`arena.research.random-intercept-fit.v2`, and `cross_validate_random_intercept` still
+returns the original unversioned projection. The evidence workflow is additive:
+
+- `fit_random_intercept_with_certificate` emits the unchanged Fit v2 plus
+  `arena.research.profile-reml-solver-certificate.v1`;
+- `analyze_hierarchical_evidence` returns the acyclic chain Fit v2 → SolverCertificate v1
+  → `arena.research.cross-validation-report.v1`;
+- the certificate binds both the canonical source input and the retained numerical analysis
+  input after the declared missing-data policy, plus the Fit v2 schema and digest;
+- the traced bounded golden-section optimizer records every valid or explicitly invalid
+  objective evaluation, initial/final brackets, iteration/evaluation counts, termination,
+  candidate, analytic profile score/curvature, KKT residual/tolerance, backward error, and
+  Newton correction; finite differences are test-only oracles and never authoritative data;
+- report profiles are `paired-1x1`, `balanced-repeated`, and
+  `allocation-unbalanced`. Only paired `effect-and-variance` evidence may be
+  `fully-validated` with `passed=true`; balanced repeated and unbalanced designs are
+  `effect-only` diagnostics and never validate variance; boundary or indeterminate solver
+  evidence has scope `none` and `passed=false`;
+- `commit_hierarchical_analysis_evidence` writes fit, certificate, and report as three
+  immutable objects referenced by one hash-chained ledger transaction. Restore requires the
+  exact three-record set in the same transaction, strict loaders, content verification, and
+  forward-reference verification.
+
+The solver certificate proves only reproducible local numerical conditions for this declared
+algorithm and bounded search interval. It does **not** prove global unimodality or a global
+optimum. It is not a digital signature, independent implementation, third-party attestation,
+or production suitability claim.
+
 Fail-closed gates (no silent fallback):
 
 - fewer than two complete clusters, non-finite or numerically overflowing values, or
@@ -268,7 +299,7 @@ specified numerical tolerance.
 | Monte Carlo power and replication-aware conclusions | Implemented reference methods |
 | Durable lifecycle chronology and immutable evidence ledger | Implemented filesystem reference |
 | Public environment snapshot and minimal explicit SBOM | Implemented reference generators |
-| Random-intercept REML + independent MoM/ANOVA cross-validation | Implemented (stdlib-only, fail-closed) |
+| Random-intercept REML + SolverCertificate v1 + versioned cross-validation evidence | Implemented (stdlib-only, fail-closed) |
 | Cluster-level power for hierarchical designs | Deferred to a later slice |
 | Distributed verification, signed attestation, publication service | Planned extension |
 

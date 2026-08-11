@@ -1,0 +1,1986 @@
+{
+  "cases": [
+    {
+      "certificate": {
+        "analysis_input_sha256": "b0bde7beea9ff5998cd785d150630bd086dbc240e2bc7f2d8ba11c891baf960e",
+        "backward_error": 2.367650043670598e-09,
+        "boundary": false,
+        "candidate_lambda": 25.49019649027957,
+        "candidate_log_lambda": 3.238293926882424,
+        "candidate_objective": -1.1336774783159216,
+        "canonical_sha256": "7b7002937dcf72bf998842d96f3d4fed33081e83ddbcab509a52447aa50fce8a",
+        "evaluation_count": 66,
+        "evaluations": [
+          {
+            "invalid_reason": null,
+            "lambda_value": 0.0008400582485713929,
+            "log_lambda": -7.082039324993694,
+            "objective": -5.035278808277934,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 1190.393644370024,
+            "log_lambda": 7.082039324993694,
+            "objective": -4.856113871167697,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7541422.253736182,
+            "log_lambda": 15.835921350012619,
+            "objective": -17.921549310885297,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 5.321965553305417,
+            "log_lambda": 1.671842700025234,
+            "objective": -1.904745927905466,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 0.1879005021704635,
+            "log_lambda": -1.6718427000252376,
+            "objective": -4.5803520806359055,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 42.028750715744955,
+            "log_lambda": 3.73835392494322,
+            "objective": -1.2237172528355158,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 150.73571929506952,
+            "log_lambda": 5.015528100075711,
+            "objective": -2.171673165566011,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 19.08717942074231,
+            "log_lambda": 2.9490168751577266,
+            "objective": -1.1635783117781644,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 11.718628437818493,
+            "log_lambda": 2.461179749810726,
+            "objective": -1.34241377629841,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.80367179910746,
+            "log_lambda": 3.250516799596218,
+            "objective": -1.1337313803744449,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 31.08899818547625,
+            "log_lambda": 3.4368540005047294,
+            "objective": -1.1479273704633233,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 22.99677700899309,
+            "log_lambda": 3.135354076066239,
+            "objective": -1.1374903473076587,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 27.707171454921316,
+            "log_lambda": 3.321691276974751,
+            "objective": -1.1361894816527016,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 24.693216084108006,
+            "log_lambda": 3.2065285534447727,
+            "objective": -1.1340412092882204,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 26.514799023271852,
+            "log_lambda": 3.277703030823307,
+            "objective": -1.1342380743399563,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.373740094268097,
+            "log_lambda": 3.233714784671862,
+            "objective": -1.1336850411579595,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.111617015526278,
+            "log_lambda": 3.223330568369128,
+            "objective": -1.1337582178443952,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.537107316705683,
+            "log_lambda": 3.2401325832934833,
+            "objective": -1.1336786978181914,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.63859929742465,
+            "log_lambda": 3.244099000974597,
+            "objective": -1.1336896352562418,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.47458280556183,
+            "log_lambda": 3.237681202352976,
+            "objective": -1.133677613729204,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.43601709826828,
+            "log_lambda": 3.236166165612369,
+            "objective": -1.1336791112921007,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.49844695420173,
+            "log_lambda": 3.2386175465528764,
+            "objective": -1.133677516097066,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.51320698560186,
+            "log_lambda": 3.2391962390935833,
+            "objective": -1.1336777720101079,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.48932902296051,
+            "log_lambda": 3.238259894893683,
+            "objective": -1.1336774787333486,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.483695461850672,
+            "log_lambda": 3.238038854012169,
+            "objective": -1.1336775017814924,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.492811377879057,
+            "log_lambda": 3.2383965056713624,
+            "objective": -1.1336774821127014,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.487177047111473,
+            "log_lambda": 3.238175464789848,
+            "objective": -1.1336774833765002,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.49065910802683,
+            "log_lambda": 3.238312075567527,
+            "objective": -1.1336774784349641,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.49148118050878,
+            "log_lambda": 3.2383443249975183,
+            "objective": -1.1336774792327713,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.490151052547287,
+            "log_lambda": 3.2382921443236743,
+            "objective": -1.133677478317093,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.48983706205582,
+            "log_lambda": 3.2382798261375356,
+            "objective": -1.1336774783875017,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.49034511127708,
+            "log_lambda": 3.2382997573813883,
+            "objective": -1.1336774783283214,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.490031118395162,
+            "log_lambda": 3.238287439195249,
+            "objective": -1.1336774783310677,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.490225176211872,
+            "log_lambda": 3.2382950522529628,
+            "objective": -1.1336774783164465,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.49027098726373,
+            "log_lambda": 3.2382968494521,
+            "objective": -1.13367747831908,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.49019686346593,
+            "log_lambda": 3.2382939415228114,
+            "objective": -1.133677478315951,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.490179365242348,
+            "log_lambda": 3.2382932550538257,
+            "objective": -1.1336774783161108,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.490207677968858,
+            "log_lambda": 3.238294365783977,
+            "objective": -1.133677478316046,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.490190179737844,
+            "log_lambda": 3.238293679314991,
+            "objective": -1.1336774783159917,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.49020099423794,
+            "log_lambda": 3.2382941035761568,
+            "objective": -1.1336774783159784,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.490194310508773,
+            "log_lambda": 3.2382938413683364,
+            "objective": -1.1336774783159864,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.49019844128036,
+            "log_lambda": 3.2382940034216814,
+            "objective": -1.1336774783159642,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.490195888323036,
+            "log_lambda": 3.238293903267206,
+            "objective": -1.1336774783159633,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.490197466137406,
+            "log_lambda": 3.238293965166076,
+            "objective": -1.133677478315958,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.490196490994492,
+            "log_lambda": 3.2382939269104707,
+            "objective": -1.1336774783159305,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.490196260794477,
+            "log_lambda": 3.238293917879547,
+            "objective": -1.133677478315943,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.49019663326592,
+            "log_lambda": 3.2382939324918882,
+            "objective": -1.1336774783160042,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.490196403065905,
+            "log_lambda": 3.2382939234609647,
+            "objective": -1.133677478315974,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.490196545337334,
+            "log_lambda": 3.2382939290423822,
+            "objective": -1.1336774783159642,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.49019645740876,
+            "log_lambda": 3.2382939255928767,
+            "objective": -1.1336774783159624,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.490196511751606,
+            "log_lambda": 3.238293927724788,
+            "objective": -1.1336774783159544,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.490196478165885,
+            "log_lambda": 3.2382939264071946,
+            "objective": -1.133677478315966,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.490196498922998,
+            "log_lambda": 3.238293927221512,
+            "objective": -1.1336774783159669,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.49019648609439,
+            "log_lambda": 3.238293926718236,
+            "objective": -1.1336774783159447,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.49019649402291,
+            "log_lambda": 3.238293927029278,
+            "objective": -1.133677478315982,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.49019648912282,
+            "log_lambda": 3.2382939268370436,
+            "objective": -1.1336774783159962,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.490196492151238,
+            "log_lambda": 3.238293926955851,
+            "objective": -1.1336774783159633,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.49019649027957,
+            "log_lambda": 3.238293926882424,
+            "objective": -1.1336774783159216,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.490196489837732,
+            "log_lambda": 3.23829392686509,
+            "objective": -1.1336774783159598,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.490196490552652,
+            "log_lambda": 3.238293926893137,
+            "objective": -1.1336774783159687,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.4901964901108,
+            "log_lambda": 3.238293926875803,
+            "objective": -1.1336774783159234,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.490196490383884,
+            "log_lambda": 3.238293926886516,
+            "objective": -1.1336774783159678,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.490196490215116,
+            "log_lambda": 3.238293926879895,
+            "objective": -1.133677478315942,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.490196490319416,
+            "log_lambda": 3.238293926883987,
+            "objective": -1.1336774783159456,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.49019649025495,
+            "log_lambda": 3.238293926881458,
+            "objective": -1.1336774783159882,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 25.490196490294796,
+            "log_lambda": 3.238293926883021,
+            "objective": -1.133677478315965,
+            "valid": true
+          }
+        ],
+        "final_bracket": [
+          3.238293926881458,
+          3.238293926883987
+        ],
+        "fit_schema_version": "arena.research.random-intercept-fit.v2",
+        "fit_sha256": "d8e6ab3b4ce189eee6c9d603ca54ff7bcb2a9adac890e85d3b4cdd05507bd42f",
+        "initial_bracket": [
+          -30.0,
+          30.0
+        ],
+        "invalid_evaluation_count": 0,
+        "iterations": 64,
+        "kkt_residual": 1.1656054565989393e-08,
+        "kkt_tolerance": 1.1737460842165344e-06,
+        "max_iterations": 200,
+        "newton_correction": -1.6157087151583473e-08,
+        "optimizer": "bounded-golden-section",
+        "precision_limited": false,
+        "profile_curvature": -0.7214205417495099,
+        "profile_score": -1.1656054565989393e-08,
+        "schema_version": "arena.research.profile-reml-solver-certificate.v1",
+        "solver_status": "verified-interior",
+        "source_input_sha256": "cabbbecabe55aaff19fb6b43779efc6d1545411da4fc6c2c8e8069890a87e690",
+        "termination_reason": "interval-tolerance",
+        "tolerance": 1e-12
+      },
+      "fit": {
+        "between_variance": 0.5416666711267284,
+        "boundary_lambda": false,
+        "canonical_sha256": "d8e6ab3b4ce189eee6c9d603ca54ff7bcb2a9adac890e85d3b4cdd05507bd42f",
+        "ci_method": "between-cluster-t",
+        "cluster_count": 4,
+        "confidence_level": 0.95,
+        "confidence_lower": 1.0969609446860185,
+        "confidence_upper": 1.7530390553139816,
+        "control_level": "control",
+        "degrees_of_freedom": 3,
+        "dropped_clusters": 0,
+        "effect_size_method": "hierarchical-d-v1",
+        "error_variance": 0.02124999983163282,
+        "estimand": "within-cluster average treatment contrast: E[Y|treatment=treatment,u]-E[Y|treatment=control,u]=beta for every cluster u",
+        "estimator": "random-intercept-reml",
+        "hierarchical_effect": 1.8992966797614805,
+        "icc": 0.9622501856350162,
+        "intercept": 1.7500000000000024,
+        "observation_count": 8,
+        "outcome_name": "score",
+        "schema_version": "arena.research.random-intercept-fit.v2",
+        "singular": false,
+        "standard_error": 0.10307764023209112,
+        "treatment_effect": 1.425,
+        "treatment_level": "treatment",
+        "warnings": []
+      },
+      "name": "paired-1x1",
+      "observations": [
+        {
+          "cluster_id": "c1",
+          "observation_id": "c0",
+          "outcome_name": "score",
+          "treatment": "control",
+          "value": 1.0
+        },
+        {
+          "cluster_id": "c1",
+          "observation_id": "t0",
+          "outcome_name": "score",
+          "treatment": "treatment",
+          "value": 2.2
+        },
+        {
+          "cluster_id": "c2",
+          "observation_id": "c0",
+          "outcome_name": "score",
+          "treatment": "control",
+          "value": 2.0
+        },
+        {
+          "cluster_id": "c2",
+          "observation_id": "t0",
+          "outcome_name": "score",
+          "treatment": "treatment",
+          "value": 3.6
+        },
+        {
+          "cluster_id": "c3",
+          "observation_id": "c0",
+          "outcome_name": "score",
+          "treatment": "control",
+          "value": 1.5
+        },
+        {
+          "cluster_id": "c3",
+          "observation_id": "t0",
+          "outcome_name": "score",
+          "treatment": "treatment",
+          "value": 2.8
+        },
+        {
+          "cluster_id": "c4",
+          "observation_id": "c0",
+          "outcome_name": "score",
+          "treatment": "control",
+          "value": 2.5
+        },
+        {
+          "cluster_id": "c4",
+          "observation_id": "t0",
+          "outcome_name": "score",
+          "treatment": "treatment",
+          "value": 4.1
+        }
+      ],
+      "outcome_name": "score",
+      "report": {
+        "analysis_input_sha256": "b0bde7beea9ff5998cd785d150630bd086dbc240e2bc7f2d8ba11c891baf960e",
+        "authoritative": "random-intercept-reml",
+        "balanced": true,
+        "canonical_sha256": "a1370469ffc7060bf527740d494883378339faa0c759405a32d8699108844149",
+        "certificate_schema_version": "arena.research.profile-reml-solver-certificate.v1",
+        "certificate_sha256": "7b7002937dcf72bf998842d96f3d4fed33081e83ddbcab509a52447aa50fce8a",
+        "cluster_count": 4,
+        "control_level": "control",
+        "design_profile": "paired-1x1",
+        "effect_absolute_difference": 2.220446049250313e-16,
+        "effect_passed": true,
+        "effect_tolerance": 1.425e-08,
+        "fit_schema_version": "arena.research.random-intercept-fit.v2",
+        "fit_sha256": "d8e6ab3b4ce189eee6c9d603ca54ff7bcb2a9adac890e85d3b4cdd05507bd42f",
+        "observation_count": 8,
+        "outcome_name": "score",
+        "passed": true,
+        "path_a_between_variance": 0.5416666666666665,
+        "path_a_effect": 1.4249999999999998,
+        "path_a_error_variance": 0.021250000000000064,
+        "path_b_between_variance": 0.5416666711267284,
+        "path_b_effect": 1.425,
+        "path_b_error_variance": 0.02124999983163282,
+        "schema_version": "arena.research.cross-validation-report.v1",
+        "source_input_sha256": "cabbbecabe55aaff19fb6b43779efc6d1545411da4fc6c2c8e8069890a87e690",
+        "status": "fully-validated",
+        "treatment_level": "treatment",
+        "validation_scope": "effect-and-variance",
+        "variance_absolute_difference": 4.460061875377619e-09,
+        "variance_passed": true,
+        "variance_tolerance": 1e-07,
+        "variance_validated": true
+      }
+    },
+    {
+      "certificate": {
+        "analysis_input_sha256": "94d6dca6c030ebedd0a6959286f0d64d206ef8b29c6660e1c21f96e0f16c4387",
+        "backward_error": 1.2887761166429018e-07,
+        "boundary": false,
+        "candidate_lambda": 797.5092860170613,
+        "candidate_log_lambda": 6.681493478499751,
+        "candidate_objective": -13.404184504159021,
+        "canonical_sha256": "8056bbbad27e560f1c35accb6601b444accd54603ff3687e489ec4e3c1b0ca73",
+        "evaluation_count": 64,
+        "evaluations": [
+          {
+            "invalid_reason": null,
+            "lambda_value": 0.0008400582485713929,
+            "log_lambda": -7.082039324993694,
+            "objective": -46.98524462673394,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 1190.393644370024,
+            "log_lambda": 7.082039324993694,
+            "objective": -13.491512653172723,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7541422.253736182,
+            "log_lambda": 15.835921350012619,
+            "objective": -25.447422951301583,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 5.321965553305417,
+            "log_lambda": 1.671842700025234,
+            "objective": -30.10040906428586,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 33715.89696159314,
+            "log_lambda": 10.425724725044164,
+            "objective": -17.376963128623512,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 150.73571929506898,
+            "log_lambda": 5.0155281000757075,
+            "objective": -15.465979177197642,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 4269.3356136606135,
+            "log_lambda": 8.359213500126181,
+            "objective": -14.580163927456656,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 540.6122400609446,
+            "log_lambda": 6.292702275208199,
+            "objective": -13.499715505825677,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 1938.9007162370253,
+            "log_lambda": 7.56987645034069,
+            "objective": -13.79272115803259,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 880.543561718523,
+            "log_lambda": 6.7805394005552,
+            "objective": -13.409852981855042,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 730.8455851760627,
+            "log_lambda": 6.59420219964669,
+            "objective": -13.408746368288817,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 651.345013265992,
+            "log_lambda": 6.47903947611671,
+            "objective": -13.42924888109826,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 784.7590100043772,
+            "log_lambda": 6.665376677025222,
+            "objective": -13.404337955028495,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 820.0496794979108,
+            "log_lambda": 6.7093649231766666,
+            "objective": -13.404639542684986,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 763.7117640519348,
+            "log_lambda": 6.638190445798134,
+            "objective": -13.405297928275477,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 798.055937371244,
+            "log_lambda": 6.682178691949578,
+            "objective": -13.404184780188906,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 806.3863001345253,
+            "log_lambda": 6.692562908252311,
+            "objective": -13.404256506462202,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 792.9505751929329,
+            "log_lambda": 6.675760893327956,
+            "objective": -13.404203882234206,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 801.2276465552101,
+            "log_lambda": 6.686145109630691,
+            "objective": -13.404197232679032,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 796.1019941649607,
+            "log_lambda": 6.67972731100907,
+            "objective": -13.404186342949956,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 799.2659378035289,
+            "log_lambda": 6.683693728690184,
+            "objective": -13.40418735255457,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.3090320578892,
+            "log_lambda": 6.681242347749677,
+            "objective": -13.404184541464113,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 796.8477687460908,
+            "log_lambda": 6.680663655208971,
+            "objective": -13.404184910289743,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.594241955951,
+            "log_lambda": 6.681599999408871,
+            "objective": -13.404184510772522,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.7705623765761,
+            "log_lambda": 6.681821040290385,
+            "objective": -13.404184567133797,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.485289428499,
+            "log_lambda": 6.681463388631191,
+            "objective": -13.404184504712351,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.41796050504,
+            "log_lambda": 6.681378958527357,
+            "objective": -13.404184511957524,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5269038340065,
+            "log_lambda": 6.681515569305035,
+            "objective": -13.404184504432886,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5526240367866,
+            "log_lambda": 6.681547818735027,
+            "objective": -13.404184505863237,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5110082892166,
+            "log_lambda": 6.6814956380611825,
+            "objective": -13.404184504160543,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5011844606748,
+            "log_lambda": 6.681483319875044,
+            "objective": -13.404184504226972,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5170798096616,
+            "log_lambda": 6.6815032511188965,
+            "objective": -13.404184504209727,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5072559063302,
+            "log_lambda": 6.681490932932758,
+            "objective": -13.40418450416521,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5133273982074,
+            "log_lambda": 6.681498545990471,
+            "objective": -13.404184504171297,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5095750044094,
+            "log_lambda": 6.681493840862046,
+            "objective": -13.404184504159417,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5086891869703,
+            "log_lambda": 6.681492730131895,
+            "objective": -13.404184504160787,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5101224701856,
+            "log_lambda": 6.681494527331031,
+            "objective": -13.404184504159542,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5092366521392,
+            "log_lambda": 6.681493416600881,
+            "objective": -13.40418450415909,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5090275390082,
+            "log_lambda": 6.681493154393061,
+            "objective": -13.404184504159499,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5093658911898,
+            "log_lambda": 6.681493578654226,
+            "objective": -13.404184504159526,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5091567780242,
+            "log_lambda": 6.681493316446406,
+            "objective": -13.40418450415909,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5092860170613,
+            "log_lambda": 6.681493478499751,
+            "objective": -13.404184504159021,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5093165262628,
+            "log_lambda": 6.681493516755356,
+            "objective": -13.404184504159474,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5092671613387,
+            "log_lambda": 6.681493454856486,
+            "objective": -13.40418450415964,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5092976705395,
+            "log_lambda": 6.681493493112092,
+            "objective": -13.404184504159446,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5092788148166,
+            "log_lambda": 6.681493469468828,
+            "objective": -13.404184504159383,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5092904682939,
+            "log_lambda": 6.681493484081169,
+            "objective": -13.404184504159893,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5092832660486,
+            "log_lambda": 6.681493475050245,
+            "objective": -13.404184504159618,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5092877172812,
+            "log_lambda": 6.681493480631663,
+            "objective": -13.404184504159257,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5092849662677,
+            "log_lambda": 6.681493477182157,
+            "objective": -13.40418450415964,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5092866664877,
+            "log_lambda": 6.681493479314069,
+            "objective": -13.404184504159206,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5092856156942,
+            "log_lambda": 6.681493477996475,
+            "objective": -13.404184504159362,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5092862651201,
+            "log_lambda": 6.6814934788107925,
+            "objective": -13.404184504159126,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.509285863753,
+            "log_lambda": 6.681493478307517,
+            "objective": -13.404184504159474,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5092861118118,
+            "log_lambda": 6.681493478618559,
+            "objective": -13.404184504160149,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5092859585028,
+            "log_lambda": 6.681493478426324,
+            "objective": -13.40418450415929,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5092860532527,
+            "log_lambda": 6.681493478545131,
+            "objective": -13.404184504159195,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5092859946943,
+            "log_lambda": 6.681493478471705,
+            "objective": -13.404184504159478,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.509286030885,
+            "log_lambda": 6.681493478517084,
+            "objective": -13.404184504159673,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5092860085181,
+            "log_lambda": 6.681493478489038,
+            "objective": -13.404184504159577,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5092860223418,
+            "log_lambda": 6.681493478506372,
+            "objective": -13.404184504159229,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5092860137979,
+            "log_lambda": 6.681493478495659,
+            "objective": -13.404184504159593,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5092860190786,
+            "log_lambda": 6.68149347850228,
+            "objective": -13.404184504159925,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 797.5092860158153,
+            "log_lambda": 6.681493478498188,
+            "objective": -13.40418450415932,
+            "valid": true
+          }
+        ],
+        "final_bracket": [
+          6.681493478495659,
+          6.68149347850228
+        ],
+        "fit_schema_version": "arena.research.random-intercept-fit.v2",
+        "fit_sha256": "c7c5bb155e0a278af0399c58f00a796ed629eb81b1170cb46bed61d4997f114c",
+        "initial_bracket": [
+          -30.0,
+          30.0
+        ],
+        "invalid_evaluation_count": 0,
+        "iterations": 62,
+        "kkt_residual": 6.44226591850483e-07,
+        "kkt_tolerance": 1.1917941888039593e-06,
+        "max_iterations": 200,
+        "newton_correction": 5.469590873674982e-07,
+        "optimizer": "bounded-golden-section",
+        "precision_limited": false,
+        "profile_curvature": -1.1778332360307444,
+        "profile_score": 6.44226591850483e-07,
+        "schema_version": "arena.research.profile-reml-solver-certificate.v1",
+        "solver_status": "verified-interior",
+        "source_input_sha256": "1788dbabe7cf7225e3c596da7adeaeb5b2198d1c0840dfa49489b4eec9d250fe",
+        "termination_reason": "interval-tolerance",
+        "tolerance": 1e-12
+      },
+      "fit": {
+        "between_variance": 50.977162039362234,
+        "boundary_lambda": false,
+        "canonical_sha256": "c7c5bb155e0a278af0399c58f00a796ed629eb81b1170cb46bed61d4997f114c",
+        "ci_method": "between-cluster-t",
+        "cluster_count": 4,
+        "confidence_level": 0.95,
+        "confidence_lower": 0.9726990649341498,
+        "confidence_upper": 1.7773009350658506,
+        "control_level": "control",
+        "degrees_of_freedom": 3,
+        "dropped_clusters": 0,
+        "effect_size_method": "hierarchical-d-v1",
+        "error_variance": 0.06392046203493569,
+        "estimand": "within-cluster average treatment contrast: E[Y|treatment=treatment,u]-E[Y|treatment=control,u]=beta for every cluster u",
+        "estimator": "random-intercept-reml",
+        "hierarchical_effect": 0.19246100971036115,
+        "icc": 0.9987476664110094,
+        "intercept": 1.6406249999996183,
+        "observation_count": 16,
+        "outcome_name": "score",
+        "schema_version": "arena.research.random-intercept-fit.v2",
+        "singular": false,
+        "standard_error": 0.12641248161765486,
+        "treatment_effect": 1.3750000000000002,
+        "treatment_level": "treatment",
+        "warnings": []
+      },
+      "name": "balanced-repeated",
+      "observations": [
+        {
+          "cluster_id": "a",
+          "observation_id": "c0",
+          "outcome_name": "score",
+          "treatment": "control",
+          "value": 0.0
+        },
+        {
+          "cluster_id": "a",
+          "observation_id": "c1",
+          "outcome_name": "score",
+          "treatment": "control",
+          "value": 0.125
+        },
+        {
+          "cluster_id": "a",
+          "observation_id": "t0",
+          "outcome_name": "score",
+          "treatment": "treatment",
+          "value": 1.0
+        },
+        {
+          "cluster_id": "a",
+          "observation_id": "t1",
+          "outcome_name": "score",
+          "treatment": "treatment",
+          "value": 1.125
+        },
+        {
+          "cluster_id": "b",
+          "observation_id": "c0",
+          "outcome_name": "score",
+          "treatment": "control",
+          "value": 10.0
+        },
+        {
+          "cluster_id": "b",
+          "observation_id": "c1",
+          "outcome_name": "score",
+          "treatment": "control",
+          "value": 10.25
+        },
+        {
+          "cluster_id": "b",
+          "observation_id": "t0",
+          "outcome_name": "score",
+          "treatment": "treatment",
+          "value": 11.5
+        },
+        {
+          "cluster_id": "b",
+          "observation_id": "t1",
+          "outcome_name": "score",
+          "treatment": "treatment",
+          "value": 11.75
+        },
+        {
+          "cluster_id": "c",
+          "observation_id": "c0",
+          "outcome_name": "score",
+          "treatment": "control",
+          "value": -7.0
+        },
+        {
+          "cluster_id": "c",
+          "observation_id": "c1",
+          "outcome_name": "score",
+          "treatment": "control",
+          "value": -6.75
+        },
+        {
+          "cluster_id": "c",
+          "observation_id": "t0",
+          "outcome_name": "score",
+          "treatment": "treatment",
+          "value": -5.75
+        },
+        {
+          "cluster_id": "c",
+          "observation_id": "t1",
+          "outcome_name": "score",
+          "treatment": "treatment",
+          "value": -5.5
+        },
+        {
+          "cluster_id": "d",
+          "observation_id": "c0",
+          "outcome_name": "score",
+          "treatment": "control",
+          "value": 3.0
+        },
+        {
+          "cluster_id": "d",
+          "observation_id": "c1",
+          "outcome_name": "score",
+          "treatment": "control",
+          "value": 3.5
+        },
+        {
+          "cluster_id": "d",
+          "observation_id": "t0",
+          "outcome_name": "score",
+          "treatment": "treatment",
+          "value": 4.75
+        },
+        {
+          "cluster_id": "d",
+          "observation_id": "t1",
+          "outcome_name": "score",
+          "treatment": "treatment",
+          "value": 5.25
+        }
+      ],
+      "outcome_name": "score",
+      "report": {
+        "analysis_input_sha256": "94d6dca6c030ebedd0a6959286f0d64d206ef8b29c6660e1c21f96e0f16c4387",
+        "authoritative": "random-intercept-reml",
+        "balanced": true,
+        "canonical_sha256": "cc89b466c5508c302773249b6720504c3cdba61881ec69a68e28929c3001214a",
+        "certificate_schema_version": "arena.research.profile-reml-solver-certificate.v1",
+        "certificate_sha256": "8056bbbad27e560f1c35accb6601b444accd54603ff3687e489ec4e3c1b0ca73",
+        "cluster_count": 4,
+        "control_level": "control",
+        "design_profile": "balanced-repeated",
+        "effect_absolute_difference": 2.220446049250313e-16,
+        "effect_passed": true,
+        "effect_tolerance": 1.3750000000000002e-08,
+        "fit_schema_version": "arena.research.random-intercept-fit.v2",
+        "fit_sha256": "c7c5bb155e0a278af0399c58f00a796ed629eb81b1170cb46bed61d4997f114c",
+        "observation_count": 16,
+        "outcome_name": "score",
+        "passed": false,
+        "path_a_between_variance": 50.97718394886363,
+        "path_a_effect": 1.375,
+        "path_a_error_variance": 0.06392045454545454,
+        "path_b_between_variance": 50.977162039362234,
+        "path_b_effect": 1.3750000000000002,
+        "path_b_error_variance": 0.06392046203493569,
+        "schema_version": "arena.research.cross-validation-report.v1",
+        "source_input_sha256": "1788dbabe7cf7225e3c596da7adeaeb5b2198d1c0840dfa49489b4eec9d250fe",
+        "status": "effect-diagnostic",
+        "treatment_level": "treatment",
+        "validation_scope": "effect-only",
+        "variance_absolute_difference": 2.1909501398909015e-05,
+        "variance_passed": false,
+        "variance_tolerance": 5.097716203936223e-06,
+        "variance_validated": false
+      }
+    },
+    {
+      "certificate": {
+        "analysis_input_sha256": "ee848965063edb4b7155be01a9ecf5f9f772da81dba3c19d314f88c830354bbb",
+        "backward_error": 5.666826418362183e-08,
+        "boundary": false,
+        "candidate_lambda": 7.036835315816554,
+        "candidate_log_lambda": 1.9511585400981684,
+        "candidate_objective": -8.09054272304488,
+        "canonical_sha256": "430ca30a98f2c8fc66e2db2906568fb3e94b7af2b2c76eb2854412efb66fa069",
+        "evaluation_count": 67,
+        "evaluations": [
+          {
+            "invalid_reason": null,
+            "lambda_value": 0.0008400582485713929,
+            "log_lambda": -7.082039324993694,
+            "objective": -17.34240754846835,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 1190.393644370024,
+            "log_lambda": 7.082039324993694,
+            "objective": -14.073636922253044,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7541422.253736182,
+            "log_lambda": 15.835921350012619,
+            "objective": -27.192693341991173,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 5.321965553305417,
+            "log_lambda": 1.671842700025234,
+            "objective": -8.136130255255816,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 0.1879005021704635,
+            "log_lambda": -1.6718427000252376,
+            "objective": -14.564804198751828,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 42.028750715744955,
+            "log_lambda": 3.73835392494322,
+            "objective": -9.371304872525531,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 1.4838922360519213,
+            "log_lambda": 0.3946685248927446,
+            "objective": -9.654665279088242,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 11.718628437818515,
+            "log_lambda": 2.4611797498107277,
+            "objective": -8.224016677567276,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 3.267435984296415,
+            "log_lambda": 1.1840055746782354,
+            "objective": -8.455202252832008,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.194685471150026,
+            "log_lambda": 1.9733426244637264,
+            "objective": -8.09081745902085,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 8.668361824590875,
+            "log_lambda": 2.159679825372237,
+            "objective": -8.114077574687187,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 6.412055567828232,
+            "log_lambda": 1.8581799009337463,
+            "objective": -8.095457285745475,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.725427042529668,
+            "log_lambda": 2.0445171018422585,
+            "objective": -8.095352364447846,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 6.885063659910797,
+            "log_lambda": 1.9293543783122802,
+            "objective": -8.090810011213218,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 6.700406170922472,
+            "log_lambda": 1.9021681470851914,
+            "objective": -8.09189783918687,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.001723921513372,
+            "log_lambda": 1.9461563932366366,
+            "objective": -8.090556754024226,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.074810152068441,
+            "log_lambda": 1.9565406095393707,
+            "objective": -8.090558936348469,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 6.956932153395446,
+            "log_lambda": 1.939738594615015,
+            "objective": -8.090615924992553,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.029550833168978,
+            "log_lambda": 1.9501228109177497,
+            "objective": -8.090543324435211,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.046804078600294,
+            "log_lambda": 1.952574191858257,
+            "objective": -8.090543845192093,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.018908868905767,
+            "log_lambda": 1.9486077741771435,
+            "objective": -8.090546370480968,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036135994827359,
+            "log_lambda": 1.9510591551176502,
+            "objective": -8.090542728606255,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.040208932618659,
+            "log_lambda": 1.951637847658357,
+            "objective": -8.090542851613694,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.0336199590735,
+            "log_lambda": 1.9507015034584567,
+            "objective": -8.090542840206938,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.037691440432307,
+            "log_lambda": 1.951280195999164,
+            "objective": -8.090542731303092,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.03517484847022,
+            "log_lambda": 1.950922544339971,
+            "objective": -8.090542754314008,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036730081599049,
+            "log_lambda": 1.951143585221485,
+            "objective": -8.090542723174359,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.037097272496417,
+            "log_lambda": 1.951195765895329,
+            "objective": -8.090542723811023,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036503154724068,
+            "log_lambda": 1.951111335791494,
+            "objective": -8.090542724306276,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036870333779927,
+            "log_lambda": 1.9511635164653376,
+            "objective": -8.090542723057446,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036957015792415,
+            "log_lambda": 1.9511758346514765,
+            "objective": -8.090542723207722,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036816761883874,
+            "log_lambda": 1.9511559034076238,
+            "objective": -8.090542723049527,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.0367836528351955,
+            "log_lambda": 1.9511511982791985,
+            "objective": -8.09054272307716,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036837224479186,
+            "log_lambda": 1.9511588113369123,
+            "objective": -8.090542723044903,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036849871088338,
+            "log_lambda": 1.9511606085360493,
+            "objective": -8.090542723046774,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.03682940845625,
+            "log_lambda": 1.9511577006067609,
+            "objective": -8.090542723045528,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.0368420550513555,
+            "log_lambda": 1.951159497805898,
+            "objective": -8.090542723045127,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036834239023056,
+            "log_lambda": 1.9511583870757467,
+            "objective": -8.090542723044969,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036839069593177,
+            "log_lambda": 1.9511590735447324,
+            "objective": -8.090542723044916,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036836084136266,
+            "log_lambda": 1.951158649283567,
+            "objective": -8.090542723044889,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036835379365677,
+            "log_lambda": 1.951158549129092,
+            "objective": -8.090542723044885,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036834943793532,
+            "log_lambda": 1.951158487230222,
+            "objective": -8.090542723044937,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036835648564079,
+            "log_lambda": 1.9511585873846973,
+            "objective": -8.09054272304493,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036835212991919,
+            "log_lambda": 1.9511585254858275,
+            "objective": -8.090542723044921,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036835482190315,
+            "log_lambda": 1.9511585637414328,
+            "objective": -8.090542723044903,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036835315816554,
+            "log_lambda": 1.9511585400981684,
+            "objective": -8.09054272304488,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036835276541039,
+            "log_lambda": 1.9511585345167508,
+            "objective": -8.090542723044914,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.03683534009016,
+            "log_lambda": 1.9511585435476744,
+            "objective": -8.090542723044909,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.0368353008146425,
+            "log_lambda": 1.9511585379662566,
+            "objective": -8.090542723044917,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036835325088247,
+            "log_lambda": 1.9511585414157624,
+            "objective": -8.090542723044933,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036835310086335,
+            "log_lambda": 1.9511585392838506,
+            "objective": -8.090542723044887,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036835319358027,
+            "log_lambda": 1.9511585406014447,
+            "objective": -8.090542723044905,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.0368353136278055,
+            "log_lambda": 1.9511585397871267,
+            "objective": -8.090542723044914,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036835317169277,
+            "log_lambda": 1.9511585402904028,
+            "objective": -8.090542723044951,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036835314980528,
+            "log_lambda": 1.9511585399793612,
+            "objective": -8.090542723044933,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036835316333248,
+            "log_lambda": 1.9511585401715954,
+            "objective": -8.090542723044944,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036835315497222,
+            "log_lambda": 1.9511585400527882,
+            "objective": -8.090542723044916,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.0368353160139145,
+            "log_lambda": 1.951158540126215,
+            "objective": -8.090542723044907,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036835315694581,
+            "log_lambda": 1.9511585400808347,
+            "objective": -8.090542723044893,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.03683531589194,
+            "log_lambda": 1.9511585401088813,
+            "objective": -8.090542723044909,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036835315769966,
+            "log_lambda": 1.9511585400915477,
+            "objective": -8.090542723044933,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.03683531584535,
+            "log_lambda": 1.9511585401022604,
+            "objective": -8.090542723044925,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.0368353157987595,
+            "log_lambda": 1.9511585400956395,
+            "objective": -8.090542723044917,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036835315827554,
+            "log_lambda": 1.9511585400997316,
+            "objective": -8.090542723044905,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036835315809758,
+            "log_lambda": 1.9511585400972025,
+            "objective": -8.090542723044894,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036835315820756,
+            "log_lambda": 1.9511585400987654,
+            "objective": -8.09054272304489,
+            "valid": true
+          },
+          {
+            "invalid_reason": null,
+            "lambda_value": 7.036835315813959,
+            "log_lambda": 1.9511585400977995,
+            "objective": -8.090542723044926,
+            "valid": true
+          }
+        ],
+        "final_bracket": [
+          1.9511585400972025,
+          1.9511585400987654
+        ],
+        "fit_schema_version": "arena.research.random-intercept-fit.v2",
+        "fit_sha256": "a1c60ab19436d0994354db983ff659ad1a266040b12b27a01c06420e440cade7",
+        "initial_bracket": [
+          -30.0,
+          30.0
+        ],
+        "invalid_evaluation_count": 0,
+        "iterations": 65,
+        "kkt_residual": 2.755788521824343e-07,
+        "kkt_tolerance": 1.1594341085669767e-06,
+        "max_iterations": 200,
+        "newton_correction": 2.4594037822018054e-07,
+        "optimizer": "bounded-golden-section",
+        "precision_limited": false,
+        "profile_curvature": -1.1205108090698293,
+        "profile_score": 2.755788521824343e-07,
+        "schema_version": "arena.research.profile-reml-solver-certificate.v1",
+        "solver_status": "verified-interior",
+        "source_input_sha256": "c32371ecd89512474a96f8061b69b4f598a06c609c2c1e21fd8cd244f9e4f3a1",
+        "termination_reason": "interval-tolerance",
+        "tolerance": 1e-12
+      },
+      "fit": {
+        "between_variance": 0.5270294045824206,
+        "boundary_lambda": false,
+        "canonical_sha256": "a1c60ab19436d0994354db983ff659ad1a266040b12b27a01c06420e440cade7",
+        "ci_method": "between-cluster-t",
+        "cluster_count": 4,
+        "confidence_level": 0.95,
+        "confidence_lower": 0.9833430146907884,
+        "confidence_upper": 1.8363991444227519,
+        "control_level": "control",
+        "degrees_of_freedom": 3,
+        "dropped_clusters": 0,
+        "effect_size_method": "hierarchical-d-v1",
+        "error_variance": 0.07489579916668324,
+        "estimand": "within-cluster average treatment contrast: E[Y|treatment=treatment,u]-E[Y|treatment=control,u]=beta for every cluster u",
+        "estimator": "random-intercept-reml",
+        "hierarchical_effect": 1.8172226355412444,
+        "icc": 0.8755729138766858,
+        "intercept": 1.8819983163946037,
+        "observation_count": 17,
+        "outcome_name": "score",
+        "schema_version": "arena.research.random-intercept-fit.v2",
+        "singular": false,
+        "standard_error": 0.13402521957961447,
+        "treatment_effect": 1.4098710795567702,
+        "treatment_level": "treatment",
+        "warnings": []
+      },
+      "name": "allocation-unbalanced",
+      "observations": [
+        {
+          "cluster_id": "c1",
+          "observation_id": "c0",
+          "outcome_name": "score",
+          "treatment": "control",
+          "value": 1.0
+        },
+        {
+          "cluster_id": "c1",
+          "observation_id": "c1",
+          "outcome_name": "score",
+          "treatment": "control",
+          "value": 1.5
+        },
+        {
+          "cluster_id": "c1",
+          "observation_id": "t0",
+          "outcome_name": "score",
+          "treatment": "treatment",
+          "value": 2.2
+        },
+        {
+          "cluster_id": "c1",
+          "observation_id": "t1",
+          "outcome_name": "score",
+          "treatment": "treatment",
+          "value": 2.6
+        },
+        {
+          "cluster_id": "c2",
+          "observation_id": "c0",
+          "outcome_name": "score",
+          "treatment": "control",
+          "value": 2.0
+        },
+        {
+          "cluster_id": "c2",
+          "observation_id": "t0",
+          "outcome_name": "score",
+          "treatment": "treatment",
+          "value": 3.6
+        },
+        {
+          "cluster_id": "c2",
+          "observation_id": "t1",
+          "outcome_name": "score",
+          "treatment": "treatment",
+          "value": 3.9
+        },
+        {
+          "cluster_id": "c3",
+          "observation_id": "c0",
+          "outcome_name": "score",
+          "treatment": "control",
+          "value": 1.5
+        },
+        {
+          "cluster_id": "c3",
+          "observation_id": "c1",
+          "outcome_name": "score",
+          "treatment": "control",
+          "value": 1.8
+        },
+        {
+          "cluster_id": "c3",
+          "observation_id": "c2",
+          "outcome_name": "score",
+          "treatment": "control",
+          "value": 1.2
+        },
+        {
+          "cluster_id": "c3",
+          "observation_id": "t0",
+          "outcome_name": "score",
+          "treatment": "treatment",
+          "value": 2.8
+        },
+        {
+          "cluster_id": "c3",
+          "observation_id": "t1",
+          "outcome_name": "score",
+          "treatment": "treatment",
+          "value": 3.1
+        },
+        {
+          "cluster_id": "c3",
+          "observation_id": "t2",
+          "outcome_name": "score",
+          "treatment": "treatment",
+          "value": 2.5
+        },
+        {
+          "cluster_id": "c4",
+          "observation_id": "c0",
+          "outcome_name": "score",
+          "treatment": "control",
+          "value": 2.5
+        },
+        {
+          "cluster_id": "c4",
+          "observation_id": "c1",
+          "outcome_name": "score",
+          "treatment": "control",
+          "value": 2.8
+        },
+        {
+          "cluster_id": "c4",
+          "observation_id": "t0",
+          "outcome_name": "score",
+          "treatment": "treatment",
+          "value": 4.1
+        },
+        {
+          "cluster_id": "c4",
+          "observation_id": "t1",
+          "outcome_name": "score",
+          "treatment": "treatment",
+          "value": 4.4
+        }
+      ],
+      "outcome_name": "score",
+      "report": {
+        "analysis_input_sha256": "ee848965063edb4b7155be01a9ecf5f9f772da81dba3c19d314f88c830354bbb",
+        "authoritative": "random-intercept-reml",
+        "balanced": false,
+        "canonical_sha256": "ca399db6bf5f115c6455dc9ed568158722d478047bec0bf448f8a78fa7c79a3d",
+        "certificate_schema_version": "arena.research.profile-reml-solver-certificate.v1",
+        "certificate_sha256": "430ca30a98f2c8fc66e2db2906568fb3e94b7af2b2c76eb2854412efb66fa069",
+        "cluster_count": 4,
+        "control_level": "control",
+        "design_profile": "allocation-unbalanced",
+        "effect_absolute_difference": 0.0018710795567704608,
+        "effect_passed": true,
+        "effect_tolerance": 0.014098710795567702,
+        "fit_schema_version": "arena.research.random-intercept-fit.v2",
+        "fit_sha256": "a1c60ab19436d0994354db983ff659ad1a266040b12b27a01c06420e440cade7",
+        "observation_count": 17,
+        "outcome_name": "score",
+        "passed": false,
+        "path_a_between_variance": 0.7152334737196765,
+        "path_a_effect": 1.4079999999999997,
+        "path_a_error_variance": 0.07490833333333301,
+        "path_b_between_variance": 0.5270294045824206,
+        "path_b_effect": 1.4098710795567702,
+        "path_b_error_variance": 0.07489579916668324,
+        "schema_version": "arena.research.cross-validation-report.v1",
+        "source_input_sha256": "c32371ecd89512474a96f8061b69b4f598a06c609c2c1e21fd8cd244f9e4f3a1",
+        "status": "effect-diagnostic",
+        "treatment_level": "treatment",
+        "validation_scope": "effect-only",
+        "variance_absolute_difference": 0.18820406913725585,
+        "variance_passed": false,
+        "variance_tolerance": 0.01,
+        "variance_validated": false
+      }
+    }
+  ],
+  "schema_version": "arena.research.hierarchical-known-answers.v1"
+}
