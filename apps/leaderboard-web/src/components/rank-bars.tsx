@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import Link from "next/link";
+import { StaticLink } from "@/components/static-link";
 import { cn } from "@/lib/utils";
 import { GitHubIcon } from "@/components/app-chrome";
 
@@ -69,13 +69,13 @@ export function RankBars({
             className="group border-b border-border-faint py-1.5 transition-colors first:pt-0 last:border-0"
           >
             {row.href !== undefined ? (
-              <Link
+              <StaticLink
                 href={row.href}
                 className="grid grid-cols-1 items-center gap-x-4 gap-y-2 rounded-md px-1 py-0.5 transition-colors hover:bg-secondary/40 @md:grid-cols-[minmax(0,280px)_minmax(0,1fr)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
                 <RankRowLeft row={row} />
                 <RankRowBar row={row} widthPct={widthPctOf(row)} />
-              </Link>
+              </StaticLink>
             ) : (
               <div className="grid grid-cols-1 items-center gap-x-4 gap-y-2 rounded-md px-1 py-0.5 @md:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
                 <RankRowLeft row={row} />

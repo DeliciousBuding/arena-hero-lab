@@ -1,5 +1,5 @@
 import { ExternalLink } from "lucide-react";
-import Link from "next/link";
+import { StaticLink } from "@/components/static-link";
 import { benchData } from "@/lib/bench";
 import { Separator } from "@/components/ui/separator";
 
@@ -11,7 +11,7 @@ export function Footer() {
         <div className="flex items-center gap-3">
           <span>© 2026 Arena Hero</span>
           <Separator orientation="vertical" className="h-3" />
-          <Link
+          <StaticLink
             href="https://github.com/DeliciousBuding/arena-hero-lab"
             target="_blank"
             rel="noreferrer"
@@ -19,9 +19,9 @@ export function Footer() {
           >
             Arena Hero Lab
             <ExternalLink className="h-3 w-3" />
-          </Link>
+          </StaticLink>
           <Separator orientation="vertical" className="h-3" />
-          <Link
+          <StaticLink
             href="https://github.com/DeliciousBuding/arena-hero-agent-ts"
             target="_blank"
             rel="noreferrer"
@@ -29,14 +29,14 @@ export function Footer() {
           >
             数据源 arena-hero-agent-ts
             <ExternalLink className="h-3 w-3" />
-          </Link>
+          </StaticLink>
           <Separator orientation="vertical" className="h-3" />
-          <Link
+          <StaticLink
             href="/platform"
             className="transition-colors hover:text-foreground"
           >
             Python 平台
-          </Link>
+          </StaticLink>
         </div>
         <span className="tnum">
           {benchData.schema} · {new Date(benchData.generatedAt).toLocaleString("zh-CN")}

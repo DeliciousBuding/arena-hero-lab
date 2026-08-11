@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { StaticLink } from "@/components/static-link";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { platformCopy, platformData, shortRepo } from "@/lib/platform";
 import { Badge } from "@/components/ui/badge";
@@ -62,13 +62,13 @@ export default function PlatformPage() {
 
   return (
     <div className="container-page px-4 py-10 sm:px-6">
-      <Link
+      <StaticLink
         href="/"
         className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
         返回排行榜
-      </Link>
+      </StaticLink>
 
       <header className="mb-8 mt-4">
         <h1 className="font-serif text-3xl font-normal leading-tight tracking-tight text-foreground sm:text-4xl">
@@ -117,7 +117,7 @@ export default function PlatformPage() {
           <DetailRow label="来源仓库" value={agent.name} />
           <div className="flex items-center gap-1 py-1 text-xs">
             <span className="shrink-0 text-muted-foreground">公开源码</span>
-            <Link
+            <StaticLink
               href={agent.repository}
               target="_blank"
               rel="noreferrer"
@@ -125,7 +125,7 @@ export default function PlatformPage() {
             >
               {shortRepo(agent.repository)}
               <ExternalLink className="h-3 w-3 shrink-0" />
-            </Link>
+            </StaticLink>
           </div>
           <DetailRow label="来源提交" value={agent.source_commit} />
           <DetailRow label="SDK" value={`${agent.sdk.name} ${agent.sdk.version}`} />

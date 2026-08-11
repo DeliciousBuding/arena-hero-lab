@@ -2,8 +2,8 @@
 
 import { Trophy } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { StaticLink } from "@/components/static-link";
 import { useEffect, useState } from "react";
 import { benchData } from "@/lib/bench";
 import { cn } from "@/lib/utils";
@@ -85,7 +85,7 @@ export function AppChrome() {
     <nav className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
       <div className="container-page flex h-14 items-center justify-between gap-4 px-4 sm:px-6">
         <div className="flex items-center gap-3">
-          <Link
+          <StaticLink
             href="/"
             className="flex items-center gap-2 text-sm font-medium tracking-tight text-foreground transition-colors hover:text-brand"
           >
@@ -94,7 +94,7 @@ export function AppChrome() {
             </span>
             <span className="font-serif text-base leading-none">Arena Hero</span>
             <span className="font-serif text-base leading-none text-brand">Leaderboard</span>
-          </Link>
+          </StaticLink>
           <Separator orientation="vertical" className="hidden h-5 sm:block" />
           <Badge variant="outline" className="hidden sm:inline-flex">
             {benchData.schema}
@@ -115,7 +115,7 @@ export function AppChrome() {
                   : "text-muted-foreground",
               )}
             >
-              <Link href={item.href}>{item.label}</Link>
+              <StaticLink href={item.href}>{item.label}</StaticLink>
             </Button>
           ))}
         </div>
@@ -124,7 +124,7 @@ export function AppChrome() {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button asChild variant="ghost" size="icon-sm" aria-label="Arena Hero 官网">
-                <Link
+                <StaticLink
                   href="https://app.arenahero.io/"
                   target="_blank"
                   rel="noreferrer"
@@ -136,7 +136,7 @@ export function AppChrome() {
                     height={16}
                     className="h-4 w-4 rounded"
                   />
-                </Link>
+                </StaticLink>
               </Button>
             </TooltipTrigger>
             <TooltipContent>Arena Hero 官网</TooltipContent>
@@ -144,13 +144,13 @@ export function AppChrome() {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button asChild variant="ghost" size="icon-sm" aria-label="arena-hero-agent-ts 仓库（评测与模拟器）">
-                <Link
+                <StaticLink
                   href="https://github.com/DeliciousBuding/arena-hero-agent-ts"
                   target="_blank"
                   rel="noreferrer"
                 >
                   <GitHubIcon className="h-4 w-4" />
-                </Link>
+                </StaticLink>
               </Button>
             </TooltipTrigger>
             <TooltipContent>arena-hero-agent-ts 仓库（评测与模拟器）</TooltipContent>
@@ -158,7 +158,7 @@ export function AppChrome() {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button asChild variant="ghost" size="icon-sm" aria-label="Linux DO 官方帖（Arena Hero 介绍）">
-                <Link
+                <StaticLink
                   href="https://linux.do/t/topic/2703804"
                   target="_blank"
                   rel="noreferrer"
@@ -170,7 +170,7 @@ export function AppChrome() {
                     height={20}
                     className="h-5 w-5 rounded-full ring-1 ring-border"
                   />
-                </Link>
+                </StaticLink>
               </Button>
             </TooltipTrigger>
             <TooltipContent>Linux DO 官方帖</TooltipContent>

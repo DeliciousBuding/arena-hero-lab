@@ -1,5 +1,5 @@
 import { Users, Timer } from "lucide-react";
-import Link from "next/link";
+import { StaticLink } from "@/components/static-link";
 import { benchData, contestantOf, type BenchmarkMatch } from "@/lib/bench";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -71,7 +71,7 @@ export function ScenarioComparison({ limit }: { limit?: number }) {
                 const resourcesBar = (stat.resourcesPerTick / maxResources) * 100;
                 const peakBar = (stat.populationPeak / maxPeak) * 100;
                 return (
-                  <Link
+                  <StaticLink
                     key={row.contestantId}
                     href={`/entry/${row.contestantId}`}
                     className="group block rounded-md border border-transparent px-2 py-2 transition-colors hover:border-border hover:bg-secondary/40"
@@ -120,7 +120,7 @@ export function ScenarioComparison({ limit }: { limit?: number }) {
                         </div>
                       </div>
                     </div>
-                  </Link>
+                  </StaticLink>
                 );
               })}
             </CardContent>

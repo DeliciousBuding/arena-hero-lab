@@ -1,6 +1,6 @@
 import { ArrowLeft, CircleAlert, Trophy } from "lucide-react";
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { StaticLink } from "@/components/static-link";
 import { ContestantLinks } from "@/components/contestant-links";
 import { KillStats } from "@/components/kill-stats";
 import { KillTimelinePanel } from "@/components/kill-timeline-panel";
@@ -92,10 +92,10 @@ export default async function EntryPage({
   return (
     <div className="container-page px-4 py-8 sm:px-6 lg:py-10">
       <Button asChild variant="ghost" size="sm" className="mb-6 gap-1.5 text-muted-foreground hover:text-foreground">
-        <Link href="/">
+        <StaticLink href="/">
           <ArrowLeft className="h-4 w-4" />
           返回榜单总览
-        </Link>
+        </StaticLink>
       </Button>
 
       {/* ===== 条目头部 ===== */}

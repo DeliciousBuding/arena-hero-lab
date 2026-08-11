@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { StaticLink } from "@/components/static-link";
 import { ArrowRight } from "lucide-react";
 import { platformCopy, platformData, shortSha } from "@/lib/platform";
 import { SectionHeader } from "@/components/section-header";
@@ -120,13 +120,13 @@ export function PlatformOverview() {
         <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
           {platformCopy.trustCompetitiveRankings} {platformCopy.simulatorNote}
         </p>
-        <Link
+        <StaticLink
           href="/platform"
           className="inline-flex items-center gap-1 rounded-sm text-xs font-medium text-foreground underline decoration-foreground/40 underline-offset-4 transition-colors hover:bg-brand-soft hover:decoration-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           查看平台详情
           <ArrowRight className="h-3.5 w-3.5" />
-        </Link>
+        </StaticLink>
       </div>
     </section>
   );

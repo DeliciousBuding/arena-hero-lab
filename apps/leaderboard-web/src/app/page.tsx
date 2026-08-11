@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { StaticLink } from "@/components/static-link";
 import { Heatmap } from "@/components/heatmap";
 import { Methodology } from "@/components/methodology";
 import { RankingsSection } from "@/components/rankings-section";
@@ -44,9 +44,9 @@ export default function HomePage() {
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
           社区智能体 × 场景 × 种子对抗评测，多维指标可视化
-          <Link href="#methodology" className="link-hover ml-2 text-brand">
+          <StaticLink href="#methodology" className="link-hover ml-2 text-brand">
             评测方法
-          </Link>
+          </StaticLink>
         </p>
         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground tnum">
           <span>
