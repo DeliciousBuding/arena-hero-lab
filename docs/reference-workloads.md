@@ -63,7 +63,7 @@ measurement protocol, and public environment snapshot. The comparative implement
 A report with missing cases, failed/unsupported results, mismatched identities, or discarded raw
 samples is not publishable.
 
-The sim package now ships the first real measurement entrypoint: `--benchmark reference-workload`
+The sim package ships the first real measurement entrypoint: `--benchmark reference-workload`
 on `arena-hero-sim-bench` executes the canonical 9-episode workload through the real engine,
 freezes the workload and semantic run digests, and retains raw per-round durations
 (`arena.sim.reference-workload-benchmark.v2`, always `production_claim=false`). This harness is

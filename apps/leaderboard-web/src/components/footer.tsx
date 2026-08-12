@@ -22,12 +22,12 @@ export function Footer() {
           </StaticLink>
           <Separator orientation="vertical" className="h-3" />
           <StaticLink
-            href="https://github.com/DeliciousBuding/arena-hero-agent-ts"
+            href="https://github.com/DeliciousBuding/arena-hero-lab"
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
           >
-            数据源 arena-hero-agent-ts
+            Arena Hero Lab
             <ExternalLink className="h-3 w-3" />
           </StaticLink>
         </div>

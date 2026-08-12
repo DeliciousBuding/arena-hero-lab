@@ -142,9 +142,9 @@ export function AppChrome() {
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button asChild variant="ghost" size="icon-sm" aria-label="arena-hero-agent-ts 仓库（评测与模拟器）">
+              <Button asChild variant="ghost" size="icon-sm" aria-label="Arena Hero Lab 仓库（评测与模拟器）">
                 <StaticLink
-                  href="https://github.com/DeliciousBuding/arena-hero-agent-ts"
+                  href="https://github.com/DeliciousBuding/arena-hero-lab"
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -152,7 +152,7 @@ export function AppChrome() {
                 </StaticLink>
               </Button>
             </TooltipTrigger>
-            <TooltipContent>arena-hero-agent-ts 仓库（评测与模拟器）</TooltipContent>
+            <TooltipContent>Arena Hero Lab 仓库（评测与模拟器）</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>

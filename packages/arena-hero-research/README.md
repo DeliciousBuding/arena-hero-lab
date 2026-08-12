@@ -124,7 +124,7 @@ control and never depends on lexical label ordering. The authoritative estimator
 REML (stdlib only); `cross_validate_random_intercept` compares it against an independent
 within-cluster OLS effect plus between-cluster method-of-moments path. Allocation-
 balanced designs receive the strict independent effect check, but variance-component
-conformance is currently preregistered only for the one-control/one-treatment paired
+conformance is preregistered only for the one-control/one-treatment paired
 design. Balanced repeated-observation and allocation-unbalanced designs therefore set
 `variance_validated=false` and can never claim aggregate `passed=true`, even when
 `effect_passed=true`. The paired design is the calibrated balanced degenerate case and

@@ -135,11 +135,11 @@ independent of lexical label ordering.
 - independent cross-validation path: within-cluster OLS + between-cluster method-of-moments
   (MoM/ANOVA), compared against the REML result with declared tolerances;
 - allocation-balanced fixtures use the strict ``1e-8`` effect tolerance. Variance
-  conformance at ``1e-7`` is currently preregistered only for the paired allocation
+  conformance at ``1e-7`` is preregistered only for the paired allocation
   (one control and one treatment observation per cluster);
 - balanced repeated-observation and allocation-unbalanced fixtures expose separate
   ``effect_passed``, ``variance_validated``, and ``variance_passed`` fields. Their MoM
-  variance is not yet a calibrated finite-sample conformance oracle, so
+  variance is not a calibrated finite-sample conformance oracle, so
   ``variance_validated=false`` and aggregate ``passed=false`` even when the effect check
   passes;
 - confidence interval: conservative between-cluster t with ``df = cluster_count - 1``;
