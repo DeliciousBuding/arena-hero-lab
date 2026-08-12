@@ -18,10 +18,13 @@ from arena_hero_bench.artifact_index import (
     build_gc_plan,
 )
 from arena_hero_bench.competitive_eval import (
+    AGENT_RUN_RECORDS_FILE,
+    AGENT_RUNS_DIR_ENV,
     BATTERY_GENERATOR_VERSION,
     BATTERY_REPORT_SCHEMA,
     COMPETITIVE_EVAL_SCHEMA,
     RANKING_KIND,
+    AgentRunsError,
     BatteryCellOutcome,
     BatteryCellSpec,
     BatteryContestant,
@@ -37,6 +40,7 @@ from arena_hero_bench.competitive_eval import (
     EvolveSide,
     RankedContestant,
     load_battery_manifest,
+    map_agent_runs_dir,
     run_battery_from_manifest,
 )
 from arena_hero_bench.configuration import ConfigResolver, ConfigSchema, FrozenConfig
@@ -125,8 +129,10 @@ from arena_hero_bench.soak import (
 from arena_hero_bench.storage import FilesystemArtifactStore
 
 __all__ = [
+    "AGENT_RUNS_DIR_ENV",
     "AGENT_RUN_EVIDENCE_SCHEMA",
     "AGENT_RUN_IMPORT_REPORT_SCHEMA",
+    "AGENT_RUN_RECORDS_FILE",
     "BATTERY_GENERATOR_VERSION",
     "BATTERY_REPORT_SCHEMA",
     "CANONICAL_REFERENCE_WORKLOAD",
@@ -146,6 +152,7 @@ __all__ = [
     "SOAK_KINDS",
     "SOAK_SCHEMA",
     "AgentRunEvidence",
+    "AgentRunsError",
     "AgentRuntimeImportError",
     "ArtifactIndexError",
     "ArtifactManifest",
@@ -226,6 +233,7 @@ __all__ = [
     "load_py_observation_snapshots",
     "load_soak_manifest",
     "load_ts_legacy_corpus",
+    "map_agent_runs_dir",
     "measure_comparative_workloads",
     "measure_reference_workload",
     "merge_shards",

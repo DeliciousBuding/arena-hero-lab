@@ -71,10 +71,49 @@ contestants = 8 cells).
   wall-clock timestamps enter the artifact.
 - Fault-injected cells are reachable only through a private test seam and
   mark the report `injected_cells=true` / `attested=false`.
-- The Python-agent side is always consumed from committed `agent-run-v1`
-  records; invoking the offline agent CLI to produce records is a
-  cross-repo integration seam (see `BLOCKED.md`) and the lab has no
-  dependency on the agent package or SDK.
+- The Python-agent side is consumed from committed `agent-run-v1` records
+  by default; a live-agent runs directory seam (below) is optional and the
+  lab has no dependency on the agent package or SDK.
+
+### Live agent CLI seam
+
+`competitive-eval` can consume live offline agent runs produced by the
+external `arena-hero-agent` CLI through an external uv environment — the
+lab adds no dependency on the agent package or SDK. Point the battery at an
+external agent batch output directory with `--agent-runs-dir <dir>` (or the
+manifest field `agent_runs_dir`, or the `ARENA_AGENT_RUNS_DIR` environment
+variable; CLI flag > manifest > env). The directory uses the lab-owned
+layout `<dir>/<contestant_id>/<scenario_id>/<seed_id>/<tenant_id>/ticks.jsonl`:
+one run directory per battery cell whose `ticks.jsonl` holds `agent-run-v1`
+records (`schemaVersion` / `recordType` / `tenantId` / `tick` /
+`deadlineOutcome` / `submitResult` …), optionally beside a `health.json`.
+
+Produce the runs with the offline agent CLI through the external uv env
+(each cell's `--data-root` is the cell directory, so the agent's native
+`<data-root>/<tenant>/ticks.jsonl` output is the lab layout directly):
+
+```bash
+uv run --project <arena-hero-agent-checkout> arena-hero-agent run \
+  --tenant <tenant-id> --input <scenario-turns> --run-id <run-id> \
+  --data-root <agent-runs-dir>/<contestant-id>/<scenario-id>/<seed-id>
+```
+
+Then run the battery with the live records:
+
+```bash
+arena-hero-bench competitive-eval --run <manifest> \
+  --agent-runs-dir <agent-runs-dir>
+```
+
+The seam is fail-closed: a missing directory, a missing or extra cell, or a
+run whose `tenantId`/`schemaVersion` does not match the battery fails the
+whole battery with a clear error (exit code 2) and never silently falls back
+to the committed fixtures. Live batteries should declare
+`"evidence_kind": "production"`. `map_agent_runs_dir(runs_dir, manifest)` is
+the public mapping helper (batch output directory -> per-cell record paths),
+and the end-to-end live test
+`tests/test_competitive_eval.py::test_live_agent_runs_dir_integration` stays
+skipped unless `ARENA_AGENT_RUNS_DIR` is set to a real agent output directory.
 
 ## Filesystem artifact store
 

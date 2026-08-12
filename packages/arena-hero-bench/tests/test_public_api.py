@@ -10,6 +10,9 @@ import arena_hero_bench
 _EXPECTED_PUBLIC_API = {
     "AGENT_RUN_EVIDENCE_SCHEMA",
     "AGENT_RUN_IMPORT_REPORT_SCHEMA",
+    "AGENT_RUNS_DIR_ENV",
+    "AGENT_RUN_RECORDS_FILE",
+    "AgentRunsError",
     "AgentRunEvidence",
     "AgentRuntimeImportError",
     "ArtifactIndexError",
@@ -35,6 +38,7 @@ _EXPECTED_PUBLIC_API = {
     "ComparativePerformanceEvidence",
     "CompetitiveEvalError",
     "ConfigResolver",
+    "map_agent_runs_dir",
     "ConfigSchema",
     "ContestantAggregate",
     "ContestantManifest",

@@ -29,12 +29,16 @@ Trust and attestation notes
 
 Live-agent seam
 ---------------
-The manifest binds committed records paths only. Invoking the offline agent
-CLI (``arena-hero-agent run --tenant <id> --input <turns>``) to *produce*
-records for a battery cell is a cross-repo integration seam that is not wired
-into the lab: the lab has no dependency on the agent package or SDK, and a
-missing agent CLI fails closed rather than silently falling back to fixtures.
-See ``BLOCKED.md`` for the pending decision on adding that dependency.
+The manifest binds committed records paths by default. Optionally, the
+battery consumes live offline agent runs produced by the external
+``arena-hero-agent`` CLI through an external uv environment (no dependency on
+the agent package or SDK): ``agent_runs_dir`` (argument, manifest field, or
+``ARENA_AGENT_RUNS_DIR``) points at a batch output directory laid out as
+``<runs_dir>/<contestant_id>/<scenario_id>/<seed_id>/<tenant_id>/
+ticks.jsonl``, and :func:`map_agent_runs_dir` maps each run to its cell
+records path. A missing directory, an incomplete/extra cell, or a run whose
+tenant/schema does not match the battery fails the whole battery closed --
+it never silently falls back to committed fixtures.
 
 Ranking semantics
 -----------------
@@ -47,6 +51,7 @@ remain the external report.v3 contract (see ``BLOCKED.md``).
 from __future__ import annotations
 
 import json
+import os
 import re
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
@@ -55,6 +60,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Final
 
+from arena_hero_bench.agent_runtime import AGENT_RECORD_SCHEMA_VERSION
 from arena_hero_bench.differential import DifferentialError, DifferentialStatus
 from arena_hero_bench.kpi_differential import (
     KpiDimension,
@@ -69,6 +75,8 @@ BATTERY_GENERATOR_VERSION: Final = "0.1.0"
 RANKING_KIND: Final = "aggregate_match_count"
 EVIDENCE_KINDS: Final = frozenset({"sanitized_fixture", "production"})
 _ALLOWED_UNKNOWN_SIDES: Final = frozenset({"evolve", "python_agent"})
+AGENT_RUNS_DIR_ENV: Final = "ARENA_AGENT_RUNS_DIR"
+AGENT_RUN_RECORDS_FILE: Final = "ticks.jsonl"
 
 _IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9._-]{0,127}$")
 _CELL_STATUS_OK = "ok"
@@ -81,6 +89,10 @@ class CompetitiveEvalError(ValueError):
 
 class BatteryManifestError(CompetitiveEvalError):
     """A battery run manifest is invalid or unsupported."""
+
+
+class AgentRunsError(CompetitiveEvalError):
+    """The live-agent runs directory cannot be resolved into cell records."""
 
 
 class BatteryStatus(StrEnum):
@@ -192,6 +204,7 @@ class BatteryManifest:
     scenarios: tuple[BatteryScenario, ...]
     seeds: tuple[str, ...]
     contestants: tuple[BatteryContestant, ...]
+    agent_runs_dir: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -206,6 +219,9 @@ class BatteryManifest:
         object.__setattr__(self, "tenant_id", _identifier(self.tenant_id, "tenant_id"))
         if self.evidence_kind not in EVIDENCE_KINDS:
             raise BatteryManifestError(f"unsupported evidence_kind {self.evidence_kind!r}")
+        object.__setattr__(
+            self, "agent_runs_dir", _strict_optional_str(self.agent_runs_dir, "agent_runs_dir")
+        )
         for dimension, side in self.expected_unknown.items():
             if not isinstance(dimension, KpiDimension):
                 raise BatteryManifestError(f"unknown dimension in expected_unknown: {dimension!r}")
@@ -247,6 +263,7 @@ class BatteryManifest:
             "dataset_id": self.dataset_id,
             "tenant_id": self.tenant_id,
             "evidence_kind": self.evidence_kind,
+            "agent_runs_dir": self.agent_runs_dir,
             "expected_unknown": {
                 dimension.value: side for dimension, side in self.expected_unknown.items()
             },
@@ -438,6 +455,7 @@ def load_battery_manifest(manifest_path: str | Path) -> BatteryManifest:
     dataset_id = _identifier(manifest.get("dataset_id"), "dataset_id")
     tenant_id = _identifier(manifest.get("tenant_id"), "tenant_id")
     evidence_kind = _strict_str(manifest.get("evidence_kind"), "evidence_kind")
+    agent_runs_dir = _strict_optional_str(manifest.get("agent_runs_dir"), "agent_runs_dir")
     expected_unknown: dict[KpiDimension, str] = {}
     for key, side in _strict_object(
         manifest.get("expected_unknown", {}), "expected_unknown"
@@ -531,6 +549,7 @@ def load_battery_manifest(manifest_path: str | Path) -> BatteryManifest:
         dataset_id=dataset_id,
         tenant_id=tenant_id,
         evidence_kind=evidence_kind,
+        agent_runs_dir=agent_runs_dir,
         expected_unknown=expected_unknown,
         scenarios=tuple(scenarios),
         seeds=tuple(seeds),
@@ -553,6 +572,138 @@ def _cells_for(manifest: BatteryManifest, base: Path) -> list[BatteryCellSpec]:
                     )
                 )
     return cells
+
+
+def _validate_live_run_identity(
+    records: Path, tenant_id: str, contestant_id: str, scenario_id: str, seed_id: str
+) -> None:
+    """Fail closed unless a live run's records carry the battery tenant.
+
+    The first record of every mapped ``ticks.jsonl`` must be an
+    ``agent-run-v1`` JSON object whose ``schemaVersion`` and ``tenantId``
+    match the battery contract, so a live run from another tenant can never
+    be silently attributed to this battery.
+    """
+    try:
+        text = records.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise AgentRunsError(
+            f"agent run records for cell {contestant_id}/{scenario_id}/{seed_id} "
+            f"could not be read: {exc}"
+        ) from exc
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise AgentRunsError(
+                f"agent run records for cell {contestant_id}/{scenario_id}/{seed_id} "
+                f"contain corrupt JSON: {exc}"
+            ) from exc
+        if not isinstance(record, Mapping):
+            raise AgentRunsError(
+                f"agent run records for cell {contestant_id}/{scenario_id}/{seed_id} "
+                "must be JSON objects"
+            )
+        if record.get("tenantId") != tenant_id:
+            raise AgentRunsError(
+                f"agent run records for cell {contestant_id}/{scenario_id}/{seed_id} "
+                f"carry tenantId {record.get('tenantId')!r} which does not match "
+                f"the battery tenant {tenant_id!r}"
+            )
+        if record.get("schemaVersion") != AGENT_RECORD_SCHEMA_VERSION:
+            raise AgentRunsError(
+                f"agent run records for cell {contestant_id}/{scenario_id}/{seed_id} "
+                "carry an unsupported schemaVersion"
+            )
+        return
+    raise AgentRunsError(
+        f"agent run records for cell {contestant_id}/{scenario_id}/{seed_id} are empty"
+    )
+
+
+def map_agent_runs_dir(
+    runs_dir: str | Path, manifest: BatteryManifest
+) -> dict[str, dict[str, dict[str, Path]]]:
+    """Map a live agent batch output directory to per-cell record paths.
+
+    The external agent output directory uses the lab-owned layout
+    ``<runs_dir>/<contestant_id>/<scenario_id>/<seed_id>/<tenant_id>/
+    ticks.jsonl`` -- exactly what ``arena-hero-agent run --data-root
+    <runs_dir>/<contestant_id>/<scenario_id>/<seed_id>`` writes for the
+    battery tenant: one run directory per battery cell whose ``ticks.jsonl``
+    holds ``agent-run-v1`` records (``schemaVersion`` / ``recordType`` /
+    ``tenantId`` / ``tick`` / ``deadlineOutcome`` / ``submitResult`` ...) as
+    consumed by the offline importer. The mapping is exact: every declared
+    cell must have records and any extra run directory fails closed, so a
+    live battery can never silently fall back to committed fixtures. Each
+    run's tenant identity must match the battery tenant.
+    """
+    root = Path(runs_dir)
+    if not root.is_dir():
+        raise AgentRunsError(
+            f"agent runs directory is unavailable: {root} "
+            "(configure --agent-runs-dir, manifest agent_runs_dir, or "
+            f"{AGENT_RUNS_DIR_ENV})"
+        )
+    expected = {
+        (contestant.contestant_id, scenario.scenario_id, seed_id)
+        for contestant in manifest.contestants
+        for scenario in manifest.scenarios
+        for seed_id in manifest.seeds
+    }
+    mapped: dict[str, dict[str, dict[str, Path]]] = {}
+    for contestant_id, scenario_id, seed_id in sorted(expected):
+        cell_dir = root / contestant_id / scenario_id / seed_id
+        records = cell_dir / manifest.tenant_id / AGENT_RUN_RECORDS_FILE
+        if not records.is_file():
+            raise AgentRunsError(
+                f"agent run records missing for cell "
+                f"{contestant_id}/{scenario_id}/{seed_id} (tenant "
+                f"{manifest.tenant_id}): {records}"
+            )
+        _validate_live_run_identity(
+            records, manifest.tenant_id, contestant_id, scenario_id, seed_id
+        )
+        mapped.setdefault(contestant_id, {}).setdefault(scenario_id, {})[seed_id] = records
+    unexpected = sorted(
+        (contestant.name, scenario.name, seed.name)
+        for contestant in root.iterdir()
+        if contestant.is_dir()
+        for scenario in contestant.iterdir()
+        if scenario.is_dir()
+        for seed in scenario.iterdir()
+        if seed.is_dir()
+    )
+    extra = [cell for cell in unexpected if cell not in expected]
+    if extra:
+        raise AgentRunsError(
+            "agent runs directory contains runs not declared by the battery "
+            "manifest: " + ", ".join("/".join(cell) for cell in extra)
+        )
+    return mapped
+
+
+def _resolve_agent_runs_dir(
+    manifest: BatteryManifest, base: Path, explicit: str | Path | None
+) -> Path | None:
+    """Resolve the live-agent runs directory: argument > manifest > env.
+
+    Returns None when no live seam is configured, in which case the battery
+    consumes the committed manifest record paths. A relative manifest or
+    environment path is resolved against the manifest directory.
+    """
+    if explicit is not None:
+        raw = str(explicit)
+    elif manifest.agent_runs_dir is not None:
+        raw = manifest.agent_runs_dir
+    else:
+        raw = os.environ.get(AGENT_RUNS_DIR_ENV)
+    if raw is None or not raw.strip():
+        return None
+    path = Path(raw)
+    return path if path.is_absolute() else base / path
 
 
 def _default_cell(
@@ -594,9 +745,20 @@ def _default_cell(
 def run_battery_from_manifest(
     manifest_path: str | Path,
     *,
+    agent_runs_dir: str | Path | None = None,
     cell_factory: BatteryCellFactory | None = None,
 ) -> BatteryReport:
     """Run a competitive evaluation battery and return a fail-closed report.
+
+    ``agent_runs_dir`` optionally points at an external agent batch output
+    directory laid out as ``<runs_dir>/<contestant_id>/<scenario_id>/
+    <seed_id>/<tenant_id>/ticks.jsonl`` (see :func:`map_agent_runs_dir`).
+    When provided
+    -- or configured through the manifest ``agent_runs_dir`` field or the
+    ``ARENA_AGENT_RUNS_DIR`` environment variable -- every cell's records are
+    resolved from that live directory instead of the committed manifest
+    paths. A missing or malformed live directory fails the whole battery
+    closed and never silently falls back to the committed fixtures.
 
     ``cell_factory`` is a private reverse-validation seam. When it returns a
     cell runner for a battery cell, that injected runner is used instead of the
@@ -606,7 +768,21 @@ def run_battery_from_manifest(
     path = Path(manifest_path)
     manifest = load_battery_manifest(path)
     base = path.parent
+    resolved_runs_dir = _resolve_agent_runs_dir(manifest, base, agent_runs_dir)
     cells = _cells_for(manifest, base)
+    if resolved_runs_dir is not None:
+        mapped = map_agent_runs_dir(resolved_runs_dir, manifest)
+        cells = [
+            BatteryCellSpec(
+                scenario=cell.scenario,
+                seed_id=cell.seed_id,
+                contestant=cell.contestant,
+                records_path=mapped[cell.contestant.contestant_id][cell.scenario.scenario_id][
+                    cell.seed_id
+                ],
+            )
+            for cell in cells
+        ]
 
     outcomes: list[BatteryCellOutcome] = []
     issues: list[BatteryIssue] = []
@@ -816,10 +992,13 @@ def _rank(
 
 
 __all__ = [
+    "AGENT_RUNS_DIR_ENV",
+    "AGENT_RUN_RECORDS_FILE",
     "BATTERY_GENERATOR_VERSION",
     "BATTERY_REPORT_SCHEMA",
     "COMPETITIVE_EVAL_SCHEMA",
     "RANKING_KIND",
+    "AgentRunsError",
     "BatteryCellOutcome",
     "BatteryCellSpec",
     "BatteryContestant",
@@ -835,5 +1014,6 @@ __all__ = [
     "EvolveSide",
     "RankedContestant",
     "load_battery_manifest",
+    "map_agent_runs_dir",
     "run_battery_from_manifest",
 ]

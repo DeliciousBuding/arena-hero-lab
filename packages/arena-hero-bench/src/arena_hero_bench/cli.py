@@ -113,6 +113,13 @@ def _parser() -> argparse.ArgumentParser:
         metavar="MANIFEST",
         help="competitive evaluation battery manifest JSON (paths are relative to the manifest)",
     )
+    competitive.add_argument(
+        "--agent-runs-dir",
+        type=Path,
+        metavar="DIR",
+        help="external agent batch output directory (ticks.jsonl per cell); "
+        "overrides the manifest agent_runs_dir and ARENA_AGENT_RUNS_DIR",
+    )
     soak.add_argument(
         "--run",
         required=True,
@@ -178,7 +185,7 @@ def _kpi_differential_command(args: argparse.Namespace) -> int:
 
 def _competitive_eval_command(args: argparse.Namespace) -> int:
     try:
-        report = run_battery_from_manifest(args.run)
+        report = run_battery_from_manifest(args.run, agent_runs_dir=args.agent_runs_dir)
     except (BatteryManifestError, CompetitiveEvalError) as exc:
         print(f"arena-hero-bench: error: {exc}", file=sys.stderr)
         return 2
