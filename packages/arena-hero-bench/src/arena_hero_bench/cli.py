@@ -30,6 +30,7 @@ from arena_hero_bench.differential import (
 from arena_hero_bench.head_to_head import HeadToHeadError, run_head_to_head_from_manifest
 from arena_hero_bench.kpi_differential import run_kpi_differential_from_manifest
 from arena_hero_bench.manifest import ArtifactManifest
+from arena_hero_bench.melee import MeleeError, run_melee_from_manifest
 from arena_hero_bench.soak import ReplaySoakError, SoakStatus, run_soak
 from arena_hero_bench.storage import ArtifactStoreError, FilesystemArtifactStore
 from arena_hero_sim.serialization import canonical_json_bytes
@@ -132,6 +133,17 @@ def _parser() -> argparse.ArgumentParser:
         metavar="MANIFEST",
         help="head-to-head match manifest JSON (paths are relative to the manifest)",
     )
+    melee = subparsers.add_parser(
+        "melee",
+        help="rank N>=2 Python-agent contestants on one scenario/seed and emit a report",
+    )
+    melee.add_argument(
+        "--run",
+        required=True,
+        type=Path,
+        metavar="MANIFEST",
+        help="free-for-all melee manifest JSON (paths are relative to the manifest)",
+    )
     soak.add_argument(
         "--run",
         required=True,
@@ -215,6 +227,16 @@ def _head_to_head_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _melee_command(args: argparse.Namespace) -> int:
+    try:
+        report = run_melee_from_manifest(args.run)
+    except (MeleeError, DifferentialError, AgentRuntimeImportError) as exc:
+        print(f"arena-hero-bench: error: {exc}", file=sys.stderr)
+        return 2
+    print(json.dumps(report.to_json(), ensure_ascii=False, indent=2, sort_keys=True))
+    return 0
+
+
 def _soak_command(args: argparse.Namespace) -> int:
     try:
         report = run_soak(args.run)
@@ -250,6 +272,8 @@ def main(argv: list[str] | None = None) -> int:
         return _competitive_eval_command(args)
     if args.command == "head-to-head":
         return _head_to_head_command(args)
+    if args.command == "melee":
+        return _melee_command(args)
     if args.command == "soak":
         return _soak_command(args)
     raise AssertionError(f"unhandled command: {args.command}")

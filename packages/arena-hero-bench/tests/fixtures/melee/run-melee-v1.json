@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "arena.bench.melee.v1",
+  "match_id": "burnin-20260802-a-melee",
+  "dataset_id": "burnin-20260802-a",
+  "tenant_id": "lab-diff-t1",
+  "evidence_kind": "sanitized_fixture",
+  "scenario": {
+    "id": "burnin-a",
+    "evolve": {
+      "manifest": "../competitive_eval/scenarios/burnin-a/manifest.json",
+      "data_dir": "../competitive_eval/scenarios/burnin-a",
+      "decision_trace": "../competitive_eval/scenarios/burnin-a/decision-trace-v1.jsonl"
+    }
+  },
+  "seed": "seed-01",
+  "contestants": [
+    {
+      "id": "melee-champion",
+      "version": "synthetic-v1",
+      "protocol": "agent-run-v1",
+      "records": "../competitive_eval/python/ffa-seed01-a-v1.jsonl",
+      "observation_snapshots": "melee-champion-snapshots-v1.jsonl"
+    },
+    {
+      "id": "melee-mid",
+      "version": "synthetic-v1",
+      "protocol": "agent-run-v1",
+      "records": "../competitive_eval/python/ffa-seed01-a-v1.jsonl",
+      "observation_snapshots": "melee-mid-snapshots-v1.jsonl"
+    },
+    {
+      "id": "melee-dead",
+      "version": "synthetic-v1",
+      "protocol": "agent-run-v1",
+      "records": "../competitive_eval/python/ffa-seed01-a-v1.jsonl",
+      "observation_snapshots": "melee-dead-snapshots-v1.jsonl"
+    }
+  ]
+}
