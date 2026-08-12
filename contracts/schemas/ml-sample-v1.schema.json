@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://arena.local/schemas/ml-sample-v1.schema.json",
+  "title": "Arena supervised learning sample v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "sampleId",
+    "state",
+    "plan",
+    "policy",
+    "outcome",
+    "label",
+    "provenance"
+  ],
+  "properties": {
+    "schema": { "const": "ml-sample-v1" },
+    "sampleId": { "type": "string", "minLength": 1 },
+    "state": {
+      "$ref": "sim-calibration-case-v1.schema.json#/$defs/observation"
+    },
+    "plan": {
+      "$ref": "sim-calibration-case-v1.schema.json#/$defs/plan"
+    },
+    "policy": { "$ref": "#/$defs/policy" },
+    "outcome": { "$ref": "#/$defs/outcome" },
+    "label": { "$ref": "#/$defs/label" },
+    "provenance": { "$ref": "#/$defs/provenance" }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^(?:sha256:)?[0-9a-f]{64}$"
+    },
+    "sourceCommit": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "enum": ["arena-ts", "arena-rs"] },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "sourceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "schema", "id", "uri", "sha256"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "calibration-case",
+            "sim-record",
+            "telemetry",
+            "scenario",
+            "policy",
+            "dataset-manifest"
+          ]
+        },
+        "schema": { "type": ["string", "null"], "minLength": 1 },
+        "id": { "type": "string", "minLength": 1 },
+        "uri": { "type": ["string", "null"], "format": "uri-reference" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policyId",
+        "policyVersion",
+        "posture",
+        "workerTarget",
+        "militaryRatio",
+        "parametersHash"
+      ],
+      "properties": {
+        "policyId": { "type": "string", "minLength": 1 },
+        "policyVersion": { "type": ["string", "null"], "minLength": 1 },
+        "posture": {
+          "type": ["string", "null"],
+          "enum": ["balanced", "economy", "defense", "offense", "explore", null]
+        },
+        "workerTarget": { "type": ["integer", "null"], "minimum": 0 },
+        "militaryRatio": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "parametersHash": {
+          "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["coreResourceDelta", "workerDelta", "deaths"],
+      "properties": {
+        "coreResourceDelta": { "type": "integer" },
+        "workerDelta": { "type": "integer" },
+        "deaths": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "label": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "net20",
+        "deathProb20",
+        "coreRisk50",
+        "windowComplete",
+        "windowEndTick"
+      ],
+      "properties": {
+        "net20": { "type": "number" },
+        "deathProb20": { "type": "number", "minimum": 0, "maximum": 1 },
+        "coreRisk50": { "type": "integer", "enum": [0, 1] },
+        "windowComplete": { "type": "boolean" },
+        "windowEndTick": { "type": ["integer", "null"], "minimum": 1 }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "windowComplete": { "const": true } },
+            "required": ["windowComplete"]
+          },
+          "then": {
+            "properties": { "windowEndTick": { "type": "integer" } }
+          }
+        }
+      ]
+    },
+    "sampleStatus": {
+      "type": ["string", "null"],
+      "enum": ["conclusive", "inconclusive", null]
+    },
+    "realLabelValidity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observed", "lineageValid", "windowComplete", "usableForSupervisedLearning"],
+      "properties": {
+        "observed": { "type": "boolean", "description": "label 由真实服务器后续观测计算（live 样本）" },
+        "lineageValid": { "type": "boolean", "description": "(processRunId, tick) 可回溯到 case/telemetry" },
+        "windowComplete": { "type": "boolean", "description": "label 窗口完整（与 label.windowComplete 一致）" },
+        "usableForSupervisedLearning": { "type": "boolean", "description": "observed && lineageValid && windowComplete" }
+      }
+    },
+    "simReplayConfidence": {
+      "type": ["string", "null"],
+      "enum": ["match", "expectedUnknown", "mismatch", "unsupported", null],
+      "description": "Simulator 对 transition 的证明强度；EXPECTED_UNKNOWN 不使真实监督样本失效（2026-08-08 契约两维）"
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rulesVersion",
+        "rulesManifestHash",
+        "sourceCommit",
+        "engine",
+        "processRunId",
+        "runId",
+        "tick",
+        "seed",
+        "source",
+        "observationScope",
+        "opponentPlans",
+        "sourceRefs"
+      ],
+      "properties": {
+        "rulesVersion": { "type": "string", "minLength": 1 },
+        "rulesManifestHash": { "$ref": "#/$defs/sha256" },
+        "sourceCommit": { "$ref": "#/$defs/sourceCommit" },
+        "engine": { "$ref": "#/$defs/engine" },
+        "processRunId": { "type": "string", "minLength": 1 },
+        "runId": { "type": "string", "minLength": 1 },
+        "tick": { "type": "integer", "minimum": 1 },
+        "seed": { "type": "integer" },
+        "source": { "enum": ["live", "sim"] },
+        "observationScope": { "const": "private-player-projection" },
+        "opponentPlans": { "const": "not-included" },
+        "sampleStatus": { "$ref": "#/$defs/sampleStatus" },
+        "realLabelValidity": { "$ref": "#/$defs/realLabelValidity" },
+        "simReplayConfidence": { "$ref": "#/$defs/simReplayConfidence" },
+        "sourceRefs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/sourceRef" }
+        }
+      }
+    }
+  }
+}

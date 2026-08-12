@@ -1,0 +1,71 @@
+{
+  "schema": "ml-sample-v1",
+  "sampleId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "state": {
+    "tick": 10,
+    "state": {
+      "status": "ACTIVE",
+      "respawn_at_tick": null,
+      "resources": 5,
+      "population": 0,
+      "population_tier": 0,
+      "upkeep_next_tick": 0,
+      "champion_beacon": {
+        "position": [20, 20],
+        "status": "GROUND",
+        "carrier_id": null
+      },
+      "objects": [],
+      "events": []
+    }
+  },
+  "plan": {
+    "tick": 10,
+    "unitActions": {},
+    "coreAction": null,
+    "intents": {}
+  },
+  "policy": {
+    "policyId": "deterministic",
+    "policyVersion": null,
+    "posture": "balanced",
+    "workerTarget": 8,
+    "militaryRatio": 0.3,
+    "parametersHash": null
+  },
+  "outcome": {
+    "coreResourceDelta": 0,
+    "workerDelta": 0,
+    "deaths": 0
+  },
+  "label": {
+    "net20": 0,
+    "deathProb20": 0,
+    "coreRisk50": 0,
+    "windowComplete": true,
+    "windowEndTick": 60
+  },
+  "provenance": {
+    "rulesVersion": "v0.11",
+    "rulesManifestHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "sourceCommit": "cccccccccccccccccccccccccccccccccccccccc",
+    "engine": { "name": "arena-ts", "version": "0.2.0" },
+    "processRunId": "process-run-1",
+    "runId": "logical-run-1",
+    "tick": 10,
+    "seed": 7,
+    "source": "live",
+    "observationScope": "private-player-projection",
+    "opponentPlans": "not-included",
+    "sampleStatus": "inconclusive",
+    "sourceRefs": [
+      {
+        "kind": "calibration-case",
+        "schema": "sim-calibration-case-v1",
+        "id": "shared-fixture-calibration-1",
+        "uri": "runtime/t1/calibration/run-1/cases/0000000010.json",
+        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    ]
+  }
+}

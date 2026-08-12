@@ -1,0 +1,308 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://arena.local/schemas/sim-calibration-case-v1.schema.json",
+  "title": "Arena simulator calibration case v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "caseId",
+    "tenantId",
+    "rulesVersion",
+    "seed",
+    "metadata",
+    "before",
+    "plan",
+    "after"
+  ],
+  "properties": {
+    "schema": { "const": "sim-calibration-case-v1" },
+    "caseId": { "type": "string", "minLength": 1 },
+    "tenantId": { "type": "string", "minLength": 1 },
+    "rulesVersion": { "type": "string", "minLength": 1 },
+    "seed": { "type": "integer" },
+    "metadata": { "$ref": "#/$defs/metadata" },
+    "before": { "$ref": "#/$defs/observation" },
+    "plan": { "$ref": "#/$defs/plan" },
+    "after": { "$ref": "#/$defs/observation" }
+  },
+  "$defs": {
+    "position": {
+      "type": "array",
+      "prefixItems": [{ "type": "integer" }, { "type": "integer" }],
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "opponentPlans", "recordedAt", "sourceCommit", "runId"],
+      "properties": {
+        "source": { "enum": ["fixture", "live-recorder"] },
+        "opponentPlans": { "enum": ["complete", "absent"] },
+        "recordedAt": { "type": ["string", "null"], "minLength": 1 },
+        "sourceCommit": { "type": ["string", "null"], "minLength": 1 },
+        "runId": { "type": ["string", "null"], "minLength": 1 }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tick", "state"],
+      "properties": {
+        "tick": { "type": "integer", "minimum": 1 },
+        "state": { "$ref": "#/$defs/playerState" }
+      }
+    },
+    "playerState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "respawn_at_tick",
+        "resources",
+        "population",
+        "champion_beacon",
+        "objects",
+        "events"
+      ],
+      "properties": {
+        "status": { "enum": ["ACTIVE", "RESPAWNING"] },
+        "respawn_at_tick": { "type": ["integer", "null"], "minimum": 1 },
+        "resources": { "type": "integer", "minimum": 0 },
+        "population": { "type": "integer", "minimum": 0 },
+        "population_tier": { "type": ["integer", "null"], "minimum": 0 },
+        "upkeep_next_tick": { "type": ["integer", "null"], "minimum": 0 },
+        "champion_beacon": { "$ref": "#/$defs/beacon" },
+        "objects": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/worldObject" }
+        },
+        "events": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/event" }
+        }
+      }
+    },
+    "beacon": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["position", "status", "carrier_id"],
+      "properties": {
+        "position": { "$ref": "#/$defs/position" },
+        "status": { "enum": ["GROUND", "CARRIED", null] },
+        "carrier_id": { "type": ["string", "null"], "minLength": 1 }
+      }
+    },
+    "worldObject": {
+      "oneOf": [
+        { "$ref": "#/$defs/terrainObject" },
+        { "$ref": "#/$defs/coreObject" },
+        { "$ref": "#/$defs/unitObject" }
+      ]
+    },
+    "terrainObject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "positions"],
+      "properties": {
+        "kind": { "enum": ["OBSTACLE", "RESOURCE"] },
+        "positions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/position" }
+        }
+      }
+    },
+    "coreObject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id",
+        "controlled",
+        "owner_username",
+        "position",
+        "hp",
+        "shield",
+        "state",
+        "move_direction",
+        "move_progress",
+        "move_required_ticks",
+        "destination"
+      ],
+      "properties": {
+        "kind": { "const": "CORE" },
+        "id": { "type": "string", "minLength": 1 },
+        "controlled": { "type": "boolean" },
+        "owner_username": { "type": "string", "minLength": 1 },
+        "position": { "$ref": "#/$defs/position" },
+        "hp": { "type": "integer", "minimum": 0 },
+        "shield": { "type": "integer", "minimum": 0 },
+        "state": { "enum": ["NORMAL", "MOVING"] },
+        "move_direction": {
+          "type": ["string", "null"],
+          "enum": ["UP", "DOWN", "LEFT", "RIGHT", null]
+        },
+        "move_progress": { "type": ["integer", "null"], "minimum": 0 },
+        "move_required_ticks": { "type": ["integer", "null"], "minimum": 1 },
+        "destination": {
+          "anyOf": [{ "$ref": "#/$defs/position" }, { "type": "null" }]
+        }
+      }
+    },
+    "unitObject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "controlled", "position", "hp", "unit_type", "cargo"],
+      "properties": {
+        "kind": { "const": "UNIT" },
+        "id": { "type": "string", "minLength": 1 },
+        "controlled": { "type": "boolean" },
+        "position": { "$ref": "#/$defs/position" },
+        "hp": { "type": "integer", "minimum": 0 },
+        "unit_type": { "enum": ["WORKER", "VANGUARD", "RANGER"] },
+        "cargo": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "tick",
+        "event_type",
+        "reason_code",
+        "actor_id",
+        "target_id",
+        "position",
+        "values"
+      ],
+      "properties": {
+        "event_id": { "type": "string", "minLength": 1 },
+        "tick": { "type": "integer", "minimum": 1 },
+        "event_type": { "type": "string", "minLength": 1 },
+        "reason_code": { "type": ["string", "null"], "minLength": 1 },
+        "actor_id": { "type": ["string", "null"], "minLength": 1 },
+        "target_id": { "type": ["string", "null"], "minLength": 1 },
+        "position": {
+          "anyOf": [{ "$ref": "#/$defs/position" }, { "type": "null" }]
+        },
+        "values": { "type": ["object", "null"] }
+      }
+    },
+    "direction": {
+      "enum": ["UP", "DOWN", "LEFT", "RIGHT"]
+    },
+    "unitType": {
+      "enum": ["WORKER", "VANGUARD", "RANGER"]
+    },
+    "unitActionNoArgs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "enum": [
+            "WAIT",
+            "HARVEST",
+            "DEPOSIT",
+            "PICKUP_BEACON",
+            "DROP_BEACON",
+            "HEAL",
+            "SELF_DESTRUCT"
+          ]
+        }
+      }
+    },
+    "unitActionDirectional": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "direction"],
+      "properties": {
+        "type": { "enum": ["MOVE", "SWEEP"] },
+        "direction": { "$ref": "#/$defs/direction" }
+      }
+    },
+    "unitActionShoot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "targetId", "expectedCell"],
+      "properties": {
+        "type": { "const": "SHOOT" },
+        "targetId": { "type": ["string", "null"], "minLength": 1 },
+        "expectedCell": { "$ref": "#/$defs/position" }
+      }
+    },
+    "unitAction": {
+      "oneOf": [
+        { "$ref": "#/$defs/unitActionNoArgs" },
+        { "$ref": "#/$defs/unitActionDirectional" },
+        { "$ref": "#/$defs/unitActionShoot" }
+      ]
+    },
+    "coreActionNoArgs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "enum": [
+            "WAIT",
+            "HEAL",
+            "REPAIR_SHIELD",
+            "CANCEL_MOVE",
+            "PICKUP_BEACON",
+            "DROP_BEACON"
+          ]
+        }
+      }
+    },
+    "coreActionSpawn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "unitType"],
+      "properties": {
+        "type": { "const": "SPAWN" },
+        "unitType": { "$ref": "#/$defs/unitType" }
+      }
+    },
+    "coreActionStartMove": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "direction"],
+      "properties": {
+        "type": { "const": "START_MOVE" },
+        "direction": { "$ref": "#/$defs/direction" }
+      }
+    },
+    "coreAction": {
+      "oneOf": [
+        { "$ref": "#/$defs/coreActionNoArgs" },
+        { "$ref": "#/$defs/coreActionSpawn" },
+        { "$ref": "#/$defs/coreActionStartMove" }
+      ]
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tick", "unitActions", "coreAction", "intents"],
+      "properties": {
+        "tick": { "type": "integer", "minimum": 1 },
+        "unitActions": {
+          "type": "object",
+          "propertyNames": { "type": "string", "minLength": 1 },
+          "additionalProperties": { "$ref": "#/$defs/unitAction" }
+        },
+        "coreAction": {
+          "anyOf": [{ "$ref": "#/$defs/coreAction" }, { "type": "null" }]
+        },
+        "intents": {
+          "type": "object",
+          "propertyNames": { "type": "string", "minLength": 1 },
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    }
+  }
+}

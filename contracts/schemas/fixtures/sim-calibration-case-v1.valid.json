@@ -1,0 +1,86 @@
+{
+  "schema": "sim-calibration-case-v1",
+  "caseId": "shared-fixture-calibration-1",
+  "tenantId": "fixture-player",
+  "rulesVersion": "v0.11",
+  "seed": 7,
+  "metadata": {
+    "source": "fixture",
+    "opponentPlans": "complete",
+    "recordedAt": null,
+    "sourceCommit": null,
+    "runId": null
+  },
+  "before": {
+    "tick": 10,
+    "state": {
+      "status": "ACTIVE",
+      "respawn_at_tick": null,
+      "resources": 5,
+      "population": 0,
+      "population_tier": 0,
+      "upkeep_next_tick": 0,
+      "champion_beacon": {
+        "position": [20, 20],
+        "status": "GROUND",
+        "carrier_id": null
+      },
+      "objects": [
+        {
+          "kind": "CORE",
+          "id": "fixture-core",
+          "controlled": true,
+          "owner_username": "fixture-player",
+          "position": [0, 0],
+          "hp": 5,
+          "shield": 5,
+          "state": "MOVING",
+          "move_direction": "RIGHT",
+          "move_progress": 0,
+          "move_required_ticks": 2,
+          "destination": [1, 0]
+        }
+      ],
+      "events": []
+    }
+  },
+  "plan": {
+    "tick": 10,
+    "unitActions": {},
+    "coreAction": { "type": "WAIT" },
+    "intents": {}
+  },
+  "after": {
+    "tick": 11,
+    "state": {
+      "status": "ACTIVE",
+      "respawn_at_tick": null,
+      "resources": 5,
+      "population": 0,
+      "population_tier": 0,
+      "upkeep_next_tick": 0,
+      "champion_beacon": {
+        "position": [20, 20],
+        "status": "GROUND",
+        "carrier_id": null
+      },
+      "objects": [
+        {
+          "kind": "CORE",
+          "id": "fixture-core",
+          "controlled": true,
+          "owner_username": "fixture-player",
+          "position": [0, 0],
+          "hp": 5,
+          "shield": 5,
+          "state": "MOVING",
+          "move_direction": "RIGHT",
+          "move_progress": 1,
+          "move_required_ticks": 2,
+          "destination": [1, 0]
+        }
+      ],
+      "events": []
+    }
+  }
+}

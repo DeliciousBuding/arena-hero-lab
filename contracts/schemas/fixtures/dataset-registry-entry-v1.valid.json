@@ -1,0 +1,35 @@
+{
+  "schema": "dataset-registry-entry-v1",
+  "datasetId": "dataset-fixture-1",
+  "status": "candidate",
+  "createdAt": "2026-08-06T00:00:00Z",
+  "updatedAt": "2026-08-06T00:00:00Z",
+  "sampleSchema": "ml-sample-v1",
+  "rulesVersion": "v0.11",
+  "rulesManifestHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "sourceCommit": "cccccccccccccccccccccccccccccccccccccccc",
+  "engine": { "name": "arena-ts", "version": "0.2.0" },
+  "processRunIds": ["process-run-1", "process-run-2"],
+  "runIds": ["logical-run-1", "logical-run-2"],
+  "tickRange": { "first": 10, "last": 20 },
+  "sampleCount": 2,
+  "datasetHash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "manifestRef": {
+    "schema": "dataset-manifest-v1",
+    "datasetId": "dataset-fixture-1",
+    "uri": "datasets/dataset-fixture-1/manifest.json",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "sourceRefs": [
+    {
+      "kind": "calibration-case",
+      "schema": "sim-calibration-case-v1",
+      "id": "shared-fixture-calibration-1",
+      "uri": "runtime/t1/calibration/run-1/cases/0000000010.json",
+      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+  ],
+  "supersedes": [],
+  "tags": ["fixture"],
+  "notes": null
+}

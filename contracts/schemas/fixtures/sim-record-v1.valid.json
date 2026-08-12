@@ -1,0 +1,76 @@
+{
+  "schema": "sim-record-v1",
+  "recordId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "before": {
+    "tick": 10,
+    "state": {
+      "status": "ACTIVE",
+      "respawn_at_tick": null,
+      "resources": 5,
+      "population": 0,
+      "population_tier": 0,
+      "upkeep_next_tick": 0,
+      "champion_beacon": {
+        "position": [20, 20],
+        "status": "GROUND",
+        "carrier_id": null
+      },
+      "objects": [],
+      "events": []
+    }
+  },
+  "plan": {
+    "tick": 10,
+    "unitActions": {},
+    "coreAction": null,
+    "intents": {}
+  },
+  "after": {
+    "tick": 11,
+    "state": {
+      "status": "ACTIVE",
+      "respawn_at_tick": null,
+      "resources": 5,
+      "population": 0,
+      "population_tier": 0,
+      "upkeep_next_tick": 0,
+      "champion_beacon": {
+        "position": [20, 20],
+        "status": "GROUND",
+        "carrier_id": null
+      },
+      "objects": [],
+      "events": []
+    }
+  },
+  "outcome": {
+    "coreResourceDelta": 0,
+    "workerDelta": 0,
+    "deaths": 0,
+    "eventTypes": []
+  },
+  "semanticStatus": "inconclusive",
+  "unknowns": ["server-secret-refill"],
+  "provenance": {
+    "rulesVersion": "v0.13",
+    "rulesManifestHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "sourceCommit": "cccccccccccccccccccccccccccccccccccccccc",
+    "engine": { "name": "arena-rs", "version": "0.13.0" },
+    "processRunId": "process-run-1",
+    "runId": "logical-run-1",
+    "tick": 10,
+    "seed": 7,
+    "source": "sim",
+    "observationScope": "private-player-projection",
+    "opponentPlans": "not-included",
+    "sourceRefs": [
+      {
+        "kind": "scenario",
+        "schema": null,
+        "id": "scenario-1",
+        "uri": "scenarios/basic.json",
+        "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    ]
+  }
+}

@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://arena.local/schemas/dataset-registry-entry-v1.schema.json",
+  "title": "Arena dataset registry entry v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "datasetId",
+    "status",
+    "createdAt",
+    "updatedAt",
+    "sampleSchema",
+    "rulesVersion",
+    "rulesManifestHash",
+    "sourceCommit",
+    "engine",
+    "processRunIds",
+    "runIds",
+    "tickRange",
+    "sampleCount",
+    "datasetHash",
+    "manifestRef",
+    "sourceRefs",
+    "supersedes",
+    "tags",
+    "notes"
+  ],
+  "properties": {
+    "schema": { "const": "dataset-registry-entry-v1" },
+    "datasetId": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["candidate", "active", "deprecated", "quarantined"] },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "sampleSchema": { "const": "ml-sample-v1" },
+    "rulesVersion": { "type": "string", "minLength": 1 },
+    "rulesManifestHash": { "$ref": "#/$defs/sha256" },
+    "sourceCommit": { "$ref": "#/$defs/sourceCommit" },
+    "engine": { "$ref": "#/$defs/engine" },
+    "processRunIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "runIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "tickRange": { "$ref": "#/$defs/tickRange" },
+    "sampleCount": { "type": "integer", "minimum": 0 },
+    "datasetHash": { "$ref": "#/$defs/sha256" },
+    "manifestRef": { "$ref": "#/$defs/manifestRef" },
+    "sourceRefs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/sourceRef" }
+    },
+    "supersedes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "tags": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "notes": { "type": ["string", "null"], "minLength": 1 }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^(?:sha256:)?[0-9a-f]{64}$"
+    },
+    "sourceCommit": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+    },
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "enum": ["arena-ts", "arena-rs"] },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "tickRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["first", "last"],
+      "properties": {
+        "first": { "type": "integer", "minimum": 1 },
+        "last": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "manifestRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "datasetId", "uri", "sha256"],
+      "properties": {
+        "schema": { "const": "dataset-manifest-v1" },
+        "datasetId": { "type": "string", "minLength": 1 },
+        "uri": { "type": "string", "minLength": 1, "format": "uri-reference" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "sourceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "schema", "id", "uri", "sha256"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "calibration-case",
+            "sim-record",
+            "telemetry",
+            "scenario",
+            "policy",
+            "dataset-manifest"
+          ]
+        },
+        "schema": { "type": ["string", "null"], "minLength": 1 },
+        "id": { "type": "string", "minLength": 1 },
+        "uri": { "type": ["string", "null"], "format": "uri-reference" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

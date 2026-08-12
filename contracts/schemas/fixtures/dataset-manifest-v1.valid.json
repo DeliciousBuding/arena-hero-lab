@@ -1,0 +1,48 @@
+{
+  "schema": "dataset-manifest-v1",
+  "datasetId": "dataset-fixture-1",
+  "createdAt": "2026-08-06T00:00:00Z",
+  "sampleSchema": "ml-sample-v1",
+  "format": "jsonl",
+  "rulesVersion": "v0.11",
+  "rulesManifestHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "sourceCommit": "cccccccccccccccccccccccccccccccccccccccc",
+  "engine": { "name": "arena-ts", "version": "0.2.0" },
+  "tickRange": { "first": 10, "last": 20 },
+  "sourceRefs": [
+    {
+      "kind": "calibration-case",
+      "schema": "sim-calibration-case-v1",
+      "id": "shared-fixture-calibration-1",
+      "uri": "runtime/t1/calibration/run-1/cases/0000000010.json",
+      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+  ],
+  "processRunIds": ["process-run-1", "process-run-2"],
+  "runIds": ["logical-run-1", "logical-run-2"],
+  "counts": {
+    "samples": 2,
+    "liveSamples": 2,
+    "simSamples": 0,
+    "completeLabelWindows": 1,
+    "incompleteLabelWindows": 1
+  },
+  "labelSpec": {
+    "netWindowTicks": 20,
+    "deathWindowTicks": 20,
+    "coreRiskWindowTicks": 50,
+    "runBoundary": "truncate-and-mark-incomplete"
+  },
+  "artifacts": [
+    {
+      "path": "splits/train/samples-0001.jsonl",
+      "mediaType": "application/x-ndjson",
+      "recordSchema": "ml-sample-v1",
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "bytes": 1024,
+      "recordCount": 2,
+      "tickRange": { "first": 10, "last": 20 }
+    }
+  ],
+  "datasetHash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+}
