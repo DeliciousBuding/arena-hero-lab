@@ -47,6 +47,35 @@ seconds-scale reproducible skeleton; the same manifest with a larger
 Fault-injection steps are reachable only through a private test seam and
 mark the report `attested=false`.
 
+## Competitive evaluation battery
+
+`competitive-eval --run <manifest>` (P6-7) runs a scenario x seed x
+contestant battery through the versioned offline importer and the P6-3 KPI
+differential classifier, then emits one deterministic, content-addressed
+report (`arena.bench.competitive-eval-report.v1`) with per-cell digests,
+per-scenario/per-contestant aggregate stats, and a presentation-level
+contestant ranking (`ranking_kind=aggregate_match_count`). The committed
+fixture `tests/fixtures/competitive_eval/run-burnin-20260802-a-v1.json`
+is a seconds-scale reproducible battery (2 scenarios x 2 seeds x 2
+contestants = 8 cells).
+
+- Every dimension of every cell is classified into exactly one of `MATCH` /
+  `MISMATCH` / `EXPECTED_UNKNOWN` / `INCONCLUSIVE`; a clean battery always
+  reports `unclassified_count == 0`.
+- Fail-closed: a corrupt manifest, a missing cell record, a cell
+  classification error, or any unclassified dimension fails the whole
+  battery with a classified issue; failed cells stay in the report for
+  diagnosis.
+- Deterministic: identical inputs produce the same `artifact_sha256`; cell
+  order is fixed by the manifest (scenarios -> seeds -> contestants) and no
+  wall-clock timestamps enter the artifact.
+- Fault-injected cells are reachable only through a private test seam and
+  mark the report `injected_cells=true` / `attested=false`.
+- The Python-agent side is always consumed from committed `agent-run-v1`
+  records; invoking the offline agent CLI to produce records is a
+  cross-repo integration seam (see `BLOCKED.md`) and the lab has no
+  dependency on the agent package or SDK.
+
 ## Filesystem artifact store
 
 `arena_hero_bench.storage.FilesystemArtifactStore` is a reference
