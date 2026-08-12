@@ -51,3 +51,29 @@
   `docs(bench): competitive-eval README/BLOCKED + W18-A closeout`。
 - 接缝：live agent CLI（`arena-hero-agent batch/run`，W18-B）为跨仓 seam，未接线；
   bench 依赖 SDK/agent 需拍板，已记 BLOCKED。
+
+## W19-B（2026-08-12）：live agent CLI seam + process_executor 信封透传复核
+
+### 任务 1：competitive-eval live agent CLI seam（DONE）
+- commit `9d7f6f7`（worktree `.worktrees/w19-live-seam`，branch `w19/live-seam`；未 push）。
+- 新增可选集成 seam，**不加 bench 依赖**（bench 仍只依赖 sim）：
+  - `agent_runs_dir` 解析优先级：CLI `--agent-runs-dir` > manifest `agent_runs_dir` > env
+    `ARENA_AGENT_RUNS_DIR`；布局 `<runs>/<contestant>/<scenario>/<seed>/<tenant>/ticks.jsonl`
+    （即 `arena-hero-agent run --data-root <cell-dir>` 的原生输出）。
+  - `map_agent_runs_dir`：batch 输出目录 → per-cell records 映射；精确覆盖（缺 cell / 多 cell 均
+    fail-closed），每条 run 首记录 schemaVersion/tenantId 校验。
+  - fail-closed：目录不可用 / 缺 run / tenant 不符 → `AgentRunsError`（CLI exit 2），
+    不伪造、不静默回落 fixture。
+- 测试：新增 11 条（映射 / fail-closed / CLI / manifest / env / 优先级）+ env-gated 集成测试
+  `test_live_agent_runs_dir_integration`（默认 skip；无 agent 可跑保持 skip，设
+  `ARENA_AGENT_RUNS_DIR` 才跑）。README 新增 seam 用法。
+- 门禁：全仓 pytest 904 → **915 passed、1 skipped**；`ruff format --check` / `ruff check` /
+  `ty check` / `scripts/check_public_surface.py` / `git diff --check` 全绿。
+
+### 任务 2：process_executor 信封透传（SKIP）
+- 读码结论：`arena.process.work.v1` / `arena.process.result.v1` 已透传并强校验 request id /
+  operation id / shard / plan_sha256 / backend / engine / protocol（`_parse_result_envelope`
+  逐项对拍 + `test_process_executor_conformance.py` 已固化 tamper/乱序/cardinality 拒绝）。
+  唯一未透传的 contestant 身份属请求侧属性（work 信封每 request 已带 `contestant_ids`），
+  补到 result 信封需改 `SimulationResult`（sim 契约）与 result 信封 schema 字段 →
+  版本化信封协议变化，按指令 SKIP，不改协议。无代码改动。

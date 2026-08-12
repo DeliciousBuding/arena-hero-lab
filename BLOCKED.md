@@ -9,8 +9,10 @@
      converter 只做聚合/排序。若 competitive evaluation 需要 bench 直接产出 match rank，需新增契约，需拍板。
 - 其余：无。
 
-- 顺手活（未做，待拍板）：
-  3. bench 层「直接调用 offline agent CLI（`arena-hero-agent run`）为电池 cell 产 records」
-     需要把 agent 包/SDK 装进 bench venv 或经外部 uv env 调用；当前 bench 无该依赖，电池
-     提交证据直接消费既有 `agent-run-v1` JSONL fixture，live CLI seam 保持 fail-closed 说明。
-     是否允许 bench 依赖 SDK/agent 属依赖契约变更，需拍板（W18-B 落地后接缝更清晰）。
+- 已解决（W19-B 拍板 2026-08-12）：
+  3. bench live agent CLI seam：**不允许** bench 依赖 agent 包/SDK（依赖契约维持，bench 仍只依赖 sim），
+     改为外部 uv env / 外部数据目录可选集成。`--agent-runs-dir` / manifest `agent_runs_dir` /
+     `ARENA_AGENT_RUNS_DIR` 指向 batch 输出目录，布局
+     `<runs>/<contestant>/<scenario>/<seed>/<tenant>/ticks.jsonl`；`map_agent_runs_dir` 精确覆盖 +
+     tenant/schema 校验，目录/run 缺失或 tenant 不符 fail-closed（CLI exit 2），不回落 fixture。
+     详见 PROGRESS.md W19-B。
