@@ -16,6 +16,12 @@ from arena_hero_bench.agent_runtime import (
     import_agent_run,
     source_build_sha256,
 )
+from arena_hero_bench.competitive_eval import (
+    BatteryManifestError,
+    BatteryStatus,
+    CompetitiveEvalError,
+    run_battery_from_manifest,
+)
 from arena_hero_bench.converter import convert_file
 from arena_hero_bench.differential import (
     DifferentialError,
@@ -95,6 +101,18 @@ def _parser() -> argparse.ArgumentParser:
         "soak",
         help="run a bounded offline replay soak and emit a content-addressed report",
     )
+    competitive = subparsers.add_parser(
+        "competitive-eval",
+        help="run a scenario x seed x contestant competitive evaluation battery "
+        "and emit a content-addressed report",
+    )
+    competitive.add_argument(
+        "--run",
+        required=True,
+        type=Path,
+        metavar="MANIFEST",
+        help="competitive evaluation battery manifest JSON (paths are relative to the manifest)",
+    )
     soak.add_argument(
         "--run",
         required=True,
@@ -158,6 +176,16 @@ def _kpi_differential_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _competitive_eval_command(args: argparse.Namespace) -> int:
+    try:
+        report = run_battery_from_manifest(args.run)
+    except (BatteryManifestError, CompetitiveEvalError) as exc:
+        print(f"arena-hero-bench: error: {exc}", file=sys.stderr)
+        return 2
+    print(json.dumps(report.to_json(), ensure_ascii=False, indent=2, sort_keys=True))
+    return 0 if report.status is BatteryStatus.PASS else 1
+
+
 def _soak_command(args: argparse.Namespace) -> int:
     try:
         report = run_soak(args.run)
@@ -189,6 +217,8 @@ def main(argv: list[str] | None = None) -> int:
         return _differential_command(args)
     if args.command == "kpi-differential":
         return _kpi_differential_command(args)
+    if args.command == "competitive-eval":
+        return _competitive_eval_command(args)
     if args.command == "soak":
         return _soak_command(args)
     raise AssertionError(f"unhandled command: {args.command}")

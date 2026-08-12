@@ -1,0 +1,65 @@
+{
+  "protocol_version": 1,
+  "dataset_id": "burnin-20260802-a",
+  "tenant_id": "unknown",
+  "segments": [
+    {
+      "segment_id": "unknown-001",
+      "ticks": [
+        40437,
+        40438,
+        40439,
+        40440,
+        40441,
+        40442,
+        40443,
+        40444
+      ]
+    }
+  ],
+  "gaps": [],
+  "inputs": {
+    "40437": {
+      "sha256": "sha256:6f3f230398cc0bc20ea03de78752bc40c3c3fcbb4a7e8dd092f838f9de6122a8",
+      "size": 1824
+    },
+    "40438": {
+      "sha256": "sha256:eb7402eb5ef00685c09fa3026750aef0e276f77c02ced1fe40fb037df518790a",
+      "size": 1813
+    },
+    "40439": {
+      "sha256": "sha256:38f62be290adb64623e59841529ece7e2b8bfccdef13ea6a0c22cf0a2f09ef09",
+      "size": 2603
+    },
+    "40440": {
+      "sha256": "sha256:ea5885f11ff27ae28708cf67f09fa24a528fd743c8f0f0ae9937a931bd63135c",
+      "size": 2759
+    },
+    "40441": {
+      "sha256": "sha256:3ba65fb15575611165a68e4bfe1c7c46b2a2e021eb84e81f9796672822bf3521",
+      "size": 2603
+    },
+    "40442": {
+      "sha256": "sha256:48b0a57170bc92deee8ca631ec68f18a98c156f0a0f0dfedd25ce63b9cacbaea",
+      "size": 2759
+    },
+    "40443": {
+      "sha256": "sha256:c7ada88fad213919d5d036121e262a635eef49dd4545edd489c013efd2156add",
+      "size": 2603
+    },
+    "40444": {
+      "sha256": "sha256:7e13b5e7d432dcf62a4f1b6a1957d69e3711317491ed7abde9db24b179f7734c",
+      "size": 3064
+    }
+  },
+  "bad_files": [],
+  "map_mode": "disabled",
+  "decision_config": {
+    "worker_target": 8,
+    "population_ceiling": 20,
+    "explore_radius": 8,
+    "guard_resources": 30,
+    "guard_force": 4
+  },
+  "config_hash": "sha256:824423f1fb992469a2fba72c764c31eaee3170adcc18132eb8fa32b3dcaca71e"
+}

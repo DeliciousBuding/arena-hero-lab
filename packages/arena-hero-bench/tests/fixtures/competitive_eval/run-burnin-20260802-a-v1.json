@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "arena.bench.competitive-eval.v1",
+  "battery_id": "burnin-20260802-a",
+  "dataset_id": "burnin-20260802-a",
+  "tenant_id": "lab-diff-t1",
+  "evidence_kind": "sanitized_fixture",
+  "expected_unknown": {},
+  "scenarios": [
+    {
+      "id": "burnin-a",
+      "evolve": {
+        "manifest": "scenarios/burnin-a/manifest.json",
+        "data_dir": "scenarios/burnin-a",
+        "decision_trace": "scenarios/burnin-a/decision-trace-v1.jsonl"
+      },
+      "observation_snapshots": "python/snapshots-burnin-a-v1.jsonl"
+    },
+    {
+      "id": "burnin-b",
+      "evolve": {
+        "manifest": "scenarios/burnin-b/manifest.json",
+        "data_dir": "scenarios/burnin-b",
+        "decision_trace": "scenarios/burnin-b/decision-trace-v1.jsonl"
+      },
+      "observation_snapshots": "python/snapshots-burnin-b-v1.jsonl"
+    }
+  ],
+  "seeds": [
+    "seed-01",
+    "seed-02"
+  ],
+  "contestants": [
+    {
+      "id": "python-agent-ffa",
+      "version": "v1",
+      "protocol": "agent-run-v1",
+      "records": {
+        "burnin-a": {
+          "seed-01": "python/ffa-seed01-a-v1.jsonl",
+          "seed-02": "python/ffa-seed02-a-v1.jsonl"
+        },
+        "burnin-b": {
+          "seed-01": "python/ffa-seed01-b-v1.jsonl",
+          "seed-02": "python/ffa-seed02-b-v1.jsonl"
+        }
+      }
+    },
+    {
+      "id": "python-agent-soft",
+      "version": "v1",
+      "protocol": "agent-run-v1",
+      "records": {
+        "burnin-a": {
+          "seed-01": "python/soft-seed01-a-v1.jsonl",
+          "seed-02": "python/soft-seed02-a-v1.jsonl"
+        },
+        "burnin-b": {
+          "seed-01": "python/soft-seed01-b-v1.jsonl",
+          "seed-02": "python/soft-seed02-b-v1.jsonl"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{"schemaVersion":1,"recordType":"decision","tenantId":"lab-diff-t1","tick":40437,"deadlineOutcome":"candidate","submitResult":"accepted","submitError":null}
+{"schemaVersion":1,"recordType":"decision","tenantId":"lab-diff-t1","tick":40438,"deadlineOutcome":"candidate","submitResult":"accepted","submitError":null}
+{"schemaVersion":1,"recordType":"decision","tenantId":"lab-diff-t1","tick":40439,"deadlineOutcome":"soft_deadline","submitResult":"not_submitted","submitError":null}
+{"schemaVersion":1,"recordType":"decision","tenantId":"lab-diff-t1","tick":40440,"deadlineOutcome":"candidate","submitResult":"rejected","submitError":"local submit refused"}
+{"schemaVersion":1,"recordType":"decision","tenantId":"lab-diff-t1","tick":40441,"deadlineOutcome":"candidate","submitResult":"accepted","submitError":null}
