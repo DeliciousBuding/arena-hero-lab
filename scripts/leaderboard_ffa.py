@@ -106,11 +106,13 @@ def main() -> None:
     if args.remote:
         spawn = (-96, 128)
 
-    contestants, sdk_strategies = build_public_leaderboard_contestants()
     per_seed: dict[int, dict] = {}
     agg: dict[str, dict[str, float]] = {}
-    try:
-        for seed in args.seeds:
+    for seed in args.seeds:
+        # Fresh contestants per seed so cross-tick agent memory never leaks
+        # between matches (same fairness rule as leaderboard_battery.py).
+        contestants, sdk_strategies = build_public_leaderboard_contestants()
+        try:
             report = run_ffa(
                 contestants,
                 seed=seed,
@@ -119,21 +121,21 @@ def main() -> None:
                 obstacle_density=density,
                 spawn_center=spawn,
             )
-            per_seed[seed] = {"artifact_sha256": report.artifact_sha256}
-            print(f"seed={seed} sha={report.artifact_sha256[:16]}")
-            for t in report.terminal:
-                agg.setdefault(t.contestant_id, {"n": 0})
-                agg[t.contestant_id]["n"] += 1
-                for k, v in _terminal_agg([t]).items():
-                    agg[t.contestant_id][k] = agg[t.contestant_id].get(k, 0.0) + v
-                print(
-                    f"  {t.contestant_id:8s} alive={int(t.survival_alive)} res={t.final_resources:3d} "
-                    f"pop={t.population_final:2d} harvest={t.stats.get('harvested', 0)} "
-                    f"dmg={t.stats.get('damage_dealt', 0)}"
-                )
-    finally:
-        for strategy in sdk_strategies:
-            strategy.close()
+        finally:
+            for strategy in sdk_strategies:
+                strategy.close()
+        per_seed[seed] = {"artifact_sha256": report.artifact_sha256}
+        print(f"seed={seed} sha={report.artifact_sha256[:16]}")
+        for t in report.terminal:
+            agg.setdefault(t.contestant_id, {"n": 0})
+            agg[t.contestant_id]["n"] += 1
+            for k, v in _terminal_agg([t]).items():
+                agg[t.contestant_id][k] = agg[t.contestant_id].get(k, 0.0) + v
+            print(
+                f"  {t.contestant_id:8s} alive={int(t.survival_alive)} res={t.final_resources:3d} "
+                f"pop={t.population_final:2d} harvest={t.stats.get('harvested', 0)} "
+                f"dmg={t.stats.get('damage_dealt', 0)}"
+            )
 
     entries = []
     for contestant_id in PUBLIC_ROSTER:

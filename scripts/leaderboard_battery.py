@@ -118,14 +118,19 @@ def build_manifest() -> dict:
 
 
 def run_battery(seeds: list[int], *, smoke: bool = False) -> dict:
-    contestants, sdk_strategies = build_public_leaderboard_contestants()
     per_scenario: list[dict] = []
     records: list[dict] = []
 
-    try:
-        for scenario in SCENARIOS:
-            per_seed: list[dict] = []
-            for seed in seeds:
+    for scenario in SCENARIOS:
+        per_seed: list[dict] = []
+        for seed in seeds:
+            # Fresh contestants per match: every agent starts with clean
+            # cross-tick memory (evolve heuristic maps, SDK agent memories)
+            # so one seed never leaks state into the next.  This is what makes
+            # the leaderboard a fair, reproducible evaluation instead of a
+            # warm-start.
+            contestants, sdk_strategies = build_public_leaderboard_contestants()
+            try:
                 ticks = 40 if smoke else scenario.ticks
                 report = run_ffa(
                     contestants,
@@ -136,55 +141,54 @@ def run_battery(seeds: list[int], *, smoke: bool = False) -> dict:
                     spawn_center=scenario.spawn_center,
                     resource_scale=scenario.resource_scale,
                 )
-                metrics = {t.contestant_id: terminal_metrics(t) for t in report.terminal}
-                for cid, m in metrics.items():
-                    m["contestant"] = cid
-                ranked = rank_metrics([metrics[cid] for cid in PUBLIC_ROSTER])
-                for m in ranked:
-                    records.append(dict(m))
-                terminal_rows = [
-                    {
-                        "contestant": t.contestant_id,
-                        "rank": next(
-                            m["rank"] for m in ranked if m["contestant"] == t.contestant_id
-                        ),
-                        "alive": t.survival_alive,
-                        "core_hp": t.core_hp,
-                        "final_resources": t.final_resources,
-                        "population_final": t.population_final,
-                        "respawn_count": t.respawn_count,
-                        "stats": dict(sorted(t.stats.items())),
-                    }
-                    for t in report.terminal
-                ]
-                per_seed.append(
-                    {
-                        "seed": seed,
-                        "artifact_sha256": report.artifact_sha256,
-                        "terminal": terminal_rows,
-                    }
-                )
-                print(
-                    f"[{scenario.id}] seed={seed} sha={report.artifact_sha256[:12]} "
-                    f"winner={next(m['contestant'] for m in ranked if m['rank'] == 1.0)}"
-                )
-            per_scenario.append(
+            finally:
+                for strategy in sdk_strategies:
+                    strategy.close()
+
+            metrics = {t.contestant_id: terminal_metrics(t) for t in report.terminal}
+            for cid, m in metrics.items():
+                m["contestant"] = cid
+            ranked = rank_metrics([metrics[cid] for cid in PUBLIC_ROSTER])
+            for m in ranked:
+                records.append(dict(m))
+            terminal_rows = [
                 {
-                    "id": scenario.id,
-                    "name": scenario.name,
-                    "params": {
-                        "size": scenario.size,
-                        "obstacle_density": scenario.obstacle_density,
-                        "resource_scale": scenario.resource_scale,
-                        "spawn_center": list(scenario.spawn_center),
-                        "ticks": scenario.ticks,
-                    },
-                    "seeds": per_seed,
+                    "contestant": t.contestant_id,
+                    "rank": next(m["rank"] for m in ranked if m["contestant"] == t.contestant_id),
+                    "alive": t.survival_alive,
+                    "core_hp": t.core_hp,
+                    "final_resources": t.final_resources,
+                    "population_final": t.population_final,
+                    "respawn_count": t.respawn_count,
+                    "stats": dict(sorted(t.stats.items())),
+                }
+                for t in report.terminal
+            ]
+            per_seed.append(
+                {
+                    "seed": seed,
+                    "artifact_sha256": report.artifact_sha256,
+                    "terminal": terminal_rows,
                 }
             )
-    finally:
-        for strategy in sdk_strategies:
-            strategy.close()
+            print(
+                f"[{scenario.id}] seed={seed} sha={report.artifact_sha256[:12]} "
+                f"winner={next(m['contestant'] for m in ranked if m['rank'] == 1.0)}"
+            )
+        per_scenario.append(
+            {
+                "id": scenario.id,
+                "name": scenario.name,
+                "params": {
+                    "size": scenario.size,
+                    "obstacle_density": scenario.obstacle_density,
+                    "resource_scale": scenario.resource_scale,
+                    "spawn_center": list(scenario.spawn_center),
+                    "ticks": scenario.ticks,
+                },
+                "seeds": per_seed,
+            }
+        )
 
     rows = aggregate_leaderboard(records, PUBLIC_ROSTER)
     return {
