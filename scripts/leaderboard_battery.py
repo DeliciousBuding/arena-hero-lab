@@ -24,6 +24,7 @@ from pathlib import Path
 
 from arena_hero_sim.ffa.leaderboard import (
     BARREN_RESPAWN_SCENARIO,
+    ROYALE_SCENARIOS,
     SCENARIOS,
     aggregate_leaderboard,
     rank_metrics,
@@ -48,6 +49,7 @@ _REFERENCE_REPOS = {
     "guide": "reference/third-party/arena-hero-guide",
     "waaiging": "reference/third-party/arena-hero-clone-waaiging",
     "tactic": "reference/third-party/arena-hero-tactic",
+    "wuwd": "reference/third-party/arena-hero-agent-wuwd",
 }
 _SDK_REPO = "arena-hero-sdk-py"
 
@@ -297,6 +299,11 @@ def main() -> None:
         action="store_true",
         help="run only the opt-in barren far-respawn research scenario",
     )
+    ap.add_argument(
+        "--royale",
+        action="store_true",
+        help="run only the opt-in large battle-royale scenarios (512 maps)",
+    )
     args = ap.parse_args()
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
@@ -305,7 +312,12 @@ def main() -> None:
     # after the run could pin a later HEAD (e.g. a commit made while the battery
     # was still running) and break byte-for-byte reproducibility.
     manifest = build_manifest()
-    scenarios = (BARREN_RESPAWN_SCENARIO,) if args.barren else SCENARIOS
+    if args.barren:
+        scenarios = (BARREN_RESPAWN_SCENARIO,)
+    elif args.royale:
+        scenarios = ROYALE_SCENARIOS
+    else:
+        scenarios = SCENARIOS
     payload = run_battery(
         args.seeds, smoke=args.smoke, max_ticks=args.max_ticks, scenarios=scenarios
     )

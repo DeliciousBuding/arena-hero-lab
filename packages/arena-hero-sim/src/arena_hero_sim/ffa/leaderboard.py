@@ -84,6 +84,25 @@ BARREN_RESPAWN_SCENARIO: Final = ScenarioPreset(
     respawn_style="barren",
 )
 
+# Large battle-royale scenarios (opt-in, not part of the default public battery):
+# 512-map all-8 free-for-all.  Kept separate because evolve's A* scales with map
+# area (~200ms/tick at 512), so 4000-tick x 10-seed full runs take hours.  Run
+# with --royale and a smaller seed set for the "大混战专场".
+ROYALE_SCENARIOS: Final[tuple[ScenarioPreset, ...]] = (
+    ScenarioPreset(
+        "ffa-royale", "Large battle royale", 512, 0.225, 1.0, (0, 0), _SCENARIO_LONG_TICKS
+    ),
+    ScenarioPreset(
+        "ffa-royale-scarce",
+        "Large battle royale (scarce)",
+        512,
+        0.225,
+        0.5,
+        (0, 0),
+        _SCENARIO_LONG_TICKS,
+    ),
+)
+
 
 def terminal_metrics(entry: FfaTerminal) -> dict[str, float]:
     """Extract the ranking/reporting metrics from one terminal row."""
@@ -250,6 +269,7 @@ def aggregate_leaderboard(
 __all__ = [
     "COMPOSITE_WEIGHTS",
     "RANK_CHAIN",
+    "ROYALE_SCENARIOS",
     "SCENARIOS",
     "LeaderboardRow",
     "ScenarioPreset",

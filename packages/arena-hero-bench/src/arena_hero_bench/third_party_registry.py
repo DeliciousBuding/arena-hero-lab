@@ -90,6 +90,15 @@ THIRD_PARTY_AGENTS: Final[tuple[ThirdPartyAgent, ...]] = (
         sdk="arena-hero",
         note="均衡防守战术",
     ),
+    ThirdPartyAgent(
+        id="wuwd",
+        display_name="arena-hero-agent (WuDiWangWaSai)",
+        repo=f"{THIRD_PARTY_DIR}/arena-hero-agent-wuwd",
+        entrypoint="arena_farmer.py",
+        bridge="sdk",
+        sdk="arena-hero",
+        note="resource-first CoreFarmer fork (worker 23)",
+    ),
 )
 
 CONTROL_IDS: Final[tuple[str, ...]] = ("rand", "wait")

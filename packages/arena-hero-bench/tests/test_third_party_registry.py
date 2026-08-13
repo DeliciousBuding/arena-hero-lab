@@ -15,9 +15,9 @@ from arena_hero_bench.third_party_registry import (
 )
 
 
-def test_registry_has_five_unique_third_party_agents() -> None:
+def test_registry_has_six_unique_third_party_agents() -> None:
     ids = [agent.id for agent in THIRD_PARTY_AGENTS]
-    assert len(ids) == 5
+    assert len(ids) == 6
     assert len(set(ids)) == len(ids)
 
 
@@ -25,8 +25,8 @@ def test_public_leaderboard_excludes_internal_contestants() -> None:
     assert set(INTERNAL_CONTESTANT_IDS) == {"python", "hunter"}
     assert "python" not in PUBLIC_LEADERBOARD_IDS
     assert "hunter" not in PUBLIC_LEADERBOARD_IDS
-    # 5 third-party + rand + wait
-    assert len(PUBLIC_LEADERBOARD_IDS) == 7
+    # 6 third-party + rand + wait
+    assert len(PUBLIC_LEADERBOARD_IDS) == 8
 
 
 def test_registry_entrypoints_resolve() -> None:

@@ -98,6 +98,11 @@ AGENT_SPECS: Final[dict[str, SdkAgentSpec]] = {
         repo="reference/third-party/arena-hero-tactic",
         adapter=str(_ADAPTER_DIR / "tactic.py"),
     ),
+    "wuwd": SdkAgentSpec(
+        id="wuwd",
+        repo="reference/third-party/arena-hero-agent-wuwd",
+        adapter=str(_ADAPTER_DIR / "wuwd.py"),
+    ),
 }
 
 
