@@ -255,6 +255,7 @@ def _try_inprocess_decider(
     raid_quota: bool = False,
     economy_expansion: bool = False,
     exploration_v2: bool = False,
+    respawn_recovery: bool = False,
 ):
     """Return an in-process ``canonical -> canonical decision`` callable, or None.
 
@@ -288,6 +289,7 @@ def _try_inprocess_decider(
             raid_quota_enabled=raid_quota,
             economy_expansion_enabled=economy_expansion,
             exploration_v2_enabled=exploration_v2,
+            respawn_recovery_enabled=respawn_recovery,
         )
     )
     budget = DeadlineBudget.from_milliseconds(1_000)
@@ -355,6 +357,7 @@ decider = compose_decider(
         raid_quota_enabled="--raid-quota" in _flags,
         economy_expansion_enabled="--economy-expansion" in _flags,
         exploration_v2_enabled="--exploration-v2" in _flags,
+        respawn_recovery_enabled="--respawn-recovery" in _flags,
     )
 )
 budget = DeadlineBudget.from_milliseconds(1_000)
@@ -415,6 +418,7 @@ def _runner_argv(
     raid_quota: bool,
     economy_expansion: bool,
     exploration_v2: bool,
+    respawn_recovery: bool,
 ) -> list[str]:
     """Build the subprocess argv, forwarding research switches as flags."""
     argv = [python, "-c", _RUNNER_SOURCE]
@@ -428,6 +432,8 @@ def _runner_argv(
         argv.append("--economy-expansion")
     if exploration_v2:
         argv.append("--exploration-v2")
+    if respawn_recovery:
+        argv.append("--respawn-recovery")
     return argv
 
 
@@ -443,6 +449,7 @@ class PythonAgentStrategy:
         raid_quota: bool = False,
         economy_expansion: bool = False,
         exploration_v2: bool = False,
+        respawn_recovery: bool = False,
     ) -> None:
         self._agent_python = agent_python
         self._movement_guard = movement_guard
@@ -450,12 +457,14 @@ class PythonAgentStrategy:
         self._raid_quota = raid_quota
         self._economy_expansion = economy_expansion
         self._exploration_v2 = exploration_v2
+        self._respawn_recovery = respawn_recovery
         self._inprocess = _try_inprocess_decider(
             movement_guard=movement_guard,
             economy_budget=economy_budget,
             raid_quota=raid_quota,
             economy_expansion=economy_expansion,
             exploration_v2=exploration_v2,
+            respawn_recovery=respawn_recovery,
         )
         self._proc: subprocess.Popen[str] | None = None
 
@@ -483,6 +492,7 @@ class PythonAgentStrategy:
                     self._raid_quota,
                     self._economy_expansion,
                     self._exploration_v2,
+                    self._respawn_recovery,
                 ),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,

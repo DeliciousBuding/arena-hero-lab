@@ -23,6 +23,7 @@ def build_contestants(
     with_python_expansion: bool = False,
     with_python_exploration_v2: bool = False,
     with_python_production: bool = False,
+    with_python_respawn_recovery: bool = False,
     with_hunter: bool = False,
 ):
     out: dict[str, object] = {}
@@ -42,6 +43,12 @@ def build_contestants(
         out["python+production"] = PythonAgentStrategy(
             exploration_v2=True,
             economy_expansion=True,
+        )
+    if with_python_respawn_recovery:
+        out["python+production+recovery"] = PythonAgentStrategy(
+            exploration_v2=True,
+            economy_expansion=True,
+            respawn_recovery=True,
         )
     if with_evolve:
         out["evolve"] = EvolveHeuristicStrategy()
@@ -79,6 +86,11 @@ def main() -> None:
         help="also run python with exploration-v2 + economy-expansion (production candidate)",
     )
     ap.add_argument(
+        "--python-respawn-recovery",
+        action="store_true",
+        help="also run python production candidate + respawn-recovery",
+    )
+    ap.add_argument(
         "--hunter",
         action="store_true",
         help="also run the deterministic HunterBot aggressor",
@@ -108,14 +120,29 @@ def main() -> None:
         action="store_true",
         help="t1 maze stress preset: --density 0.5 --spawn -96 128",
     )
+    ap.add_argument(
+        "--barren",
+        action="store_true",
+        help="barren far-respawn preset: size 1024, sparse, no replenish, far respawn",
+    )
 
     args = ap.parse_args()
 
     density = args.density
     spawn = tuple(args.spawn)
+    size = args.size
+    resource_scale = 1.0
+    resource_replenish_every = 4
+    respawn_style = "ring"
     if args.maze:
         density = 0.5
         spawn = (-96, 128)
+    if args.barren:
+        size = 1024
+        density = 0.225
+        resource_scale = 0.25
+        resource_replenish_every = 0
+        respawn_style = "barren"
 
     rows = []
     for seed in args.seeds:
@@ -127,13 +154,17 @@ def main() -> None:
                 args.python_expansion,
                 args.python_exploration_v2,
                 args.python_production,
+                args.python_respawn_recovery,
                 args.hunter,
             ),
             seed=seed,
             ticks=args.ticks,
-            size=args.size,
+            size=size,
             obstacle_density=density,
             spawn_center=spawn,
+            resource_scale=resource_scale,
+            resource_replenish_every=resource_replenish_every,
+            respawn_style=respawn_style,
         )
         print(f"seed={seed} sha={rep.artifact_sha256[:16]}")
         for t in rep.terminal:

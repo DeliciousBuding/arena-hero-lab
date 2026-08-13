@@ -203,12 +203,12 @@ def test_python_agent_plays_a_real_ffa_match() -> None:
 def test_runner_argv_forwards_switches() -> None:
     python = "C:\\agent\\python.exe"
 
-    argv_off = _runner_argv(python, False, False, False, False, False)
+    argv_off = _runner_argv(python, False, False, False, False, False, False)
     assert argv_off[0] == python
     assert argv_off[1] == "-c"
     assert set(argv_off[3:]) == set()
 
-    argv_on = _runner_argv(python, True, True, True, True, True)
+    argv_on = _runner_argv(python, True, True, True, True, True, True)
     assert argv_on[0] == python
     assert argv_on[1] == "-c"
     assert set(argv_on[3:]) == {
@@ -217,6 +217,7 @@ def test_runner_argv_forwards_switches() -> None:
         "--raid-quota",
         "--economy-expansion",
         "--exploration-v2",
+        "--respawn-recovery",
     }
 
 
