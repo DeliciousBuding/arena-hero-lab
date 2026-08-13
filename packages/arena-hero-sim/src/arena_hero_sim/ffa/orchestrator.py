@@ -105,6 +105,8 @@ class FfaTerminal:
     respawn_count: int
     ticks_alive: int
     stats: Mapping[str, int]
+    strategy_errors: int = 0
+    strategy_last_error: str | None = None
 
     def to_json(self) -> dict[str, JsonValue]:
         return {
@@ -120,6 +122,8 @@ class FfaTerminal:
             "respawn_count": self.respawn_count,
             "ticks_alive": self.ticks_alive,
             "stats": dict(sorted(self.stats.items())),
+            "strategy_errors": self.strategy_errors,
+            "strategy_last_error": self.strategy_last_error,
         }
 
 
@@ -145,6 +149,8 @@ def _terminal(
     contestant_id: str,
     player,
     initial_resources: int,
+    strategy_errors: int = 0,
+    strategy_last_error: str | None = None,
 ) -> FfaTerminal:
     core = player.core
     alive = core is not None
@@ -163,6 +169,8 @@ def _terminal(
         respawn_count=player.respawn_count,
         ticks_alive=player.alive_ticks,
         stats=dict(player.stats),
+        strategy_errors=strategy_errors,
+        strategy_last_error=strategy_last_error,
     )
 
 
@@ -226,6 +234,8 @@ def run_ffa(
             contestant_id,
             game.players[player_id_of[contestant_id]],
             initial_resources.get(contestant_id, 0),
+            strategy_errors=game.strategy_errors.get(player_id_of[contestant_id], 0),
+            strategy_last_error=game.strategy_last_errors.get(player_id_of[contestant_id]),
         )
         for contestant_id in contestant_ids
     )

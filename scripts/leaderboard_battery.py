@@ -163,9 +163,17 @@ def run_battery(seeds: list[int], *, smoke: bool = False, max_ticks: int | None 
                     "population_final": t.population_final,
                     "respawn_count": t.respawn_count,
                     "stats": dict(sorted(t.stats.items())),
+                    "strategy_errors": t.strategy_errors,
+                    "strategy_last_error": t.strategy_last_error,
                 }
                 for t in report.terminal
             ]
+            for t in report.terminal:
+                if t.strategy_errors:
+                    print(
+                        f"  WARN {t.contestant_id} strategy_errors={t.strategy_errors} "
+                        f"last={t.strategy_last_error}"
+                    )
             per_seed.append(
                 {
                     "seed": seed,
