@@ -254,6 +254,7 @@ def _try_inprocess_decider(
     economy_budget: bool = False,
     raid_quota: bool = False,
     economy_expansion: bool = False,
+    exploration_v2: bool = False,
 ):
     """Return an in-process ``canonical -> canonical decision`` callable, or None.
 
@@ -286,6 +287,7 @@ def _try_inprocess_decider(
             economy_budget_enabled=economy_budget,
             raid_quota_enabled=raid_quota,
             economy_expansion_enabled=economy_expansion,
+            exploration_v2_enabled=exploration_v2,
         )
     )
     budget = DeadlineBudget.from_milliseconds(1_000)
@@ -352,6 +354,7 @@ decider = compose_decider(
         economy_budget_enabled="--economy-budget" in _flags,
         raid_quota_enabled="--raid-quota" in _flags,
         economy_expansion_enabled="--economy-expansion" in _flags,
+        exploration_v2_enabled="--exploration-v2" in _flags,
     )
 )
 budget = DeadlineBudget.from_milliseconds(1_000)
@@ -411,6 +414,7 @@ def _runner_argv(
     economy_budget: bool,
     raid_quota: bool,
     economy_expansion: bool,
+    exploration_v2: bool,
 ) -> list[str]:
     """Build the subprocess argv, forwarding research switches as flags."""
     argv = [python, "-c", _RUNNER_SOURCE]
@@ -422,6 +426,8 @@ def _runner_argv(
         argv.append("--raid-quota")
     if economy_expansion:
         argv.append("--economy-expansion")
+    if exploration_v2:
+        argv.append("--exploration-v2")
     return argv
 
 
@@ -436,17 +442,20 @@ class PythonAgentStrategy:
         economy_budget: bool = False,
         raid_quota: bool = False,
         economy_expansion: bool = False,
+        exploration_v2: bool = False,
     ) -> None:
         self._agent_python = agent_python
         self._movement_guard = movement_guard
         self._economy_budget = economy_budget
         self._raid_quota = raid_quota
         self._economy_expansion = economy_expansion
+        self._exploration_v2 = exploration_v2
         self._inprocess = _try_inprocess_decider(
             movement_guard=movement_guard,
             economy_budget=economy_budget,
             raid_quota=raid_quota,
             economy_expansion=economy_expansion,
+            exploration_v2=exploration_v2,
         )
         self._proc: subprocess.Popen[str] | None = None
 
@@ -473,6 +482,7 @@ class PythonAgentStrategy:
                     self._economy_budget,
                     self._raid_quota,
                     self._economy_expansion,
+                    self._exploration_v2,
                 ),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,

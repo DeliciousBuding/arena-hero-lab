@@ -21,6 +21,7 @@ def build_contestants(
     with_evolve: bool = True,
     with_python_switches: bool = False,
     with_python_expansion: bool = False,
+    with_python_exploration_v2: bool = False,
     with_hunter: bool = False,
 ):
     out: dict[str, object] = {}
@@ -34,6 +35,8 @@ def build_contestants(
         )
     if with_python_expansion:
         out["python+expansion"] = PythonAgentStrategy(economy_expansion=True)
+    if with_python_exploration_v2:
+        out["python+exploration-v2"] = PythonAgentStrategy(exploration_v2=True)
     if with_evolve:
         out["evolve"] = EvolveHeuristicStrategy()
     if with_hunter:
@@ -60,6 +63,11 @@ def main() -> None:
         help="also run python with the economy-expansion research switch on",
     )
     ap.add_argument(
+        "--python-exploration-v2",
+        action="store_true",
+        help="also run python with the exploration-v2 ring-quota research switch on",
+    )
+    ap.add_argument(
         "--hunter",
         action="store_true",
         help="also run the deterministic HunterBot aggressor",
@@ -74,6 +82,7 @@ def main() -> None:
                 not args.no_evolve,
                 args.python_switches,
                 args.python_expansion,
+                args.python_exploration_v2,
                 args.hunter,
             ),
             seed=seed,
