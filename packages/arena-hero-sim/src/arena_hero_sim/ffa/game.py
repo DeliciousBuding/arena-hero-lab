@@ -23,6 +23,7 @@ class Game:
         cluster_iters=400,
         spawn_center=(0, 0),
         spawn_profile=None,
+        resource_scale=1.0,
     ):
         """strategies: {player_id: Strategy}（至少 2 个玩家）。
 
@@ -44,7 +45,11 @@ class Game:
         from .world import World
 
         self.world = World(
-            size=size, seed=seed, obstacle_density=obstacle_density, cluster_iters=cluster_iters
+            size=size,
+            seed=seed,
+            obstacle_density=obstacle_density,
+            cluster_iters=cluster_iters,
+            resource_scale=resource_scale,
         )
         half = size // 2
         self.bounds = (-half, half - 1, -half, half - 1)

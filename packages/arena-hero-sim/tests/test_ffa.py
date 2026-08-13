@@ -102,6 +102,35 @@ def test_ffa_maze_stress_remote_spawn_is_deterministic() -> None:
         assert abs(x) + abs(y) > 100
 
 
+def test_ffa_scarce_resource_scale_reduces_initial_resources() -> None:
+    """Scarce scenario knob: resource_scale<1 must shrink the world's resource set."""
+    from arena_hero_sim.ffa.world import World
+
+    std = World(size=256, seed=42, obstacle_density=0.225, resource_scale=1.0)
+    scarce = World(size=256, seed=42, obstacle_density=0.225, resource_scale=0.5)
+    assert len(std.resources) > len(scarce.resources)
+    assert len(scarce.resources) > 0
+
+
+def test_ffa_terminal_stats_track_kills_and_deposits() -> None:
+    """Leaderboard fairness: terminal stats must expose core_kills and deposited.
+
+    Both are part of the public ranking chain (survival -> kills -> deposits ->
+    resources -> population) and must be present, integral and non-negative even
+    when a short smoke match produces zero kills / zero deposits.
+    """
+    report = _smoke()
+
+    for entry in report.terminal:
+        stats = dict(entry.stats)
+        assert "core_kills" in stats, stats
+        assert "deposited" in stats, stats
+        for key in ("core_kills", "deposited"):
+            value = stats[key]
+            assert isinstance(value, int) and not isinstance(value, bool)
+            assert value >= 0
+
+
 def test_ffa_terminal_table_has_required_fields_for_every_contestant() -> None:
     report = _smoke()
 

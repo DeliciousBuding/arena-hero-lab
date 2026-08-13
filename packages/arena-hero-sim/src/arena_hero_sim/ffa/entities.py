@@ -105,6 +105,8 @@ class Player:
             "spawn_cost": 0,  # 生产消耗
             "overflow_destroyed": 0,  # 容量溢出销毁
             "resources_lost": 0,  # 战斗损失（掠夺+摧毁）
+            "deposited": 0,  # 累计存款（单位归还 Core 的资源）
+            "core_kills": 0,  # 击杀敌方 Core 数（公平榜击杀维度）
         }
 
     # ---- 派生量 ----

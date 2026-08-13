@@ -503,7 +503,7 @@ class Engine:
                 moved = min(u.cargo, room)
                 u.cargo -= moved
                 core.resources += moved
-                p.stats["deposited"] = p.stats.get("deposited", 0) + moved
+                p.stats["deposited"] += moved
                 events.append({"type": "DEPOSITED", "unit": u.uid, "amount": moved})
 
     def _player_has_beacon(self, player_id):
@@ -650,6 +650,7 @@ class Engine:
                         }
                     )
                 else:
+                    winner.stats["core_kills"] += 1
                     cap = storage_capacity(winner.population)
                     room = max(0, cap - winner.core.resources)
                     avail = victim.core.resources

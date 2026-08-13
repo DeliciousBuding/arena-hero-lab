@@ -176,6 +176,7 @@ def run_ffa(
     cluster_iters: int = 400,
     spawn_center: tuple[int, int] = (0, 0),
     spawn_profile: Mapping[str, Mapping[str, object]] | None = None,
+    resource_scale: float = 1.0,
 ) -> FfaReport:
     """Run one free-for-all match in a shared world and return a report.
 
@@ -205,6 +206,7 @@ def run_ffa(
         cluster_iters=cluster_iters,
         spawn_center=spawn_center,
         spawn_profile=game_spawn_profile,
+        resource_scale=resource_scale,
     )
 
     initial_resources: dict[str, int] = {}
