@@ -8,6 +8,7 @@ from arena_hero_sim.ffa import RandomBot, WaitStrategy, run_ffa
 from arena_hero_sim.ffa.observation import Observation
 from arena_hero_sim.ffa.python_agent_shim import (
     PythonAgentStrategy,
+    _runner_argv,
     decision_to_plan,
     discover_agent_python,
     observation_to_canonical,
@@ -159,3 +160,49 @@ def test_python_agent_plays_a_real_ffa_match() -> None:
     # and leave the contestant indistinguishable from WaitStrategy.
     assert python_entry.stats["spawn_cost"] > 0
     assert python_entry.stats["harvested"] > 0
+
+
+def test_runner_argv_forwards_switches() -> None:
+    python = "C:\\agent\\python.exe"
+
+    argv_off = _runner_argv(python, False, False, False)
+    assert argv_off[0] == python
+    assert argv_off[1] == "-c"
+    assert set(argv_off[3:]) == set()
+
+    argv_on = _runner_argv(python, True, True, True)
+    assert argv_on[0] == python
+    assert argv_on[1] == "-c"
+    assert set(argv_on[3:]) == {
+        "--movement-guard",
+        "--economy-budget",
+        "--raid-quota",
+    }
+
+
+def test_python_agent_with_switches_plays_a_real_ffa_match() -> None:
+    if discover_agent_python() is None:
+        pytest.skip("arena-hero-agent venv not found; set ARENA_HERO_AGENT_PYTHON")
+
+    strategy = PythonAgentStrategy(
+        movement_guard=True,
+        economy_budget=True,
+        raid_quota=True,
+    )
+    try:
+        report = run_ffa(
+            {"python-switches": strategy, "rand": RandomBot(), "wait": WaitStrategy()},
+            seed=7,
+            ticks=30,
+        )
+    finally:
+        strategy.close()
+
+    assert report.contestant_ids == ("python-switches", "rand", "wait")
+    assert report.ticks == 30
+
+    by_id = {entry.contestant_id: entry for entry in report.terminal}
+    entry = by_id["python-switches"]
+    assert entry.survival_alive is True
+    assert entry.final_resources >= 0
+

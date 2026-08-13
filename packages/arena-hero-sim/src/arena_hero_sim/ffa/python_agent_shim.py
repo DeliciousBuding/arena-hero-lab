@@ -249,7 +249,11 @@ def _decision_to_canonical(decision: Any) -> dict[str, Any]:
     }
 
 
-def _try_inprocess_decider():
+def _try_inprocess_decider(
+    movement_guard: bool = False,
+    economy_budget: bool = False,
+    raid_quota: bool = False,
+):
     """Return an in-process ``canonical -> canonical decision`` callable, or None.
 
     The agent is imported dynamically so the sim package keeps no static
@@ -280,7 +284,10 @@ def _try_inprocess_decider():
         composition.ComposedDeciderConfig(
             worker_config=WorkerTaskPlannerConfig(
                 mission=MissionConfig(survey_worker_cap=1)
-            )
+            ),
+            movement_guard_enabled=movement_guard,
+            economy_budget_enabled=economy_budget,
+            raid_quota_enabled=raid_quota,
         )
     )
     budget = DeadlineBudget.from_milliseconds(1_000)
@@ -336,11 +343,16 @@ from arena_hero_agent.strategies.composition import ComposedDeciderConfig, compo
 # Enable one worker surveyor so the FFA contestant explores when no mine is
 # visible.  Without it the lone starting worker (parked on the core cell)
 # stays WAIT and permanently blocks the core's SPAWN via CELL_UNIT_LIMIT.
+# Research switches are forwarded as argv flags (default all off).
+_flags = frozenset(sys.argv[1:])
 decider = compose_decider(
     ComposedDeciderConfig(
         worker_config=WorkerTaskPlannerConfig(
             mission=MissionConfig(survey_worker_cap=1)
-        )
+        ),
+        movement_guard_enabled="--movement-guard" in _flags,
+        economy_budget_enabled="--economy-budget" in _flags,
+        raid_quota_enabled="--raid-quota" in _flags,
     )
 )
 budget = DeadlineBudget.from_milliseconds(1_000)
@@ -394,6 +406,23 @@ for line in sys.stdin:
 '''
 
 
+def _runner_argv(
+    python: str,
+    movement_guard: bool,
+    economy_budget: bool,
+    raid_quota: bool,
+) -> list[str]:
+    """Build the subprocess argv, forwarding research switches as flags."""
+    argv = [python, "-c", _RUNNER_SOURCE]
+    if movement_guard:
+        argv.append("--movement-guard")
+    if economy_budget:
+        argv.append("--economy-budget")
+    if raid_quota:
+        argv.append("--raid-quota")
+    return argv
+
+
 class PythonAgentStrategy:
     """A FFA contestant backed by the arena-hero-agent composed decider."""
 
@@ -401,9 +430,19 @@ class PythonAgentStrategy:
         self,
         *,
         agent_python: str | os.PathLike[str] | None = None,
+        movement_guard: bool = False,
+        economy_budget: bool = False,
+        raid_quota: bool = False,
     ) -> None:
         self._agent_python = agent_python
-        self._inprocess = _try_inprocess_decider()
+        self._movement_guard = movement_guard
+        self._economy_budget = economy_budget
+        self._raid_quota = raid_quota
+        self._inprocess = _try_inprocess_decider(
+            movement_guard=movement_guard,
+            economy_budget=economy_budget,
+            raid_quota=raid_quota,
+        )
         self._proc: subprocess.Popen[str] | None = None
 
     def decide(self, observation: Observation) -> dict[str, object]:
@@ -423,7 +462,12 @@ class PythonAgentStrategy:
                     "found; set ARENA_HERO_AGENT_PYTHON or pass agent_python="
                 )
             self._proc = subprocess.Popen(
-                [str(python), "-c", _RUNNER_SOURCE],
+                _runner_argv(
+                    str(python),
+                    self._movement_guard,
+                    self._economy_budget,
+                    self._raid_quota,
+                ),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,

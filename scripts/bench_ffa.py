@@ -7,7 +7,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 
 from arena_hero_sim.ffa.contestants import RandomBot, WaitStrategy
 from arena_hero_sim.ffa.evolve_shim import EvolveHeuristicStrategy
@@ -15,10 +14,20 @@ from arena_hero_sim.ffa.orchestrator import run_ffa
 from arena_hero_sim.ffa.python_agent_shim import PythonAgentStrategy
 
 
-def build_contestants(with_python: bool = True, with_evolve: bool = True):
+def build_contestants(
+    with_python: bool = True,
+    with_evolve: bool = True,
+    with_python_switches: bool = False,
+):
     out: dict[str, object] = {}
     if with_python:
         out["python"] = PythonAgentStrategy()
+    if with_python_switches:
+        out["python+switches"] = PythonAgentStrategy(
+            movement_guard=True,
+            economy_budget=True,
+            raid_quota=True,
+        )
     if with_evolve:
         out["evolve"] = EvolveHeuristicStrategy()
     out["rand"] = RandomBot()
@@ -32,12 +41,21 @@ def main() -> None:
     ap.add_argument("--ticks", type=int, default=500)
     ap.add_argument("--no-python", action="store_true")
     ap.add_argument("--no-evolve", action="store_true")
+    ap.add_argument(
+        "--python-switches",
+        action="store_true",
+        help="also run python with movement/economy/raid research switches on",
+    )
     args = ap.parse_args()
 
     rows = []
     for seed in args.seeds:
         rep = run_ffa(
-            build_contestants(not args.no_python, not args.no_evolve),
+            build_contestants(
+                not args.no_python,
+                not args.no_evolve,
+                args.python_switches,
+            ),
             seed=seed,
             ticks=args.ticks,
         )
