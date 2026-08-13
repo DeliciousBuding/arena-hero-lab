@@ -76,6 +76,32 @@ def test_ffa_smoke_runs_two_contestants_in_one_shared_world() -> None:
     assert _unit_pos(report.trace[-1], "wait") == wait_start
 
 
+def test_ffa_maze_stress_remote_spawn_is_deterministic() -> None:
+    """High-obstacle + far-ring spawn reproduces the t1 maze profile.
+
+    The default bench (density 0.225, center spawn) cannot expose the
+    t1 production failure; this scenario is the fidelity knob that does.
+    """
+
+    def run_maze() -> FfaReport:
+        return run_ffa(
+            {"wait": WaitStrategy(), "rand": RandomBot()},
+            seed=11,
+            ticks=24,
+            obstacle_density=0.5,
+            spawn_center=(-96, 128),
+        )
+
+    first = run_maze()
+    second = run_maze()
+    assert first.artifact_sha256 == second.artifact_sha256
+    assert first.artifact == second.artifact
+    # Remote spawn center is honored: units start far from the origin.
+    for contestant in ("rand", "wait"):
+        x, y = _unit_pos(first.trace[0], contestant)
+        assert abs(x) + abs(y) > 100
+
+
 def test_ffa_terminal_table_has_required_fields_for_every_contestant() -> None:
     report = _smoke()
 

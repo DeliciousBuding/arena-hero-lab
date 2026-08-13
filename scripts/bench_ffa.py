@@ -72,7 +72,39 @@ def main() -> None:
         action="store_true",
         help="also run the deterministic HunterBot aggressor",
     )
+    ap.add_argument(
+        "--size",
+        type=int,
+        default=256,
+        help="world side length (default 256)",
+    )
+    ap.add_argument(
+        "--density",
+        type=float,
+        default=0.225,
+        help="base obstacle density; 0.5 reproduces the t1 maze profile",
+    )
+    ap.add_argument(
+        "--spawn",
+        type=int,
+        nargs=2,
+        default=(0, 0),
+        metavar=("X", "Y"),
+        help="spawn center (default 0 0); remote spawns reproduce far-ring birth",
+    )
+    ap.add_argument(
+        "--maze",
+        action="store_true",
+        help="t1 maze stress preset: --density 0.5 --spawn -96 128",
+    )
+
     args = ap.parse_args()
+
+    density = args.density
+    spawn = tuple(args.spawn)
+    if args.maze:
+        density = 0.5
+        spawn = (-96, 128)
 
     rows = []
     for seed in args.seeds:
@@ -87,6 +119,9 @@ def main() -> None:
             ),
             seed=seed,
             ticks=args.ticks,
+            size=args.size,
+            obstacle_density=density,
+            spawn_center=spawn,
         )
         print(f"seed={seed} sha={rep.artifact_sha256[:16]}")
         for t in rep.terminal:
