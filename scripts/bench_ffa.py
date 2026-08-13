@@ -22,6 +22,7 @@ def build_contestants(
     with_python_switches: bool = False,
     with_python_expansion: bool = False,
     with_python_exploration_v2: bool = False,
+    with_python_production: bool = False,
     with_hunter: bool = False,
 ):
     out: dict[str, object] = {}
@@ -37,6 +38,11 @@ def build_contestants(
         out["python+expansion"] = PythonAgentStrategy(economy_expansion=True)
     if with_python_exploration_v2:
         out["python+exploration-v2"] = PythonAgentStrategy(exploration_v2=True)
+    if with_python_production:
+        out["python+production"] = PythonAgentStrategy(
+            exploration_v2=True,
+            economy_expansion=True,
+        )
     if with_evolve:
         out["evolve"] = EvolveHeuristicStrategy()
     if with_hunter:
@@ -66,6 +72,11 @@ def main() -> None:
         "--python-exploration-v2",
         action="store_true",
         help="also run python with the exploration-v2 ring-quota research switch on",
+    )
+    ap.add_argument(
+        "--python-production",
+        action="store_true",
+        help="also run python with exploration-v2 + economy-expansion (production candidate)",
     )
     ap.add_argument(
         "--hunter",
@@ -115,6 +126,7 @@ def main() -> None:
                 args.python_switches,
                 args.python_expansion,
                 args.python_exploration_v2,
+                args.python_production,
                 args.hunter,
             ),
             seed=seed,
