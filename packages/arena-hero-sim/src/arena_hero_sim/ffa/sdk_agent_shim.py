@@ -83,6 +83,21 @@ AGENT_SPECS: Final[dict[str, SdkAgentSpec]] = {
         repo="reference/third-party/arena-hero-guide",
         adapter=str(_ADAPTER_DIR / "guide.py"),
     ),
+    "drew-z": SdkAgentSpec(
+        id="drew-z",
+        repo="reference/third-party/arena-hero-agent",
+        adapter=str(_ADAPTER_DIR / "drew_z.py"),
+    ),
+    "waaiging": SdkAgentSpec(
+        id="waaiging",
+        repo="reference/third-party/arena-hero-clone-waaiging",
+        adapter=str(_ADAPTER_DIR / "waaiging.py"),
+    ),
+    "tactic": SdkAgentSpec(
+        id="tactic",
+        repo="reference/third-party/arena-hero-tactic",
+        adapter=str(_ADAPTER_DIR / "tactic.py"),
+    ),
 }
 
 

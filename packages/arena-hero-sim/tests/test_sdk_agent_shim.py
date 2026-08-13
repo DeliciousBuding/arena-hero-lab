@@ -1,4 +1,4 @@
-"""Integration wiring for one official-SDK third-party agent (guide)."""
+"""Integration wiring for the official-SDK third-party agents."""
 
 from __future__ import annotations
 
@@ -12,9 +12,11 @@ pytestmark = pytest.mark.skipif(
     reason="arena-hero SDK venv not present; set ARENA_HERO_SDK_PYTHON to enable",
 )
 
+_SDK_AGENTS = ("guide", "drew-z", "waaiging", "tactic")
+
 
 def _core(**overrides) -> dict:
-    core = {"uid": 123, "pos": (5, 5), "hp": 5, "shield": 5, "resources": 12, "migration": None}
+    core = {"uid": 123, "pos": (5, 5), "hp": 5, "shield": 5, "resources": 20, "migration": None}
     core.update(overrides)
     return core
 
@@ -36,7 +38,7 @@ def _obs(tick: int = 10) -> Observation:
         ],
         enemies=[],
         enemy_cores=[],
-        resources={(9, 9), (11, 9)},
+        resources={(9, 9)},
         obstacles={(1, 1)},
         beacon={"position": [0, 0], "status": "UNKNOWN"},
         population=1,
@@ -48,12 +50,13 @@ def test_unknown_agent_raises() -> None:
         SdkAgentStrategy("does-not-exist")
 
 
-def test_guide_spec_is_registered() -> None:
-    assert "guide" in AGENT_SPECS
+def test_all_four_sdk_agents_are_registered() -> None:
+    assert set(AGENT_SPECS) == {"guide", "drew-z", "waaiging", "tactic"}
 
 
-def test_guide_decides_and_maps_plan() -> None:
-    strategy = SdkAgentStrategy("guide")
+@pytest.mark.parametrize("agent_id", _SDK_AGENTS)
+def test_sdk_agent_decides_and_maps_plan(agent_id: str) -> None:
+    strategy = SdkAgentStrategy(agent_id)
     try:
         plan = strategy.decide(_obs(tick=10))
         assert isinstance(plan, dict)
