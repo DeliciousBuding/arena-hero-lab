@@ -8,6 +8,8 @@
 - Beacon 状态贯穿整个 resolve：("ground", x, y) | ("carried", uid)。
 """
 
+import random
+
 from .config import (
     CELL_CAPACITY,
     CORE_HP,
@@ -28,8 +30,10 @@ from .vision import is_shot_line, shot_intermediate_cells
 
 
 class Engine:
-    def __init__(self, world):
+    def __init__(self, world, respawn_style="ring"):
         self.world = world
+        self.respawn_style = respawn_style
+        self._spawn_rng = random.Random(f"{world.seed}:barren-respawn")
         self.cargo = {}  # (x, y) -> amount（死 Worker 掉落）
         self._beacon = None
         self._uid_owner = {}  # uid -> player_id（本 Tick 有效）
@@ -814,7 +818,11 @@ class Engine:
         for p in sorted(candidates, key=lambda p: p.player_id):
             if p.core is not None:
                 continue
-            pos = self._find_spawn(players, p.player_id)
+            pos = (
+                self._find_barren_spawn(players, p.player_id)
+                if self.respawn_style == "barren"
+                else self._find_spawn(players, p.player_id)
+            )
             if pos is None:
                 p.respawning = True
                 events.append({"type": "RESPAWN_FAILED", "player": p.player_id})
@@ -825,6 +833,31 @@ class Engine:
             w = Unit(p.player_id, "WORKER", pos)
             p.units[w.uid] = w
             events.append({"type": "CORE_RESPAWNED", "player": p.player_id, "at": pos})
+
+    def _find_barren_spawn(self, players, me, min_distance=40, attempts=4000):
+        """Pick a random in-bounds EMPTY cell far from every live Core.
+
+        Used by the ``barren`` respawn style to reproduce the production failure
+        mode: a destroyed Core respawns at a random far coordinate with no
+        guarantee of nearby resources. The cell must be EMPTY (not resource, not
+        obstacle), not occupied, at least ``min_distance`` Manhattan from every
+        live Core, and have at least two non-obstacle neighbors (a dead-end cell
+        would strand the fresh Core).
+        """
+        half = self.world.size // 2
+        for _ in range(attempts):
+            x = self._spawn_rng.randrange(-half, half)
+            y = self._spawn_rng.randrange(-half, half)
+            if self._valid_spawn_cell(players, me, (x, y)):
+                others = [
+                    p.core for p in players.values() if p.core is not None and p.player_id != me
+                ]
+                if others and any(
+                    self._mdist(other.pos, (x, y)) < min_distance for other in others
+                ):
+                    continue
+                return (x, y)
+        return None
 
     def _find_spawn(self, players, me, center=(0, 0), fixed=False):
         """在距离最近活 Core 20-30 曼哈顿的环带内找合法位置（优先实体少）。

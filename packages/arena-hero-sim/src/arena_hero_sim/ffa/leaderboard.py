@@ -13,7 +13,9 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from typing import Final
 
+from .config import RESOURCE_REPLENISH_EVERY
 from .orchestrator import FfaTerminal
 
 # Per-match ranking chain (metric name in a terminal metric dict).
@@ -45,6 +47,8 @@ class ScenarioPreset:
     resource_scale: float
     spawn_center: tuple[int, int]
     ticks: int
+    resource_replenish_every: int = RESOURCE_REPLENISH_EVERY
+    respawn_style: str = "ring"
 
 
 # Ordered battery (design doc section 5).  Order is the official presentation
@@ -59,6 +63,22 @@ SCENARIOS: tuple[ScenarioPreset, ...] = (
     ScenarioPreset(
         "ffa-respawn", "Respawn pressure", 256, 0.225, 1.0, (0, 0), _SCENARIO_BASE_TICKS
     ),
+)
+
+# Opt-in research scenario (not part of the public leaderboard battery):
+# large sparse map with resource replenishment disabled and far-random respawn,
+# reproducing the production "destroyed core respawns in a depleted area" regime
+# documented in docs/design/production-world-model-v1.md.
+BARREN_RESPAWN_SCENARIO: Final = ScenarioPreset(
+    id="ffa-barren-respawn",
+    name="Barren far respawn (depletion)",
+    size=1024,
+    obstacle_density=0.225,
+    resource_scale=0.25,
+    spawn_center=(0, 0),
+    ticks=_SCENARIO_LONG_TICKS,
+    resource_replenish_every=0,
+    respawn_style="barren",
 )
 
 

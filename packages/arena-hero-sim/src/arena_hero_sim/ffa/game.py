@@ -6,7 +6,7 @@
 3. Engine.resolve 按官方 resolution order 解析
 """
 
-from .config import BEACON_START
+from .config import BEACON_START, RESOURCE_REPLENISH_EVERY
 from .engine import Engine
 from .entities import Core, Player, Unit
 from .vision import visible_cells
@@ -24,6 +24,8 @@ class Game:
         spawn_center=(0, 0),
         spawn_profile=None,
         resource_scale=1.0,
+        resource_replenish_every=RESOURCE_REPLENISH_EVERY,
+        respawn_style="ring",
     ):
         """strategies: {player_id: Strategy}（至少 2 个玩家）。
 
@@ -50,10 +52,11 @@ class Game:
             obstacle_density=obstacle_density,
             cluster_iters=cluster_iters,
             resource_scale=resource_scale,
+            replenish_every=resource_replenish_every,
         )
         half = size // 2
         self.bounds = (-half, half - 1, -half, half - 1)
-        self.engine = Engine(self.world)
+        self.engine = Engine(self.world, respawn_style=respawn_style)
         self.strategies = strategies
         self.max_ticks = max_ticks
         self.tick = 0

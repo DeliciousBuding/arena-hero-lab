@@ -23,6 +23,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from arena_hero_sim.ffa.leaderboard import (
+    BARREN_RESPAWN_SCENARIO,
     SCENARIOS,
     aggregate_leaderboard,
     rank_metrics,
@@ -117,11 +118,17 @@ def build_manifest() -> dict:
     }
 
 
-def run_battery(seeds: list[int], *, smoke: bool = False, max_ticks: int | None = None) -> dict:
+def run_battery(
+    seeds: list[int],
+    *,
+    smoke: bool = False,
+    max_ticks: int | None = None,
+    scenarios: tuple = SCENARIOS,
+) -> dict:
     per_scenario: list[dict] = []
     records: list[dict] = []
 
-    for scenario in SCENARIOS:
+    for scenario in scenarios:
         per_seed: list[dict] = []
         for seed in seeds:
             # Fresh contestants per match: every agent starts with clean
@@ -142,6 +149,8 @@ def run_battery(seeds: list[int], *, smoke: bool = False, max_ticks: int | None 
                     obstacle_density=scenario.obstacle_density,
                     spawn_center=scenario.spawn_center,
                     resource_scale=scenario.resource_scale,
+                    resource_replenish_every=scenario.resource_replenish_every,
+                    respawn_style=scenario.respawn_style,
                 )
             finally:
                 for strategy in sdk_strategies:
@@ -194,6 +203,8 @@ def run_battery(seeds: list[int], *, smoke: bool = False, max_ticks: int | None 
                     "obstacle_density": scenario.obstacle_density,
                     "resource_scale": scenario.resource_scale,
                     "spawn_center": list(scenario.spawn_center),
+                    "resource_replenish_every": scenario.resource_replenish_every,
+                    "respawn_style": scenario.respawn_style,
                     "ticks": ticks,
                 },
                 "seeds": per_seed,
@@ -281,6 +292,11 @@ def main() -> None:
         default=None,
         help="cap every scenario tick count (fast first-publish mode)",
     )
+    ap.add_argument(
+        "--barren",
+        action="store_true",
+        help="run only the opt-in barren far-respawn research scenario",
+    )
     args = ap.parse_args()
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
@@ -289,7 +305,10 @@ def main() -> None:
     # after the run could pin a later HEAD (e.g. a commit made while the battery
     # was still running) and break byte-for-byte reproducibility.
     manifest = build_manifest()
-    payload = run_battery(args.seeds, smoke=args.smoke, max_ticks=args.max_ticks)
+    scenarios = (BARREN_RESPAWN_SCENARIO,) if args.barren else SCENARIOS
+    payload = run_battery(
+        args.seeds, smoke=args.smoke, max_ticks=args.max_ticks, scenarios=scenarios
+    )
 
     leaderboard_path = args.out_dir / "leaderboard.json"
     manifest_path = args.out_dir / "manifest.json"

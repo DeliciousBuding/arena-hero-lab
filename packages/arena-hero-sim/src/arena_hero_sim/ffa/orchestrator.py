@@ -8,6 +8,7 @@ from typing import Final, cast
 
 from arena_hero_sim.serialization import JsonValue, content_sha256, to_json_value
 
+from .config import RESOURCE_REPLENISH_EVERY
 from .game import Game
 from .strategy import Strategy
 
@@ -185,6 +186,8 @@ def run_ffa(
     spawn_center: tuple[int, int] = (0, 0),
     spawn_profile: Mapping[str, Mapping[str, object]] | None = None,
     resource_scale: float = 1.0,
+    resource_replenish_every: int = RESOURCE_REPLENISH_EVERY,
+    respawn_style: str = "ring",
 ) -> FfaReport:
     """Run one free-for-all match in a shared world and return a report.
 
@@ -215,6 +218,8 @@ def run_ffa(
         spawn_center=spawn_center,
         spawn_profile=game_spawn_profile,
         resource_scale=resource_scale,
+        resource_replenish_every=resource_replenish_every,
+        respawn_style=respawn_style,
     )
 
     initial_resources: dict[str, int] = {}

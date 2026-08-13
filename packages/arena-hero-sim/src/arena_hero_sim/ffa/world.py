@@ -34,12 +34,14 @@ class World:
         cluster_iters=400,
         plain=False,
         resource_scale=1.0,
+        replenish_every=RESOURCE_REPLENISH_EVERY,
     ):
         """plain=True：纯平地（全 EMPTY）——引擎/移动类单元测试用。"""
         self.size = size
         self.offset = size // 2
         self.seed = seed
         self.resource_scale = resource_scale
+        self.replenish_every = replenish_every
         self.rng = random.Random(seed)
         self.terrain = None  # list of bytearray, 索引 terrain[y+off][x+off]
         self.resources = set()  # 当前可用的自然资源点（真实坐标）{(x, y)}
@@ -221,7 +223,7 @@ class World:
 
         occupied_by_core: 回调 (x, y) -> bool，用于避开 Core 占据的格。
         """
-        if resolved_tick % RESOURCE_REPLENISH_EVERY != 0:
+        if self.replenish_every <= 0 or resolved_tick % self.replenish_every != 0:
             return
         if not self.dirty_chunks:
             return

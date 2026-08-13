@@ -146,3 +146,48 @@ def test_ffa_terminal_table_has_required_fields_for_every_contestant() -> None:
         for key in ("core_hp", "final_resources", "population_final", "unit_count_final"):
             assert isinstance(payload[key], int)
             assert not isinstance(payload[key], bool)
+
+
+def test_world_replenish_toggle_disables_refill() -> None:
+    """Barren-respawn knob: replenish_every=0 must freeze the resource layer."""
+
+    from arena_hero_sim.ffa.config import CHUNK_SIZE
+    from arena_hero_sim.ffa.world import World
+
+    enabled = World(size=128, seed=11, obstacle_density=0.2, resource_scale=1.0)
+    disabled = World(
+        size=128,
+        seed=11,
+        obstacle_density=0.2,
+        resource_scale=1.0,
+        replenish_every=0,
+    )
+
+    def deplete_chunk(world: World) -> None:
+        for x, y in list(world.resources):
+            if x // CHUNK_SIZE == 0 and y // CHUNK_SIZE == 0:
+                world.resources.discard((x, y))
+        world.dirty_chunks.add((0, 0))
+
+    deplete_chunk(enabled)
+    deplete_chunk(disabled)
+    enabled.replenish_if_due(4, lambda x, y: False)
+    disabled.replenish_if_due(4, lambda x, y: False)
+    assert len(disabled.resources) < len(enabled.resources)
+
+
+def test_barren_respawn_places_core_far_from_live_cores() -> None:
+    """Barren respawn lands >=40 Manhattan from every live core."""
+
+    from arena_hero_sim.ffa.engine import Engine
+    from arena_hero_sim.ffa.entities import Core, Player
+    from arena_hero_sim.ffa.world import World
+
+    world = World(size=256, seed=5, obstacle_density=0.2, resource_scale=0.5)
+    engine = Engine(world, respawn_style="barren")
+    live = Player("a")
+    live.core = Core("a", (0, 0))
+    dead = Player("b")
+    pos = engine._find_barren_spawn({"a": live, "b": dead}, "b")
+    assert pos is not None
+    assert engine._mdist(pos, (0, 0)) >= 40
