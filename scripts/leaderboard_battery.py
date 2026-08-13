@@ -284,8 +284,12 @@ def main() -> None:
     args = ap.parse_args()
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    payload = run_battery(args.seeds, smoke=args.smoke, max_ticks=args.max_ticks)
+    # Capture the manifest *before* the run: git heads / SDK version / genes sha
+    # are the inputs that produced the following artifact SHAs.  Recording them
+    # after the run could pin a later HEAD (e.g. a commit made while the battery
+    # was still running) and break byte-for-byte reproducibility.
     manifest = build_manifest()
+    payload = run_battery(args.seeds, smoke=args.smoke, max_ticks=args.max_ticks)
 
     leaderboard_path = args.out_dir / "leaderboard.json"
     manifest_path = args.out_dir / "manifest.json"
