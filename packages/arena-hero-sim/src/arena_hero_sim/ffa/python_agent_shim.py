@@ -253,6 +253,7 @@ def _try_inprocess_decider(
     movement_guard: bool = False,
     economy_budget: bool = False,
     raid_quota: bool = False,
+    economy_expansion: bool = False,
 ):
     """Return an in-process ``canonical -> canonical decision`` callable, or None.
 
@@ -288,6 +289,7 @@ def _try_inprocess_decider(
             movement_guard_enabled=movement_guard,
             economy_budget_enabled=economy_budget,
             raid_quota_enabled=raid_quota,
+            economy_expansion_enabled=economy_expansion,
         )
     )
     budget = DeadlineBudget.from_milliseconds(1_000)
@@ -353,6 +355,7 @@ decider = compose_decider(
         movement_guard_enabled="--movement-guard" in _flags,
         economy_budget_enabled="--economy-budget" in _flags,
         raid_quota_enabled="--raid-quota" in _flags,
+        economy_expansion_enabled="--economy-expansion" in _flags,
     )
 )
 budget = DeadlineBudget.from_milliseconds(1_000)
@@ -411,6 +414,7 @@ def _runner_argv(
     movement_guard: bool,
     economy_budget: bool,
     raid_quota: bool,
+    economy_expansion: bool,
 ) -> list[str]:
     """Build the subprocess argv, forwarding research switches as flags."""
     argv = [python, "-c", _RUNNER_SOURCE]
@@ -420,6 +424,8 @@ def _runner_argv(
         argv.append("--economy-budget")
     if raid_quota:
         argv.append("--raid-quota")
+    if economy_expansion:
+        argv.append("--economy-expansion")
     return argv
 
 
@@ -433,15 +439,18 @@ class PythonAgentStrategy:
         movement_guard: bool = False,
         economy_budget: bool = False,
         raid_quota: bool = False,
+        economy_expansion: bool = False,
     ) -> None:
         self._agent_python = agent_python
         self._movement_guard = movement_guard
         self._economy_budget = economy_budget
         self._raid_quota = raid_quota
+        self._economy_expansion = economy_expansion
         self._inprocess = _try_inprocess_decider(
             movement_guard=movement_guard,
             economy_budget=economy_budget,
             raid_quota=raid_quota,
+            economy_expansion=economy_expansion,
         )
         self._proc: subprocess.Popen[str] | None = None
 
@@ -467,6 +476,7 @@ class PythonAgentStrategy:
                     self._movement_guard,
                     self._economy_budget,
                     self._raid_quota,
+                    self._economy_expansion,
                 ),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,

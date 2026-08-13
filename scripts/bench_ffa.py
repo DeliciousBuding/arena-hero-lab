@@ -19,6 +19,7 @@ def build_contestants(
     with_python: bool = True,
     with_evolve: bool = True,
     with_python_switches: bool = False,
+    with_python_expansion: bool = False,
     with_hunter: bool = False,
 ):
     out: dict[str, object] = {}
@@ -30,6 +31,8 @@ def build_contestants(
             economy_budget=True,
             raid_quota=True,
         )
+    if with_python_expansion:
+        out["python+expansion"] = PythonAgentStrategy(economy_expansion=True)
     if with_evolve:
         out["evolve"] = EvolveHeuristicStrategy()
     if with_hunter:
@@ -51,6 +54,11 @@ def main() -> None:
         help="also run python with movement/economy/raid research switches on",
     )
     ap.add_argument(
+        "--python-expansion",
+        action="store_true",
+        help="also run python with the economy-expansion research switch on",
+    )
+    ap.add_argument(
         "--hunter",
         action="store_true",
         help="also run the deterministic HunterBot aggressor",
@@ -64,6 +72,7 @@ def main() -> None:
                 not args.no_python,
                 not args.no_evolve,
                 args.python_switches,
+                args.python_expansion,
                 args.hunter,
             ),
             seed=seed,
