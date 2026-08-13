@@ -263,13 +263,26 @@ def _try_inprocess_decider():
             "arena_hero_agent.adapters.replay"
         ).decode_observation
         DeadlineBudget = importlib.import_module("arena_hero_agent.domain").DeadlineBudget
-        compose_decider = importlib.import_module(
-            "arena_hero_agent.strategies.composition"
-        ).compose_decider
+        composition = importlib.import_module("arena_hero_agent.strategies.composition")
+        MissionConfig = importlib.import_module(
+            "arena_hero_agent.planning.mission"
+        ).MissionConfig
+        WorkerTaskPlannerConfig = importlib.import_module(
+            "arena_hero_agent.planning.worker_assignment"
+        ).WorkerTaskPlannerConfig
     except Exception:
         return None
 
-    decider = compose_decider()
+    # Enable one worker surveyor so the FFA contestant explores when no mine is
+    # visible.  Without it the lone starting worker (parked on the core cell)
+    # stays WAIT and permanently blocks the core's SPAWN via CELL_UNIT_LIMIT.
+    decider = composition.compose_decider(
+        composition.ComposedDeciderConfig(
+            worker_config=WorkerTaskPlannerConfig(
+                mission=MissionConfig(survey_worker_cap=1)
+            )
+        )
+    )
     budget = DeadlineBudget.from_milliseconds(1_000)
 
     def run(canonical: dict[str, Any]) -> dict[str, Any]:
@@ -316,9 +329,20 @@ import sys
 
 from arena_hero_agent.adapters.replay import decode_observation
 from arena_hero_agent.domain import DeadlineBudget
-from arena_hero_agent.strategies.composition import compose_decider
+from arena_hero_agent.planning.mission import MissionConfig
+from arena_hero_agent.planning.worker_assignment import WorkerTaskPlannerConfig
+from arena_hero_agent.strategies.composition import ComposedDeciderConfig, compose_decider
 
-decider = compose_decider()
+# Enable one worker surveyor so the FFA contestant explores when no mine is
+# visible.  Without it the lone starting worker (parked on the core cell)
+# stays WAIT and permanently blocks the core's SPAWN via CELL_UNIT_LIMIT.
+decider = compose_decider(
+    ComposedDeciderConfig(
+        worker_config=WorkerTaskPlannerConfig(
+            mission=MissionConfig(survey_worker_cap=1)
+        )
+    )
+)
 budget = DeadlineBudget.from_milliseconds(1_000)
 
 for line in sys.stdin:

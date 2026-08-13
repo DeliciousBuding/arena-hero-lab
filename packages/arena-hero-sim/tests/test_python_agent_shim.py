@@ -154,3 +154,8 @@ def test_python_agent_plays_a_real_ffa_match() -> None:
     # The default composed decider starts with 5 resources and spends them to
     # spawn at least one extra worker during the match.
     assert python_entry.population_final >= 2
+    # The decider must actually resolve its SPAWN and then collect resources:
+    # a lone worker parked on the core cell would otherwise block every spawn
+    # and leave the contestant indistinguishable from WaitStrategy.
+    assert python_entry.stats["spawn_cost"] > 0
+    assert python_entry.stats["harvested"] > 0
