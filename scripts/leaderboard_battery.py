@@ -117,7 +117,7 @@ def build_manifest() -> dict:
     }
 
 
-def run_battery(seeds: list[int], *, smoke: bool = False) -> dict:
+def run_battery(seeds: list[int], *, smoke: bool = False, max_ticks: int | None = None) -> dict:
     per_scenario: list[dict] = []
     records: list[dict] = []
 
@@ -132,6 +132,8 @@ def run_battery(seeds: list[int], *, smoke: bool = False) -> dict:
             contestants, sdk_strategies = build_public_leaderboard_contestants()
             try:
                 ticks = 40 if smoke else scenario.ticks
+                if max_ticks is not None:
+                    ticks = min(ticks, max_ticks)
                 report = run_ffa(
                     contestants,
                     seed=seed,
@@ -184,7 +186,7 @@ def run_battery(seeds: list[int], *, smoke: bool = False) -> dict:
                     "obstacle_density": scenario.obstacle_density,
                     "resource_scale": scenario.resource_scale,
                     "spawn_center": list(scenario.spawn_center),
-                    "ticks": scenario.ticks,
+                    "ticks": ticks,
                 },
                 "seeds": per_seed,
             }
@@ -265,10 +267,16 @@ def main() -> None:
     ap.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
     ap.add_argument("--out-dir", type=Path, default=Path("artifacts/leaderboard"))
     ap.add_argument("--smoke", action="store_true", help="cap ticks at 40 for a fast sanity run")
+    ap.add_argument(
+        "--max-ticks",
+        type=int,
+        default=None,
+        help="cap every scenario tick count (fast first-publish mode)",
+    )
     args = ap.parse_args()
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    payload = run_battery(args.seeds, smoke=args.smoke)
+    payload = run_battery(args.seeds, smoke=args.smoke, max_ticks=args.max_ticks)
     manifest = build_manifest()
 
     leaderboard_path = args.out_dir / "leaderboard.json"
