@@ -5,6 +5,7 @@ Usage:
     uv run python scripts/bench_ffa.py --seeds 0 1 2 --ticks 500
     uv run python scripts/bench_ffa.py --hunter --no-python --ticks 500
 """
+
 from __future__ import annotations
 
 import argparse
@@ -86,9 +87,18 @@ def main() -> None:
                 f"growth={t.resource_growth:+3d} "
                 f"harvest={t.stats.get('harvested', 0)} dmg={t.stats.get('damage_dealt', 0)}"
             )
-            rows.append((seed, t.contestant_id, t.survival_alive, t.final_resources,
-                         t.population_final, t.resource_growth, t.stats.get("harvested", 0),
-                         t.stats.get("damage_dealt", 0)))
+            rows.append(
+                (
+                    seed,
+                    t.contestant_id,
+                    t.survival_alive,
+                    t.final_resources,
+                    t.population_final,
+                    t.resource_growth,
+                    t.stats.get("harvested", 0),
+                    t.stats.get("damage_dealt", 0),
+                )
+            )
 
     # aggregate
     print("\naggregate (mean over seeds)")
@@ -98,9 +108,9 @@ def main() -> None:
         n = len(sub)
         print(
             f"  {cid:8s} alive={sum(r[2] for r in sub)}/{n} "
-            f"res={sum(r[3] for r in sub)/n:.1f} pop={sum(r[4] for r in sub)/n:.1f} "
-            f"growth={sum(r[5] for r in sub)/n:.1f} harvest={sum(r[6] for r in sub)/n:.1f} "
-            f"dmg={sum(r[7] for r in sub)/n:.1f}"
+            f"res={sum(r[3] for r in sub) / n:.1f} pop={sum(r[4] for r in sub) / n:.1f} "
+            f"growth={sum(r[5] for r in sub) / n:.1f} harvest={sum(r[6] for r in sub) / n:.1f} "
+            f"dmg={sum(r[7] for r in sub) / n:.1f}"
         )
 
 

@@ -75,9 +75,7 @@ def observation_to_canonical(observation: Observation) -> dict[str, Any]:
     Entity ids are the string form of the FFA sparse integer uid, so the
     inverse ``decision_to_plan`` can recover the raw integer uid with ``int()``.
     """
-    lifecycle = (
-        "active" if getattr(observation, "status", "ACTIVE") == "ACTIVE" else "respawning"
-    )
+    lifecycle = "active" if getattr(observation, "status", "ACTIVE") == "ACTIVE" else "respawning"
 
     core: dict[str, Any] | None = None
     if observation.core is not None:
@@ -224,7 +222,9 @@ def _decision_to_canonical(decision: Any) -> dict[str, Any]:
                 "direction": None if intent.direction is None else intent.direction.value,
                 "target_id": None if intent.target_id is None else intent.target_id.value,
                 "expected_cell": (
-                    None if intent.expected_cell is None else [intent.expected_cell.x, intent.expected_cell.y]
+                    None
+                    if intent.expected_cell is None
+                    else [intent.expected_cell.x, intent.expected_cell.y]
                 ),
             }
             for intent in decision.unit_intents
@@ -269,9 +269,7 @@ def _try_inprocess_decider(
         ).decode_observation
         DeadlineBudget = importlib.import_module("arena_hero_agent.domain").DeadlineBudget
         composition = importlib.import_module("arena_hero_agent.strategies.composition")
-        MissionConfig = importlib.import_module(
-            "arena_hero_agent.planning.mission"
-        ).MissionConfig
+        MissionConfig = importlib.import_module("arena_hero_agent.planning.mission").MissionConfig
         WorkerTaskPlannerConfig = importlib.import_module(
             "arena_hero_agent.planning.worker_assignment"
         ).WorkerTaskPlannerConfig
@@ -283,9 +281,7 @@ def _try_inprocess_decider(
     # stays WAIT and permanently blocks the core's SPAWN via CELL_UNIT_LIMIT.
     decider = composition.compose_decider(
         composition.ComposedDeciderConfig(
-            worker_config=WorkerTaskPlannerConfig(
-                mission=MissionConfig(survey_worker_cap=1)
-            ),
+            worker_config=WorkerTaskPlannerConfig(mission=MissionConfig(survey_worker_cap=1)),
             movement_guard_enabled=movement_guard,
             economy_budget_enabled=economy_budget,
             raid_quota_enabled=raid_quota,
@@ -332,7 +328,7 @@ def discover_agent_python() -> str | None:
 
 # Runs inside the agent's venv: decode one canonical turn per stdin line and
 # print one canonical decision per line. The process stays alive across ticks.
-_RUNNER_SOURCE = r'''
+_RUNNER_SOURCE = r"""
 import json
 import sys
 
@@ -406,7 +402,7 @@ for line in sys.stdin:
         ),
         flush=True,
     )
-'''
+"""
 
 
 def _runner_argv(
@@ -492,9 +488,7 @@ class PythonAgentStrategy:
         line = self._proc.stdout.readline()
         if not line:
             stderr = "" if self._proc.stderr is None else self._proc.stderr.read()
-            raise RuntimeError(
-                f"python agent subprocess exited unexpectedly: {stderr.strip()}"
-            )
+            raise RuntimeError(f"python agent subprocess exited unexpectedly: {stderr.strip()}")
         return json.loads(line)
 
     def close(self) -> None:
@@ -516,4 +510,3 @@ __all__ = [
     "discover_agent_python",
     "observation_to_canonical",
 ]
-

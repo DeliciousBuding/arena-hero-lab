@@ -102,4 +102,3 @@ class EvolveHeuristicStrategy(Strategy):
 
     def reset_transient(self) -> None:
         self._impl.reset_transient()
-

@@ -29,8 +29,22 @@ def _observation() -> Observation:
             "capacity": 15,
         },
         units=[
-            {"uid": 7002, "utype": "WORKER", "pos": (0, 0), "hp": 2, "cargo": 1, "carries_beacon": True},
-            {"uid": 7003, "utype": "VANGUARD", "pos": (1, 0), "hp": 4, "cargo": 0, "carries_beacon": False},
+            {
+                "uid": 7002,
+                "utype": "WORKER",
+                "pos": (0, 0),
+                "hp": 2,
+                "cargo": 1,
+                "carries_beacon": True,
+            },
+            {
+                "uid": 7003,
+                "utype": "VANGUARD",
+                "pos": (1, 0),
+                "hp": 4,
+                "cargo": 0,
+                "carries_beacon": False,
+            },
         ],
         enemies=[
             {"uid": 8001, "utype": "RANGER", "pos": (3, 0), "hp": 2},
@@ -102,8 +116,20 @@ def test_decision_to_plan_roundtrips_uid_and_vocabulary() -> None:
     decision = {
         "tick": 7,
         "unit_intents": [
-            {"unit_id": str(unit_ids[0]), "action": "move", "direction": "east", "target_id": None, "expected_cell": None},
-            {"unit_id": str(unit_ids[1]), "action": "sweep", "direction": "south", "target_id": None, "expected_cell": None},
+            {
+                "unit_id": str(unit_ids[0]),
+                "action": "move",
+                "direction": "east",
+                "target_id": None,
+                "expected_cell": None,
+            },
+            {
+                "unit_id": str(unit_ids[1]),
+                "action": "sweep",
+                "direction": "south",
+                "target_id": None,
+                "expected_cell": None,
+            },
         ],
         "core_intent": {"action": "spawn", "direction": None, "unit_role": "ranger"},
     }
@@ -118,8 +144,20 @@ def test_decision_to_plan_roundtrips_uid_and_vocabulary() -> None:
     shoot = {
         "tick": 7,
         "unit_intents": [
-            {"unit_id": str(unit_ids[1]), "action": "shoot", "direction": None, "target_id": None, "expected_cell": [4, 4]},
-            {"unit_id": str(unit_ids[0]), "action": "wait", "direction": None, "target_id": None, "expected_cell": None},
+            {
+                "unit_id": str(unit_ids[1]),
+                "action": "shoot",
+                "direction": None,
+                "target_id": None,
+                "expected_cell": [4, 4],
+            },
+            {
+                "unit_id": str(unit_ids[0]),
+                "action": "wait",
+                "direction": None,
+                "target_id": None,
+                "expected_cell": None,
+            },
         ],
         "core_intent": None,
     }
@@ -165,18 +203,19 @@ def test_python_agent_plays_a_real_ffa_match() -> None:
 def test_runner_argv_forwards_switches() -> None:
     python = "C:\\agent\\python.exe"
 
-    argv_off = _runner_argv(python, False, False, False)
+    argv_off = _runner_argv(python, False, False, False, False)
     assert argv_off[0] == python
     assert argv_off[1] == "-c"
     assert set(argv_off[3:]) == set()
 
-    argv_on = _runner_argv(python, True, True, True)
+    argv_on = _runner_argv(python, True, True, True, True)
     assert argv_on[0] == python
     assert argv_on[1] == "-c"
     assert set(argv_on[3:]) == {
         "--movement-guard",
         "--economy-budget",
         "--raid-quota",
+        "--economy-expansion",
     }
 
 
@@ -188,6 +227,7 @@ def test_python_agent_with_switches_plays_a_real_ffa_match() -> None:
         movement_guard=True,
         economy_budget=True,
         raid_quota=True,
+        economy_expansion=True,
     )
     try:
         report = run_ffa(
@@ -205,4 +245,3 @@ def test_python_agent_with_switches_plays_a_real_ffa_match() -> None:
     entry = by_id["python-switches"]
     assert entry.survival_alive is True
     assert entry.final_resources >= 0
-
