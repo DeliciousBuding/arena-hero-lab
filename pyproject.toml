@@ -44,3 +44,19 @@ ignore = ["E501", "RUF001", "RUF002", "RUF003"]
 [tool.pytest.ini_options]
 addopts = "-ra --strict-config --strict-markers"
 testpaths = ["packages"]
+
+# Vendored ahsim engine (arena-hero-sim/ffa) is intentionally untyped;
+# suppress ty diagnostics for the copied engine files only.
+[[tool.ty.overrides]]
+include = [
+  "packages/arena-hero-sim/src/arena_hero_sim/ffa/config.py",
+  "packages/arena-hero-sim/src/arena_hero_sim/ffa/engine.py",
+  "packages/arena-hero-sim/src/arena_hero_sim/ffa/entities.py",
+  "packages/arena-hero-sim/src/arena_hero_sim/ffa/game.py",
+  "packages/arena-hero-sim/src/arena_hero_sim/ffa/observation.py",
+  "packages/arena-hero-sim/src/arena_hero_sim/ffa/vision.py",
+  "packages/arena-hero-sim/src/arena_hero_sim/ffa/world.py",
+]
+
+[tool.ty.overrides.rules]
+all = "ignore"

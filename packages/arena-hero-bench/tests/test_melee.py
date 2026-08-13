@@ -41,8 +41,7 @@ def test_smoke_ranks_contestants_by_survival_then_terminal_score() -> None:
     assert by_contestant["melee-mid"].survival_alive is True
     assert by_contestant["melee-dead"].survival_alive is False
     assert (
-        by_contestant["melee-champion"].aggregate_score
-        > by_contestant["melee-mid"].aggregate_score
+        by_contestant["melee-champion"].aggregate_score > by_contestant["melee-mid"].aggregate_score
     )
 
 

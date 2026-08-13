@@ -124,7 +124,9 @@ class MeleeManifest:
     contestants: tuple[MeleeContestant, ...]
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "schema_version", _strict_str(self.schema_version, "schema_version"))
+        object.__setattr__(
+            self, "schema_version", _strict_str(self.schema_version, "schema_version")
+        )
         if self.schema_version != MELEE_SCHEMA:
             raise MeleeManifestError(f"unsupported schemaVersion {self.schema_version!r}")
         object.__setattr__(self, "match_id", _identifier(self.match_id, "match_id"))
@@ -141,9 +143,7 @@ class MeleeManifest:
             raise MeleeManifestError("contestant (id, version) pairs must be unique")
         for contestant in self.contestants:
             if contestant.protocol not in _ALLOWED_PROTOCOLS:
-                raise MeleeManifestError(
-                    f"unsupported contestant protocol {contestant.protocol!r}"
-                )
+                raise MeleeManifestError(f"unsupported contestant protocol {contestant.protocol!r}")
 
 
 def load_melee_manifest(manifest_path: str | Path) -> MeleeManifest:
@@ -284,11 +284,7 @@ def run_melee_from_manifest(manifest_path: str | Path) -> MeleeReport:
     entries.sort(key=lambda entry: entry[0], reverse=True)
     placements: list[MeleePlacement] = []
     for index, (key, contestant, terminal) in enumerate(entries):
-        rank = (
-            placements[-1].rank
-            if index and key == entries[index - 1][0]
-            else index + 1
-        )
+        rank = placements[-1].rank if index and key == entries[index - 1][0] else index + 1
         placements.append(
             MeleePlacement(
                 rank=rank,
