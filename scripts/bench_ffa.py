@@ -3,12 +3,13 @@
 Deterministic, content-addressed; prints per-seed terminal and aggregate.
 Usage:
     uv run python scripts/bench_ffa.py --seeds 0 1 2 --ticks 500
+    uv run python scripts/bench_ffa.py --hunter --no-python --ticks 500
 """
 from __future__ import annotations
 
 import argparse
 
-from arena_hero_sim.ffa.contestants import RandomBot, WaitStrategy
+from arena_hero_sim.ffa.contestants import HunterBot, RandomBot, WaitStrategy
 from arena_hero_sim.ffa.evolve_shim import EvolveHeuristicStrategy
 from arena_hero_sim.ffa.orchestrator import run_ffa
 from arena_hero_sim.ffa.python_agent_shim import PythonAgentStrategy
@@ -18,6 +19,7 @@ def build_contestants(
     with_python: bool = True,
     with_evolve: bool = True,
     with_python_switches: bool = False,
+    with_hunter: bool = False,
 ):
     out: dict[str, object] = {}
     if with_python:
@@ -30,6 +32,8 @@ def build_contestants(
         )
     if with_evolve:
         out["evolve"] = EvolveHeuristicStrategy()
+    if with_hunter:
+        out["hunter"] = HunterBot()
     out["rand"] = RandomBot()
     out["wait"] = WaitStrategy()
     return out
@@ -46,6 +50,11 @@ def main() -> None:
         action="store_true",
         help="also run python with movement/economy/raid research switches on",
     )
+    ap.add_argument(
+        "--hunter",
+        action="store_true",
+        help="also run the deterministic HunterBot aggressor",
+    )
     args = ap.parse_args()
 
     rows = []
@@ -55,6 +64,7 @@ def main() -> None:
                 not args.no_python,
                 not args.no_evolve,
                 args.python_switches,
+                args.hunter,
             ),
             seed=seed,
             ticks=args.ticks,
@@ -68,7 +78,8 @@ def main() -> None:
                 f"harvest={t.stats.get('harvested', 0)} dmg={t.stats.get('damage_dealt', 0)}"
             )
             rows.append((seed, t.contestant_id, t.survival_alive, t.final_resources,
-                         t.population_final, t.resource_growth, t.stats.get("harvested", 0)))
+                         t.population_final, t.resource_growth, t.stats.get("harvested", 0),
+                         t.stats.get("damage_dealt", 0)))
 
     # aggregate
     print("\naggregate (mean over seeds)")
@@ -79,7 +90,8 @@ def main() -> None:
         print(
             f"  {cid:8s} alive={sum(r[2] for r in sub)}/{n} "
             f"res={sum(r[3] for r in sub)/n:.1f} pop={sum(r[4] for r in sub)/n:.1f} "
-            f"growth={sum(r[5] for r in sub)/n:.1f} harvest={sum(r[6] for r in sub)/n:.1f}"
+            f"growth={sum(r[5] for r in sub)/n:.1f} harvest={sum(r[6] for r in sub)/n:.1f} "
+            f"dmg={sum(r[7] for r in sub)/n:.1f}"
         )
 
 

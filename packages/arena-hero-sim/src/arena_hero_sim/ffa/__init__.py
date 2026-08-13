@@ -1,6 +1,6 @@
 """Interactive free-for-all host built on the vendored deterministic ahsim engine."""
 
-from arena_hero_sim.ffa.contestants import RandomBot, WaitStrategy
+from arena_hero_sim.ffa.contestants import HunterBot, RandomBot, WaitStrategy
 from arena_hero_sim.ffa.orchestrator import (
     FFA_REPORT_SCHEMA,
     GENERATOR_VERSION,
@@ -15,6 +15,7 @@ __all__ = [
     "GENERATOR_VERSION",
     "FfaReport",
     "FfaTerminal",
+    "HunterBot",
     "RandomBot",
     "Strategy",
     "WaitStrategy",
