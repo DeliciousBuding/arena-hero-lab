@@ -69,10 +69,13 @@ SCENARIOS: tuple[ScenarioPreset, ...] = (
 # large sparse map with resource replenishment disabled and far-random respawn,
 # reproducing the production "destroyed core respawns in a depleted area" regime
 # documented in docs/design/production-world-model-v1.md.
+# size=512 (not 1024): exploration_v2's BFS frontier flood and the evolve A*
+# scale with map area, so 1024 is impractically slow per tick for the current
+# strategy compute. 512 is still 4x the std map area and reproduces the regime.
 BARREN_RESPAWN_SCENARIO: Final = ScenarioPreset(
     id="ffa-barren-respawn",
     name="Barren far respawn (depletion)",
-    size=1024,
+    size=512,
     obstacle_density=0.225,
     resource_scale=0.25,
     spawn_center=(0, 0),

@@ -138,7 +138,7 @@ def main() -> None:
         density = 0.5
         spawn = (-96, 128)
     if args.barren:
-        size = 1024
+        size = 512
         density = 0.225
         resource_scale = 0.25
         resource_replenish_every = 0
