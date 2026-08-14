@@ -52,13 +52,28 @@ _CORE_ACTION_TYPES = {
     "HEAL",
 }
 
+# Bounded bidirectional uid<->UUID string caches.  Each tick converts every own
+# unit/core id plus every visible enemy id in both directions (~100+ per agent
+# per tick), and UUID(int=...).str / UUID(str).int are pure functions, so a
+# flat cache is a safe ~10x speedup at ~1M conversions per match.  Cleared in
+# place at the cap to stay deterministic and memory-bounded across matches.
+_UID_TO_UUID: dict[int, str] = {}
+_UUID_TO_UID: dict[str, int] = {}
+_ID_CACHE_MAX = 16384
+
 
 def uid_to_uuid(uid: int) -> str:
     """Map a 64-120 bit FFA uid to the canonical UUID string the SDK expects."""
 
     if isinstance(uid, bool) or not isinstance(uid, int) or uid < 0:
         raise TypeError("uid must be a non-negative integer")
-    return str(UUID(int=uid))
+    cached = _UID_TO_UUID.get(uid)
+    if cached is None:
+        cached = str(UUID(int=uid))
+        if len(_UID_TO_UUID) >= _ID_CACHE_MAX:
+            _UID_TO_UUID.clear()
+        _UID_TO_UUID[uid] = cached
+    return cached
 
 
 def uuid_to_uid(uuid_str: str) -> int:
@@ -66,7 +81,13 @@ def uuid_to_uid(uuid_str: str) -> int:
 
     if not isinstance(uuid_str, str) or not uuid_str.strip():
         raise TypeError("uuid_str must be a non-empty string")
-    return UUID(uuid_str).int
+    cached = _UUID_TO_UID.get(uuid_str)
+    if cached is None:
+        cached = UUID(uuid_str).int
+        if len(_UUID_TO_UID) >= _ID_CACHE_MAX:
+            _UUID_TO_UID.clear()
+        _UUID_TO_UID[uuid_str] = cached
+    return cached
 
 
 def _beacon_sdk_status(ffa_status: str | None) -> str | None:

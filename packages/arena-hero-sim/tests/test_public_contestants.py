@@ -8,7 +8,7 @@ from arena_hero_sim.ffa.public_contestants import (
 )
 
 
-def test_roster_has_eight_public_ids() -> None:
+def test_roster_has_nine_public_ids() -> None:
     assert PUBLIC_ROSTER == (
         "evolve",
         "drew-z",
@@ -16,10 +16,11 @@ def test_roster_has_eight_public_ids() -> None:
         "waaiging",
         "tactic",
         "wuwd",
+        "massarmy",
         "rand",
         "wait",
     )
-    assert len(PUBLIC_ROSTER) == 8
+    assert len(PUBLIC_ROSTER) == 9
 
 
 def test_roster_excludes_internal_contestants() -> None:
@@ -27,9 +28,9 @@ def test_roster_excludes_internal_contestants() -> None:
     assert "hunter" not in PUBLIC_ROSTER
 
 
-def test_build_returns_roster_and_five_sdk_strategies() -> None:
+def test_build_returns_roster_and_six_sdk_strategies() -> None:
     contestants, sdk = build_public_leaderboard_contestants()
     assert set(contestants) == set(PUBLIC_ROSTER)
-    assert len(sdk) == 5
+    assert len(sdk) == 6
     for strategy in sdk:
         strategy.close()

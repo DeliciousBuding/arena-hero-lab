@@ -20,11 +20,12 @@ PUBLIC_ROSTER: tuple[str, ...] = (
     "waaiging",
     "tactic",
     "wuwd",
+    "massarmy",
     "rand",
     "wait",
 )
 
-_SDK_IDS: tuple[str, ...] = ("drew-z", "guide", "waaiging", "tactic", "wuwd")
+_SDK_IDS: tuple[str, ...] = ("drew-z", "guide", "waaiging", "tactic", "wuwd", "massarmy")
 
 
 def build_public_leaderboard_contestants() -> tuple[dict[str, Strategy], list[SdkAgentStrategy]]:
@@ -41,6 +42,7 @@ def build_public_leaderboard_contestants() -> tuple[dict[str, Strategy], list[Sd
         "waaiging": SdkAgentStrategy("waaiging"),
         "tactic": SdkAgentStrategy("tactic"),
         "wuwd": SdkAgentStrategy("wuwd"),
+        "massarmy": SdkAgentStrategy("massarmy"),
         "rand": RandomBot(),
         "wait": WaitStrategy(),
     }

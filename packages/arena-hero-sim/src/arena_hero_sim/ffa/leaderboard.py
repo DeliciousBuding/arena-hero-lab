@@ -11,6 +11,7 @@ Faithful to ``docs/design/arena-leaderboard-v1.md``:
 
 from __future__ import annotations
 
+import random
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final
@@ -50,20 +51,75 @@ class ScenarioPreset:
     resource_replenish_every: int = RESOURCE_REPLENISH_EVERY
     respawn_style: str = "ring"
 
+    def effective_params(self) -> tuple:
+        """Every field that affects the generated world and the match rules.
+
+        Two presets sharing these values would run byte-identical matches and
+        silently double-count one map in the pooled composite, which inflates
+        whatever strategy wins that map (2026-08-15 methodology ruling).
+        """
+        return (
+            self.size,
+            self.obstacle_density,
+            self.resource_scale,
+            tuple(self.spawn_center),
+            self.ticks,
+            self.resource_replenish_every,
+            self.respawn_style,
+        )
+
+
+def validate_scenario_battery(scenarios: Sequence[ScenarioPreset]) -> None:
+    """Reject batteries that contain duplicate effective scenarios.
+
+    A battery where two ids produce identical matches is a methodology bug:
+    the pooled composite would weight one map twice.  Raised at import time so
+    any preset regression fails before a single match runs.
+    """
+    seen: dict[tuple, str] = {}
+    for preset in scenarios:
+        params = preset.effective_params()
+        if params in seen:
+            raise ValueError(
+                f"scenario battery contains duplicate effective scenarios: "
+                f"{preset.id!r} is identical to {seen[params]!r}; "
+                "differentiate one axis (map/resource/spawn/ticks/replenish/respawn) "
+                "or move it to an opt-in batch"
+            )
+        seen[params] = preset.id
+
 
 # Ordered battery (design doc section 5).  Order is the official presentation
 # order and does not confer any advantage: ranking is pooled across scenarios.
+# Every preset must be *effectively distinct* (validate_scenario_battery): two
+# byte-identical maps would weight that map twice in the pooled composite.
 SCENARIOS: tuple[ScenarioPreset, ...] = (
     ScenarioPreset("ffa-std", "Standard ring", 256, 0.225, 1.0, (0, 0), _SCENARIO_BASE_TICKS),
     ScenarioPreset("ffa-open", "Open field", 384, 0.225, 1.0, (0, 0), _SCENARIO_BASE_TICKS),
     ScenarioPreset("ffa-scarce", "Scarce resources", 256, 0.225, 0.5, (0, 0), _SCENARIO_BASE_TICKS),
-    ScenarioPreset("ffa-maze", "Maze stress", 256, 0.5, 1.0, (-96, 128), _SCENARIO_LONG_TICKS),
+    # Maze stress is also capped to base ticks: at 50% wall density massarmy's
+    # dense-map pathfinding runs ~290ms/tick, so 4000 ticks needs ~1170s and blew
+    # past the match ceiling (two seeds timed out).  The dense-wall stress still
+    # holds at 2000 ticks.
+    ScenarioPreset("ffa-maze", "Maze stress", 256, 0.5, 1.0, (-96, 128), _SCENARIO_BASE_TICKS),
     ScenarioPreset("ffa-remote", "Remote spawn", 256, 0.225, 1.0, (-96, 128), _SCENARIO_BASE_TICKS),
-    ScenarioPreset("ffa-long", "Long horizon", 256, 0.225, 1.0, (0, 0), _SCENARIO_LONG_TICKS),
+    # Respawn pressure uses the engine's "barren" respawn regime: a destroyed
+    # Core respawns at a random far coordinate with no guarantee of nearby
+    # resources, so a comeback has to reclaim the map from scratch.  Same world
+    # economy as ffa-std (replenish untouched): the *only* changed axis is the
+    # respawn rule, keeping the stress axes orthogonal.
     ScenarioPreset(
-        "ffa-respawn", "Respawn pressure", 256, 0.225, 1.0, (0, 0), _SCENARIO_BASE_TICKS
+        "ffa-respawn",
+        "Respawn pressure",
+        256,
+        0.225,
+        1.0,
+        (0, 0),
+        _SCENARIO_BASE_TICKS,
+        respawn_style="barren",
     ),
 )
+validate_scenario_battery(SCENARIOS)
 
 # Opt-in research scenario (not part of the public leaderboard battery):
 # large sparse map with resource replenishment disabled and far-random respawn,
@@ -103,6 +159,18 @@ ROYALE_SCENARIOS: Final[tuple[ScenarioPreset, ...]] = (
     ),
 )
 
+# Long-horizon endurance scenario (opt-in, not part of the default public
+# battery).  Originally a public 4000-tick slot, it was capped to 2000 for the
+# fast battery — which silently made it byte-identical to ffa-std and triple-
+# counted the standard map in the pooled composite (2026-08-15 ruling).  It now
+# lives here at its original 4000 ticks: run with --long when endurance is the
+# question.  waaiging's per-decision latency degrades with game length (measured
+# ~0.3s/decision near tick 2000 on open maps), so a 4000-tick match legitimately
+# needs well past the default match ceiling — --long raises it accordingly.
+LONG_SCENARIOS: Final[tuple[ScenarioPreset, ...]] = (
+    ScenarioPreset("ffa-long", "Long horizon", 256, 0.225, 1.0, (0, 0), _SCENARIO_LONG_TICKS),
+)
+
 
 def terminal_metrics(entry: FfaTerminal) -> dict[str, float]:
     """Extract the ranking/reporting metrics from one terminal row."""
@@ -118,18 +186,20 @@ def terminal_metrics(entry: FfaTerminal) -> dict[str, float]:
     }
 
 
-def rank_metrics(metrics: Sequence[dict[str, float]]) -> list[dict[str, float]]:
+def rank_metrics(
+    metrics: Sequence[Mapping[str, float | str]],
+) -> list[dict[str, float | str]]:
     """Assign competitive ranks (1 = winner) to metric dicts in place order.
 
     Returns a new list of dicts with an added ``rank`` key.  Ties share a rank
     and the next distinct position skips (standard competition ranking).
     """
 
-    def key(m: Mapping[str, float]) -> tuple[float, ...]:
-        return tuple(m[name] for name in RANK_CHAIN)
+    def key(m: Mapping[str, float | str]) -> tuple[float, ...]:
+        return tuple(float(m[name]) for name in RANK_CHAIN)
 
     ordered = sorted(range(len(metrics)), key=lambda i: key(metrics[i]), reverse=True)
-    ranked: list[dict[str, float]] = [dict(m) for m in metrics]
+    ranked: list[dict[str, float | str]] = [dict(m) for m in metrics]
     for position, index in enumerate(ordered):
         if position == 0:
             ranked[index]["rank"] = 1.0
@@ -178,7 +248,7 @@ class LeaderboardRow:
 
 
 def aggregate_leaderboard(
-    records: Iterable[Mapping[str, float]],
+    records: Iterable[Mapping[str, float | str]],
     roster: Sequence[str],
 ) -> list[LeaderboardRow]:
     """Pool per-match metric records into a composite leaderboard.
@@ -187,7 +257,7 @@ def aggregate_leaderboard(
     ``rank`` keys).  The composite is pooled across every match so control bots
     and third parties compete in one table.
     """
-    by_contestant: dict[str, list[Mapping[str, float]]] = {cid: [] for cid in roster}
+    by_contestant: dict[str, list[Mapping[str, float | str]]] = {cid: [] for cid in roster}
     for record in records:
         cid = str(record["contestant"])
         if cid not in by_contestant:
@@ -266,14 +336,64 @@ def aggregate_leaderboard(
     return scored
 
 
+def bootstrap_leaderboard(
+    match_groups: Sequence[Sequence[Mapping[str, float | str]]],
+    roster: Sequence[str],
+    *,
+    iterations: int = 1000,
+    rng_seed: int = 20260815,
+) -> dict[str, dict[str, list[float]]]:
+    """Bootstrap 95% confidence bands for the composite and rank position.
+
+    ``match_groups`` is one list of ranked metric dicts per match (the full
+    per-match roster).  Each iteration resamples whole matches with replacement
+    and re-aggregates, so the resampling unit is the match — never the contestant
+    row — which keeps the within-match correlation intact.  The seeded RNG makes
+    the bands reproducible from the same content-addressed results.
+
+    Returns ``{contestant: {"composite": [lo, hi], "rank": [lo, hi]}}`` with
+    2.5/97.5 percentiles.
+    """
+    rng = random.Random(rng_seed)
+    groups = [list(g) for g in match_groups]
+    composite_samples: dict[str, list[float]] = {cid: [] for cid in roster}
+    rank_samples: dict[str, list[float]] = {cid: [] for cid in roster}
+    for _ in range(iterations):
+        sample_groups = [groups[rng.randrange(len(groups))] for _ in groups]
+        sample_records = [record for group in sample_groups for record in group]
+        rows = aggregate_leaderboard(sample_records, roster)
+        for position, row in enumerate(rows, start=1):
+            composite_samples[row.contestant].append(row.composite)
+            rank_samples[row.contestant].append(float(position))
+    out: dict[str, dict[str, list[float]]] = {}
+    for cid in roster:
+        if not composite_samples[cid]:
+            continue
+        out[cid] = {
+            "composite": _percentiles(composite_samples[cid]),
+            "rank": _percentiles(rank_samples[cid]),
+        }
+    return out
+
+
+def _percentiles(values: Sequence[float]) -> list[float]:
+    ordered = sorted(values)
+    lo = ordered[max(0, round(0.025 * (len(ordered) - 1)))]
+    hi = ordered[min(len(ordered) - 1, round(0.975 * (len(ordered) - 1)))]
+    return [round(lo, 4), round(hi, 4)]
+
+
 __all__ = [
     "COMPOSITE_WEIGHTS",
+    "LONG_SCENARIOS",
     "RANK_CHAIN",
     "ROYALE_SCENARIOS",
     "SCENARIOS",
     "LeaderboardRow",
     "ScenarioPreset",
     "aggregate_leaderboard",
+    "bootstrap_leaderboard",
     "rank_metrics",
     "terminal_metrics",
+    "validate_scenario_battery",
 ]

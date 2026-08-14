@@ -6,6 +6,8 @@
 3. Engine.resolve 按官方 resolution order 解析
 """
 
+from concurrent.futures import ThreadPoolExecutor
+
 from .config import BEACON_START, RESOURCE_REPLENISH_EVERY
 from .engine import Engine
 from .entities import Core, Player, Unit
@@ -70,6 +72,13 @@ class Game:
         # while callers/tests can fail fast on an incompatible adapter.
         self.strategy_errors = {}
         self.strategy_last_errors = {}
+        # Persistent decide pool: one thread per strategy, created once and
+        # reused for every tick.  Creating a ThreadPoolExecutor per tick (the
+        # old design) spawned ~N threads 2000x per match and paid a full
+        # shutdown/join after every tick; on a 2000-tick match that alone cost
+        # ~20s of pure thread churn.  Results are identical because the engine
+        # resolves plans in stable player_id order either way.
+        self._decide_pool: ThreadPoolExecutor | None = None
         self._initial_spawn()
         # 单位出生当 Tick 不能行动：初始单位允许行动
         for p in self.players.values():
@@ -109,6 +118,13 @@ class Game:
             self.step()
         return self.results()
 
+    def close(self) -> None:
+        """Shut down the persistent decide pool (threads are non-daemon)."""
+        pool = self._decide_pool
+        self._decide_pool = None
+        if pool is not None:
+            pool.shutdown(wait=True)
+
     @classmethod
     def resume(cls, strategies, prev, max_ticks):
         """从 prev 的终局状态继续（真实 continuation，2026-08-07 架构评审
@@ -132,22 +148,42 @@ class Game:
         g.spawn_profile = prev.spawn_profile
         g.strategy_errors = prev.strategy_errors
         g.strategy_last_errors = prev.strategy_last_errors
+        g._decide_pool = None  # lazily recreated in step(); prev's pool is shared
         return g
 
     def step(self):
         plans = {}
-        for pid, strat in self.strategies.items():
-            p = self.players[pid]
-            if p.core is None:
-                continue
-            obs = self.build_observation(p)
+        # Each contestant decides from the same pre-resolution world state, so the
+        # decide calls are independent and safe to fan out.  SDK contestants are
+        # long-lived subprocesses whose per-tick JSON round-trip dominates the
+        # runtime; running them in parallel (one thread per active contestant)
+        # collapses the sequential latency of N subprocess round-trips into the
+        # slowest single agent instead of their sum.  Results are identical to the
+        # sequential path: the engine resolves plans in stable player_id order.
+        active = [pid for pid in self.strategies if self.players[pid].core is not None]
+
+        def _decide_one(pid):
+            obs = self.build_observation(self.players[pid])
             try:
-                plan = strat.decide(obs)
+                return pid, self.strategies[pid].decide(obs), None
             except Exception as exc:
-                self.strategy_errors[pid] = self.strategy_errors.get(pid, 0) + 1
-                self.strategy_last_errors[pid] = f"{type(exc).__name__}: {exc}"
-                plan = {"core": None, "units": {}}
+                return pid, {"core": None, "units": {}}, f"{type(exc).__name__}: {exc}"
+
+        if len(active) > 1:
+            if self._decide_pool is None:
+                self._decide_pool = ThreadPoolExecutor(max_workers=len(self.strategies))
+            results = list(self._decide_pool.map(_decide_one, active))
+        elif active:
+            results = [_decide_one(active[0])]
+        else:
+            results = []
+
+        for pid, plan, err in results:
             plans[pid] = plan
+            if err is not None:
+                self.strategy_errors[pid] = self.strategy_errors.get(pid, 0) + 1
+                self.strategy_last_errors[pid] = err
+
         self.beacon, events = self.engine.resolve(self.players, plans, self.beacon, self.tick)
         self.last_events = events
         # 真实存活计数：Core 存在（ACTIVE）的 tick 数

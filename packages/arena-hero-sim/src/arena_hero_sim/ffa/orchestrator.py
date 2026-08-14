@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final, cast
 
@@ -13,7 +13,7 @@ from .game import Game
 from .strategy import Strategy
 
 FFA_REPORT_SCHEMA: Final = "arena.sim.ffa-report.v1"
-GENERATOR_VERSION: Final = "0.1.0"
+GENERATOR_VERSION: Final = "0.2.0"
 
 
 def _ordered_contestants(
@@ -81,6 +81,8 @@ def _frame(
             "alive": player.core is not None,
             "core": core,
             "units": units,
+            "population": player.population,
+            "stats": dict(sorted(player.stats.items())),
         }
     return {
         "tick": tick,
@@ -188,6 +190,7 @@ def run_ffa(
     resource_scale: float = 1.0,
     resource_replenish_every: int = RESOURCE_REPLENISH_EVERY,
     respawn_style: str = "ring",
+    progress_callback: Callable[[int], None] | None = None,
 ) -> FfaReport:
     """Run one free-for-all match in a shared world and return a report.
 
@@ -229,10 +232,15 @@ def run_ffa(
             initial_resources[contestant_id] = player.core.resources
 
     trace: list[dict[str, object]] = [_frame(game, 0, contestant_ids, player_id_of)]
-    for _ in range(ticks):
-        game.tick += 1
-        game.step()
-        trace.append(_frame(game, game.tick, contestant_ids, player_id_of))
+    try:
+        for _ in range(ticks):
+            game.tick += 1
+            game.step()
+            if progress_callback is not None:
+                progress_callback(game.tick)
+            trace.append(_frame(game, game.tick, contestant_ids, player_id_of))
+    finally:
+        game.close()
 
     terminal = tuple(
         _terminal(

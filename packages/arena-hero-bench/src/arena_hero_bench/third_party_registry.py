@@ -52,7 +52,7 @@ THIRD_PARTY_AGENTS: Final[tuple[ThirdPartyAgent, ...]] = (
         entrypoint="strategies/heuristic.py",
         bridge="ahsim",
         sdk="n/a (ahsim shim)",
-        note="进化冠军 evolve_v7_best",
+        note="基因启发式策略 + GA 进化研究（evolve_v7_best 快照）",
     ),
     ThirdPartyAgent(
         id="drew-z",
@@ -98,6 +98,15 @@ THIRD_PARTY_AGENTS: Final[tuple[ThirdPartyAgent, ...]] = (
         bridge="sdk",
         sdk="arena-hero",
         note="resource-first CoreFarmer fork (worker 23)",
+    ),
+    ThirdPartyAgent(
+        id="massarmy",
+        display_name="arena-hero-agent (WuDiWangWaSai, 暴兵流)",
+        repo=f"{THIRD_PARTY_DIR}/arena-hero-agent-massarmy",
+        entrypoint="arena_farmer.py",
+        bridge="sdk",
+        sdk="arena-hero",
+        note="暴兵流 codex/mass-army 分支（48 人口满编）",
     ),
 )
 

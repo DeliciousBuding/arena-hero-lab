@@ -12,7 +12,7 @@ pytestmark = pytest.mark.skipif(
     reason="arena-hero SDK venv not present; set ARENA_HERO_SDK_PYTHON to enable",
 )
 
-_SDK_AGENTS = ("guide", "drew-z", "waaiging", "tactic", "wuwd")
+_SDK_AGENTS = ("guide", "drew-z", "waaiging", "tactic", "wuwd", "massarmy")
 
 
 def _core(**overrides) -> dict:
@@ -50,8 +50,8 @@ def test_unknown_agent_raises() -> None:
         SdkAgentStrategy("does-not-exist")
 
 
-def test_all_five_sdk_agents_are_registered() -> None:
-    assert set(AGENT_SPECS) == {"guide", "drew-z", "waaiging", "tactic", "wuwd"}
+def test_all_six_sdk_agents_are_registered() -> None:
+    assert set(AGENT_SPECS) == {"guide", "drew-z", "waaiging", "tactic", "wuwd", "massarmy"}
 
 
 @pytest.mark.parametrize("agent_id", _SDK_AGENTS)
