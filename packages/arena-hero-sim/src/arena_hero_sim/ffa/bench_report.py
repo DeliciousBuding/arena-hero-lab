@@ -189,11 +189,13 @@ def _kill_events(trace: list[dict], roster: Sequence[str]) -> list[dict]:
             if prev_uid is not None and curr_uid != prev_uid:
                 victims.append(cid)
         if killers or victims:
-            events.append({
-                "tick": tick,
-                "victim": victims[0] if victims else None,
-                "destroyedBy": killers,
-            })
+            events.append(
+                {
+                    "tick": tick,
+                    "victim": victims[0] if victims else None,
+                    "destroyedBy": killers,
+                }
+            )
         prev_kills = curr_kills
         prev_core_uid = curr_core_uid
     return events

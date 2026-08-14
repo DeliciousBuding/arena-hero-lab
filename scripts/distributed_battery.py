@@ -35,6 +35,7 @@ already have the repo + venv laid out (one-time bootstrap, done manually).
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import posixpath
@@ -44,11 +45,30 @@ import time
 from pathlib import Path
 
 _LAB_ROOT = Path(__file__).resolve().parents[1]
+# Deploy every file that affects match semantics or battery orchestration.  The
+# list is intentionally broad: a stale file on a remote node would silently run
+# the old battery and produce results that don't merge with the local run.
 _FILES_TO_DEPLOY = [
+    "packages/arena-hero-sim/src/arena_hero_sim/ffa/__init__.py",
+    "packages/arena-hero-sim/src/arena_hero_sim/ffa/config.py",
+    "packages/arena-hero-sim/src/arena_hero_sim/ffa/world.py",
+    "packages/arena-hero-sim/src/arena_hero_sim/ffa/engine.py",
     "packages/arena-hero-sim/src/arena_hero_sim/ffa/game.py",
     "packages/arena-hero-sim/src/arena_hero_sim/ffa/orchestrator.py",
-    "packages/arena-hero-sim/src/arena_hero_sim/ffa/sdk_agent_shim.py",
+    "packages/arena-hero-sim/src/arena_hero_sim/ffa/observation.py",
+    "packages/arena-hero-sim/src/arena_hero_sim/ffa/strategy.py",
+    "packages/arena-hero-sim/src/arena_hero_sim/ffa/contestants.py",
+    "packages/arena-hero-sim/src/arena_hero_sim/ffa/leaderboard.py",
+    "packages/arena-hero-sim/src/arena_hero_sim/ffa/bench_report.py",
+    "packages/arena-hero-sim/src/arena_hero_sim/ffa/stage_metrics.py",
     "packages/arena-hero-sim/src/arena_hero_sim/ffa/sdk_bridge.py",
+    "packages/arena-hero-sim/src/arena_hero_sim/ffa/sdk_agent_shim.py",
+    "packages/arena-hero-sim/src/arena_hero_sim/ffa/python_agent_shim.py",
+    "packages/arena-hero-sim/src/arena_hero_sim/ffa/evolve_shim.py",
+    "packages/arena-hero-sim/src/arena_hero_sim/ffa/public_contestants.py",
+    "packages/arena-hero-sim/src/arena_hero_sim/ffa/sdk_adapters/__init__.py",
+    "packages/arena-hero-sim/src/arena_hero_sim/ffa/sdk_adapters/massarmy.py",
+    "packages/arena-hero-sim/src/arena_hero_sim/serialization.py",
     "scripts/leaderboard_battery.py",
 ]
 
@@ -112,8 +132,7 @@ def split_seeds(hosts: list[dict], seeds: list[int]) -> list[dict]:
 def _progress_cmd(host: dict) -> str:
     if host.get("posix", True):
         return (
-            f"grep -oP '\\[progress\\] \\d+/\\d+ done.*ETA ~[0-9ms]+' {host['out']}.log "
-            "| tail -1"
+            f"grep -oP '\\[progress\\] \\d+/\\d+ done.*ETA ~[0-9ms]+' {host['out']}.log | tail -1"
         )
     win_log = host["out"].replace("/", "\\\\") + ".log"
     return (
@@ -130,6 +149,26 @@ def _count_cmd(host: dict) -> str:
         'powershell -NoProfile -Command "(Select-String -Path '
         f"'{win_log}' -Pattern 'winner=').Count\""
     )
+
+
+def _shard_id(host: dict) -> str:
+    """Stable shard id for a host (used in merge-integrity checks)."""
+    return host.get("id") or host["ssh"].split("@")[-1].split(".")[0]
+
+
+def _remote_sha256(host: dict, remote_path: str) -> str:
+    """Read sha256 of a remote file (sha256sum on posix, Get-FileHash on win)."""
+    if host.get("posix", True):
+        proc = _ssh(host["ssh"], f"sha256sum {remote_path} 2>/dev/null | cut -d' ' -f1", quiet=True)
+        return proc.stdout.strip()
+    win_path = remote_path.replace("/", "\\\\")
+    proc = _ssh(
+        host["ssh"],
+        f'powershell -NoProfile -Command "(Get-FileHash -Algorithm SHA256 '
+        f"'{win_path}').Hash.ToLower()\"",
+        quiet=True,
+    )
+    return proc.stdout.strip()
 
 
 def deploy(hosts: list[dict]) -> None:
@@ -190,8 +229,16 @@ def collect(hosts: list[dict], out_dir: Path, seeds: list[int]) -> None:
     print("== merge + aggregate")
     battery = _LAB_ROOT / "scripts" / "leaderboard_battery.py"
     subprocess.run(
-        [sys.executable, str(battery), "--tier", "full", "--seeds", *map(str, seeds),
-         "--out-dir", str(out_dir)],
+        [
+            sys.executable,
+            str(battery),
+            "--tier",
+            "full",
+            "--seeds",
+            *map(str, seeds),
+            "--out-dir",
+            str(out_dir),
+        ],
         check=False,
     )
     print(f"merged leaderboard in {out_dir}")
@@ -216,15 +263,14 @@ def main() -> None:
     if args.command in ("collect", "run"):
         if args.command == "run":
             print("polling until all hosts finish (Ctrl-C to stop polling)...")
+            # v3 battery has 7 scenarios; expected = len(seeds) * 7.
             expected = len(args.seeds) * 7
             while True:
                 done = 0
                 for host in assigned:
                     proc = _ssh(host["ssh"], _count_cmd(host), quiet=True)
-                    try:
+                    with contextlib.suppress(ValueError):
                         done += int(proc.stdout.strip() or 0)
-                    except ValueError:
-                        pass
                 print(f"[{time.strftime('%H:%M:%S')}] {done}/{expected} matches done")
                 if done >= expected:
                     break

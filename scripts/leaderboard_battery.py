@@ -1,4 +1,4 @@
-"""Full public leaderboard battery: 6 scenarios x N seeds, JSON + manifest.
+"""Full public leaderboard battery: 7 scenarios x N seeds, JSON + manifest.
 
 Runs only the public third-party roster (evolve / drew-z / guide / waaiging /
 tactic / wuwd / massarmy + rand / wait).  Our own python and hunter contestants
@@ -6,11 +6,14 @@ never enter the public table.  Every match is content-addressed and the run
 manifest pins each third-party repo HEAD, the official SDK version and the
 evolve genes sha so an L-station reader can reproduce the exact ranking.
 
-The public battery is 6 *effectively distinct* scenarios (the sim package's
-``validate_scenario_battery`` rejects duplicate presets at import time).  The
-long-horizon and royale stress scenarios are opt-in: ``--long`` / ``--royale``
-run them with a raised match ceiling (4000-tick matches legitimately exceed the
-default bound once waaiging's per-decision latency degrades late-game).
+The public battery spans two regimes (the sim package's
+``validate_scenario_battery`` rejects duplicate presets at import time):
+four 256/2000-tick lab-regime scenarios (fast anchor + distinct stress axes)
+and three 512/5000-tick production-regime scenarios (large map + long horizon +
+sparse depleting resources, per docs/design/production-world-model-v1.md).  The
+ultra-long (10000-tick), royale (8-player 512) and barren-research scenarios are
+opt-in via ``--long`` / ``--royale`` / ``--barren``; the match ceiling is
+adaptive (max(900, ticks*1.5)) so long-horizon matches are not falsely killed.
 
 Outputs: ``results/<scenario>__<seed>.json`` (merge unit, one per match),
 ``checkpoint.json`` (resumable state), ``leaderboard.json`` (public table),
@@ -846,12 +849,12 @@ def main() -> None:
         scenarios = LONG_SCENARIOS
     else:
         scenarios = SCENARIOS
-    # The 4000-tick opt-in batches legitimately exceed the default 900s match
-    # ceiling once waaiging's per-decision latency degrades late-game: raise it
-    # for --long / --royale / --barren (opt-in = the operator accepts the cost).
-    ceiling_seconds = MATCH_CEILING_SECONDS
-    if args.long or args.royale or args.barren:
-        ceiling_seconds = 3600.0
+    # Adaptive match ceiling: long-horizon matches legitimately need more wall
+    # clock than the 900s default (a 5000-tick production match runs ~3000s, a
+    # 10000-tick ultra-long ~6000s).  The 90s stall guard still catches true
+    # deadlocks fast regardless of this absolute cap.
+    max_preset_ticks = max(s.ticks for s in scenarios)
+    ceiling_seconds = max(MATCH_CEILING_SECONDS, max_preset_ticks * 1.5)
 
     run_seeds = seeds[:1] if args.plan else seeds
     payload = run_battery(

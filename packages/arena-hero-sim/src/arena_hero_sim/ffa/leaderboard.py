@@ -90,24 +90,22 @@ def validate_scenario_battery(scenarios: Sequence[ScenarioPreset]) -> None:
 
 
 # Ordered battery (design doc section 5).  Order is the official presentation
-# order and does not confer any advantage: ranking is pooled across scenarios.
+# order and does not confer an advantage: ranking is pooled across scenarios.
 # Every preset must be *effectively distinct* (validate_scenario_battery): two
 # byte-identical maps would weight that map twice in the pooled composite.
+#
+# v3 (2026-08-15, production-faithful redesign): the public battery now spans
+# two regimes.  Four 256/2000-tick scenarios are the fast lab-regime anchor
+# (reproducibility + distinct stress axes: standard / scarce / maze / respawn);
+# three 512/5000-tick scenarios reproduce the production regime documented in
+# docs/design/production-world-model-v1.md (large map + long horizon + sparse
+# depleting resources + barren far respawn).  The lab regime alone hid waaiging's
+# real-world barren-recovery weakness; the production regime exposes it.
 SCENARIOS: tuple[ScenarioPreset, ...] = (
+    # --- lab regime: fast, distinct stress axes, reproducibility anchor ---
     ScenarioPreset("ffa-std", "Standard ring", 256, 0.225, 1.0, (0, 0), _SCENARIO_BASE_TICKS),
-    ScenarioPreset("ffa-open", "Open field", 384, 0.225, 1.0, (0, 0), _SCENARIO_BASE_TICKS),
     ScenarioPreset("ffa-scarce", "Scarce resources", 256, 0.225, 0.5, (0, 0), _SCENARIO_BASE_TICKS),
-    # Maze stress is also capped to base ticks: at 50% wall density massarmy's
-    # dense-map pathfinding runs ~290ms/tick, so 4000 ticks needs ~1170s and blew
-    # past the match ceiling (two seeds timed out).  The dense-wall stress still
-    # holds at 2000 ticks.
     ScenarioPreset("ffa-maze", "Maze stress", 256, 0.5, 1.0, (-96, 128), _SCENARIO_BASE_TICKS),
-    ScenarioPreset("ffa-remote", "Remote spawn", 256, 0.225, 1.0, (-96, 128), _SCENARIO_BASE_TICKS),
-    # Respawn pressure uses the engine's "barren" respawn regime: a destroyed
-    # Core respawns at a random far coordinate with no guarantee of nearby
-    # resources, so a comeback has to reclaim the map from scratch.  Same world
-    # economy as ffa-std (replenish untouched): the *only* changed axis is the
-    # respawn rule, keeping the stress axes orthogonal.
     ScenarioPreset(
         "ffa-respawn",
         "Respawn pressure",
@@ -117,6 +115,43 @@ SCENARIOS: tuple[ScenarioPreset, ...] = (
         (0, 0),
         _SCENARIO_BASE_TICKS,
         respawn_style="barren",
+    ),
+    # --- production regime: large map + long horizon + sparse depleting economy ---
+    # 512 = 4x the std map area; 5000 ticks approaches the production "tens of
+    # thousands" horizon while staying feasible for the third-party pathfinders
+    # (evolve A* / exploration BFS scale with map area; 1024 is impractical per
+    # the production-world-model note, so 512 is the current production-faithful
+    # ceiling).  waaiging's per-decision latency degrades with game length, so
+    # these matches legitimately need a raised wall-clock ceiling (adaptive in
+    # the battery runner: max(900, ticks*1.5)).
+    ScenarioPreset(
+        "ffa-large",
+        "Large map (production)",
+        512,
+        0.225,
+        1.0,
+        (0, 0),
+        5000,
+    ),
+    ScenarioPreset(
+        "ffa-sparse",
+        "Sparse depleting (production)",
+        512,
+        0.225,
+        0.25,
+        (0, 0),
+        5000,
+        resource_replenish_every=0,
+        respawn_style="barren",
+    ),
+    ScenarioPreset(
+        "ffa-remote",
+        "Remote spawn (large)",
+        512,
+        0.225,
+        1.0,
+        (-192, 192),
+        5000,
     ),
 )
 validate_scenario_battery(SCENARIOS)
@@ -159,16 +194,15 @@ ROYALE_SCENARIOS: Final[tuple[ScenarioPreset, ...]] = (
     ),
 )
 
-# Long-horizon endurance scenario (opt-in, not part of the default public
-# battery).  Originally a public 4000-tick slot, it was capped to 2000 for the
-# fast battery — which silently made it byte-identical to ffa-std and triple-
-# counted the standard map in the pooled composite (2026-08-15 ruling).  It now
-# lives here at its original 4000 ticks: run with --long when endurance is the
-# question.  waaiging's per-decision latency degrades with game length (measured
-# ~0.3s/decision near tick 2000 on open maps), so a 4000-tick match legitimately
-# needs well past the default match ceiling — --long raises it accordingly.
+# Ultra-long-horizon endurance scenario (opt-in, not part of the default public
+# battery).  Production matches run for tens of thousands of ticks (the
+# production-world-model sample is ~17800 ticks); 10000 ticks is the opt-in
+# approximation of that regime.  waaiging's per-decision latency degrades with
+# game length, so a 10000-tick match legitimately needs a raised wall-clock
+# ceiling (the battery runner uses an adaptive ceiling = max(900, ticks*1.5)).
+# Run with --long when endurance is the question.
 LONG_SCENARIOS: Final[tuple[ScenarioPreset, ...]] = (
-    ScenarioPreset("ffa-long", "Long horizon", 256, 0.225, 1.0, (0, 0), _SCENARIO_LONG_TICKS),
+    ScenarioPreset("ffa-long", "Ultra-long horizon (production)", 512, 0.225, 1.0, (0, 0), 10000),
 )
 
 

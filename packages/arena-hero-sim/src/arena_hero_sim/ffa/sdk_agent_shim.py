@@ -241,8 +241,7 @@ class SdkAgentStrategy:
             if elapsed >= _SLOW_DECISION_THRESHOLD_SECONDS:
                 self._slow_decisions.append((observation.tick, round(elapsed, 2)))
                 print(
-                    f"  SLOW sdk.{self._agent_id} tick={observation.tick} "
-                    f"decision={elapsed:.2f}s",
+                    f"  SLOW sdk.{self._agent_id} tick={observation.tick} decision={elapsed:.2f}s",
                     flush=True,
                 )
 
@@ -308,9 +307,7 @@ class SdkAgentStrategy:
                 payload_str, outcome = item
                 try:
                     if self._proc is None or self._proc.stdin is None:
-                        raise RuntimeError(
-                            f"sdk agent {self._agent_id} subprocess is not running"
-                        )
+                        raise RuntimeError(f"sdk agent {self._agent_id} subprocess is not running")
                     self._proc.stdin.write(payload_str)
                     self._proc.stdin.flush()
                 except OSError as exc:
@@ -324,9 +321,7 @@ class SdkAgentStrategy:
                     continue
                 try:
                     if self._proc is None or self._proc.stdout is None:
-                        raise RuntimeError(
-                            f"sdk agent {self._agent_id} subprocess is not running"
-                        )
+                        raise RuntimeError(f"sdk agent {self._agent_id} subprocess is not running")
                     line = self._proc.stdout.readline()
                 except Exception as exc:
                     outcome["_error"] = exc
