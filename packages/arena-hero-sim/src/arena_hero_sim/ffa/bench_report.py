@@ -109,6 +109,8 @@ SCENARIO_LABELS: dict[str, str] = {
     "ffa-scarce": "资源匮乏",
     "ffa-maze": "迷宫压力",
     "ffa-remote": "偏远出生",
+    "ffa-large": "大图长局",
+    "ffa-sparse": "稀疏枯竭",
     "ffa-long": "长期对抗",
     "ffa-respawn": "重生压力",
     "ffa-royale": "大型大混战",
