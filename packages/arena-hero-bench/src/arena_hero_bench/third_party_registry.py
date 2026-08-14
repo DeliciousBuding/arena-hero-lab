@@ -65,7 +65,7 @@ THIRD_PARTY_AGENTS: Final[tuple[ThirdPartyAgent, ...]] = (
     ),
     ThirdPartyAgent(
         id="waaiging",
-        display_name="arena-hero-clone-waaiging",
+        display_name="ArenaHero (Waaiging)",
         repo=f"{THIRD_PARTY_DIR}/arena-hero-clone-waaiging",
         entrypoint="arena_hero_strategy.py",
         bridge="sdk",

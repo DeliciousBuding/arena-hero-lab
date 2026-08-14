@@ -51,7 +51,7 @@ CONTESTANT_META: dict[str, dict[str, Any]] = {
         "linuxdoTitle": "近乎完美的双策略 for Arena-Hero",
     },
     "waaiging": {
-        "label": "arena-hero-clone-waaiging",
+        "label": "ArenaHero (Waaiging)",
         "kind": "python",
         "configNote": "Waaiging 社区开源：SmartTactic 全能战术，自适应经济 / 动态产兵 / 编队推进。",
         "repoUrl": "https://github.com/Waaiging/ArenaHero",

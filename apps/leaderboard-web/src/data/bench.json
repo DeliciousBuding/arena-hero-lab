@@ -123,7 +123,7 @@
       "configNote": "Waaiging 社区开源：SmartTactic 全能战术，自适应经济 / 动态产兵 / 编队推进。",
       "id": "waaiging",
       "kind": "python",
-      "label": "arena-hero-clone-waaiging",
+      "label": "ArenaHero (Waaiging)",
       "linuxdoTitle": "Arena Hero 游戏体验分享",
       "linuxdoUrl": "https://linux.do/t/topic/2721042",
       "repoUrl": "https://github.com/Waaiging/ArenaHero"
@@ -166,7 +166,7 @@
       "label": "wait (静止对照)"
     }
   ],
-  "convertedAt": "2026-08-14T17:28:45.939773+00:00",
+  "convertedAt": "2026-08-14T18:01:21.959252+00:00",
   "entryScenarioStats": {
     "drew-z": {
       "ffa-maze": {
@@ -1321,7 +1321,7 @@
       }
     }
   },
-  "generatedAt": "2026-08-14T17:28:45.939773+00:00",
+  "generatedAt": "2026-08-14T18:01:21.959252+00:00",
   "leaderboard": [
     {
       "avgRank": 2.2,

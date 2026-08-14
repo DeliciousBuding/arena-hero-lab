@@ -47,8 +47,8 @@
     }
   },
   "evolve_genes_sha256": "1e3ed5ffbba906c6b8fc336d7defe6ca1331e47c040686a1c6df289874a1f1b0",
-  "generated_at": "2026-08-14T16:59:52.417696+00:00",
-  "lab_git_head": "4908dcf94a94e590d6d4e8c42381252c0695babc",
+  "generated_at": "2026-08-14T18:01:21.414172+00:00",
+  "lab_git_head": "7d2f76b17ff587ab33eed5d1155b0140d208d66e",
   "schema": "arena.leaderboard.manifest.v1",
   "sdk": {
     "git_head": "96fc85bc6097fedb48697de058b704608af1fddd",

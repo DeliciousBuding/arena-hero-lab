@@ -52,22 +52,6 @@
   --color-rank-silver: var(--rank-silver);
   --color-rank-bronze: var(--rank-bronze);
 
-  /* —— 热图色阶 —— */
-  --color-heat-0: var(--heat-0);
-  --color-heat-1: var(--heat-1);
-  --color-heat-2: var(--heat-2);
-  --color-heat-3: var(--heat-3);
-  --color-heat-4: var(--heat-4);
-  --color-heat-5: var(--heat-5);
-  --color-heat-6: var(--heat-6);
-  --color-heat-text-0: var(--heat-text-0);
-  --color-heat-text-1: var(--heat-text-1);
-  --color-heat-text-2: var(--heat-text-2);
-  --color-heat-text-3: var(--heat-text-3);
-  --color-heat-text-4: var(--heat-text-4);
-  --color-heat-text-5: var(--heat-text-5);
-  --color-heat-text-6: var(--heat-text-6);
-
   /* —— 圆角（统一约束：卡片 md、按钮 sm、徽章 full） —— */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -85,6 +69,26 @@
   /* —— 动画 —— */
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
+}
+
+/* 热图色阶别名：必须用普通 CSS 变量，不能放 @theme inline——
+   Tailwind 只发射被工具类引用的主题变量，热图组件用 JS 内联 var() 引用，
+   放 @theme 会被摇树删掉（fill 解析失败回退黑色 = 黑字黑底 bug）。 */
+:root {
+  --color-heat-0: var(--heat-0);
+  --color-heat-1: var(--heat-1);
+  --color-heat-2: var(--heat-2);
+  --color-heat-3: var(--heat-3);
+  --color-heat-4: var(--heat-4);
+  --color-heat-5: var(--heat-5);
+  --color-heat-6: var(--heat-6);
+  --color-heat-text-0: var(--heat-text-0);
+  --color-heat-text-1: var(--heat-text-1);
+  --color-heat-text-2: var(--heat-text-2);
+  --color-heat-text-3: var(--heat-text-3);
+  --color-heat-text-4: var(--heat-text-4);
+  --color-heat-text-5: var(--heat-text-5);
+  --color-heat-text-6: var(--heat-text-6);
 }
 
 /* ========== 浅色（暖白，Anthropic light） ========== */
