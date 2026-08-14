@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from arena_hero_sim.ffa.observation import Observation
 from arena_hero_sim.ffa.sdk_bridge import (
     observation_to_sdk_state,
@@ -29,7 +31,7 @@ def _worker(uid: int, pos=(5, 5), cargo=3) -> dict:
 
 
 def _obs(**overrides) -> Observation:
-    kwargs = dict(
+    kwargs: dict[str, Any] = dict(
         player_id=0,
         tick=10,
         core=_core(),

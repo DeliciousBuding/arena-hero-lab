@@ -8,7 +8,7 @@ stalled-core decapitation loop.  Pinned at commit 0e351f6.
 
 from __future__ import annotations
 
-import arena_farmer as massarmy
+import arena_farmer as massarmy  # type: ignore
 
 
 class Adapter:

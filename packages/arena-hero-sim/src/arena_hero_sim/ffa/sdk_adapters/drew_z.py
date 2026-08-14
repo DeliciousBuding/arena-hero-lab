@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import arena_farmer as drew_z
+import arena_farmer as drew_z  # type: ignore
 
 
 class Adapter:

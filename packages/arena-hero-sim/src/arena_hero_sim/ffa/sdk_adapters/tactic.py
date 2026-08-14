@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import bot.strategy as tactic
+import bot.strategy as tactic  # type: ignore
 
 
 class Adapter:

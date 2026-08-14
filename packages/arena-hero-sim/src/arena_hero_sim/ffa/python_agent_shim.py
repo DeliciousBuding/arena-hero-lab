@@ -191,7 +191,7 @@ def _core_action(core_intent: dict[str, Any] | None) -> tuple[str, dict[str, Any
     return (action.upper(), {})
 
 
-def decision_to_plan(decision: dict[str, Any]) -> dict[str, object]:
+def decision_to_plan(decision: dict[str, Any]) -> dict[str, Any]:
     """Map the agent's canonical ``Decision`` JSON back into an ahsim ``Plan``.
 
     ``unit_id`` values are the string form of the FFA integer uid, so the

@@ -93,7 +93,8 @@ def extract_match_stages(report: FfaReport) -> dict[str, dict[str, float]]:
 
     peak_combat: dict[str, float] = {}
     for frame in trace:
-        players = frame.get("players", {})
+        players_raw = frame.get("players", {})
+        players = players_raw if isinstance(players_raw, dict) else {}
         for cid, player in players.items():
             units = player.get("units", [])
             _, combat = _unit_counts(units)

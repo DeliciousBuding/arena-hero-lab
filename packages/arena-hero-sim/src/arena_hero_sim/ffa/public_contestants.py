@@ -8,6 +8,8 @@ deterministic control bots.
 
 from __future__ import annotations
 
+from typing import cast
+
 from .contestants import RandomBot, WaitStrategy
 from .evolve_shim import EvolveHeuristicStrategy
 from .sdk_agent_shim import SdkAgentStrategy
@@ -46,7 +48,7 @@ def build_public_leaderboard_contestants() -> tuple[dict[str, Strategy], list[Sd
         "rand": RandomBot(),
         "wait": WaitStrategy(),
     }
-    sdk = [contestants[agent_id] for agent_id in _SDK_IDS]
+    sdk = [cast(SdkAgentStrategy, contestants[agent_id]) for agent_id in _SDK_IDS]
     return contestants, sdk
 
 

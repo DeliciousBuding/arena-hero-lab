@@ -206,8 +206,12 @@ LONG_SCENARIOS: Final[tuple[ScenarioPreset, ...]] = (
 )
 
 
-def terminal_metrics(entry: FfaTerminal) -> dict[str, float]:
-    """Extract the ranking/reporting metrics from one terminal row."""
+def terminal_metrics(entry: FfaTerminal) -> dict[str, float | str]:
+    """Extract the ranking/reporting metrics from one terminal row.
+
+    The value type is ``float | str`` (not ``float``) because callers add the
+    ``contestant`` id string to this dict before it enters ``rank_metrics``.
+    """
     stats = dict(entry.stats)
     return {
         "survival_alive": 1.0 if entry.survival_alive else 0.0,

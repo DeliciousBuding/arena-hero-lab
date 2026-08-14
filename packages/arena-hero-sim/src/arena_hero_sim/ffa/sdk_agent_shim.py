@@ -28,7 +28,7 @@ import time
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
+from typing import Final, cast
 
 from .observation import Observation
 from .sdk_bridge import observation_to_sdk_state, sdk_plan_to_ffa
@@ -293,8 +293,8 @@ class SdkAgentStrategy:
                 f"{_SDK_TURN_TIMEOUT_SECONDS:.0f}s decision limit; stderr={stderr}"
             )
         if "_error" in outcome:
-            raise outcome["_error"]  # type: ignore[misc]
-        return outcome["plan"]  # type: ignore[return-value]
+            raise cast(BaseException, outcome["_error"])
+        return cast(dict[str, object], outcome["plan"])
 
     def _start_io_thread(self) -> None:
         """Serve stdin write + stdout read pairs from the request queue."""

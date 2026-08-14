@@ -16,6 +16,7 @@ import argparse
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from arena_hero_sim.ffa.bench_report import build_bench_payload, extract_match_obs
 from arena_hero_sim.ffa.contestants import HunterBot
@@ -36,13 +37,14 @@ from arena_hero_sim.ffa.stage_metrics import aggregate_stages, extract_match_sta
 INTERNAL_ROSTER: tuple[str, ...] = (*PUBLIC_ROSTER, "python", "hunter")
 
 
-def build_internal_contestants():
+def build_internal_contestants() -> tuple[dict[str, Any], list[Any]]:
     contestants, sdk = build_public_leaderboard_contestants()
+    closables: list[Any] = list(sdk)
     python = PythonAgentStrategy()
     contestants["python"] = python
     contestants["hunter"] = HunterBot()
-    sdk.append(python)
-    return contestants, sdk
+    closables.append(python)
+    return contestants, closables
 
 
 def run_internal(seeds: list[int], out_dir: Path) -> dict:

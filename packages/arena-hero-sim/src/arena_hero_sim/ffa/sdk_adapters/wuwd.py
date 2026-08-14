@@ -8,7 +8,7 @@ strategy.  Pinned at commit c2531fb.
 
 from __future__ import annotations
 
-import arena_farmer as wuwd
+import arena_farmer as wuwd  # type: ignore
 
 
 class Adapter:

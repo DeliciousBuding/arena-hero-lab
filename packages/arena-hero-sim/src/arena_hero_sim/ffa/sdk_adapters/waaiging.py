@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import arena_hero_strategy as waaiging
+import arena_hero_strategy as waaiging  # type: ignore
 
 
 class Adapter:

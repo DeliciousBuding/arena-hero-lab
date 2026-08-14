@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import arena_core_agent as guide
+import arena_core_agent as guide  # type: ignore
 
 
 class Adapter:

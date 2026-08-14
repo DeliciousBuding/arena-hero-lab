@@ -49,7 +49,8 @@ def _load_strategies() -> types.ModuleType:
     # the heuristic shares config/vision/observation with the FFA host.
     from . import config, observation, vision
 
-    sys.modules.setdefault("ahsim", sys.modules[__package__])
+    package_name = __package__ if __package__ is not None else __name__
+    sys.modules.setdefault("ahsim", sys.modules[package_name])
     sys.modules.setdefault("ahsim.config", config)
     sys.modules.setdefault("ahsim.observation", observation)
     sys.modules.setdefault("ahsim.vision", vision)

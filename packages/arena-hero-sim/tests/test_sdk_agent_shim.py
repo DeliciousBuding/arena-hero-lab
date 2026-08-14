@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 import pytest
 
 from arena_hero_sim.ffa.observation import Observation
@@ -61,6 +63,7 @@ def test_sdk_agent_decides_and_maps_plan(agent_id: str) -> None:
         plan = strategy.decide(_obs(tick=10))
         assert isinstance(plan, dict)
         assert "core" in plan and "units" in plan
-        assert all(isinstance(uid, int) for uid in plan["units"])
+        units = cast(dict[Any, Any], plan["units"])
+        assert all(isinstance(uid, int) for uid in units)
     finally:
         strategy.close()
