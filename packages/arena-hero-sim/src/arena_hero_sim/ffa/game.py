@@ -28,6 +28,7 @@ class Game:
         resource_scale=1.0,
         resource_replenish_every=RESOURCE_REPLENISH_EVERY,
         respawn_style="ring",
+        rule_variant=None,
     ):
         """strategies: {player_id: Strategy}（至少 2 个玩家）。
 
@@ -58,7 +59,7 @@ class Game:
         )
         half = size // 2
         self.bounds = (-half, half - 1, -half, half - 1)
-        self.engine = Engine(self.world, respawn_style=respawn_style)
+        self.engine = Engine(self.world, respawn_style=respawn_style, rule_variant=rule_variant)
         self.strategies = strategies
         self.max_ticks = max_ticks
         self.tick = 0

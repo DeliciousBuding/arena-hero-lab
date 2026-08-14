@@ -30,9 +30,15 @@ from .vision import is_shot_line, shot_intermediate_cells
 
 
 class Engine:
-    def __init__(self, world, respawn_style="ring"):
+    def __init__(self, world, respawn_style="ring", rule_variant: str | None = None):
         self.world = world
         self.respawn_style = respawn_style
+        # Opt-in rule perturbation for the robustness study (Phase 1).  None is
+        # the frozen v0.14 baseline; the variants flip one rule at a time so the
+        # study can isolate which rule a ranking depends on:
+        #   "flat-price"  -> dynamic unit pricing disabled (base cost always)
+        #   "paid-respawn" -> the respawn worker is charged instead of free
+        self.rule_variant = rule_variant
         self._spawn_rng = random.Random(f"{world.seed}:barren-respawn")
         self.cargo = {}  # (x, y) -> amount（死 Worker 掉落）
         self._beacon = None
@@ -774,7 +780,10 @@ class Engine:
                 utype = args["unit_type"]
                 # 动态单位价格（rules v0.14）：N = 当前存活单位数
                 # （同 Tick 自毁/战斗死亡已先结算）
-                cost = unit_cost(UNIT_STATS[utype]["cost"], p.population)
+                if self.rule_variant == "flat-price":
+                    cost = UNIT_STATS[utype]["cost"]
+                else:
+                    cost = unit_cost(UNIT_STATS[utype]["cost"], p.population)
                 if core.resources < cost:
                     events.append(
                         {
@@ -832,6 +841,8 @@ class Engine:
             p.core = core
             w = Unit(p.player_id, "WORKER", pos)
             p.units[w.uid] = w
+            if self.rule_variant == "paid-respawn":
+                core.resources = max(0, core.resources - UNIT_STATS["WORKER"]["cost"])
             events.append({"type": "CORE_RESPAWNED", "player": p.player_id, "at": pos})
 
     def _find_barren_spawn(self, players, me, min_distance=40, attempts=4000):

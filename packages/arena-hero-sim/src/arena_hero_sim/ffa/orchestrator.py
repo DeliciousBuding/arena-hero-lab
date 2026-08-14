@@ -190,6 +190,7 @@ def run_ffa(
     resource_scale: float = 1.0,
     resource_replenish_every: int = RESOURCE_REPLENISH_EVERY,
     respawn_style: str = "ring",
+    rule_variant: str | None = None,
     progress_callback: Callable[[int], None] | None = None,
 ) -> FfaReport:
     """Run one free-for-all match in a shared world and return a report.
@@ -223,6 +224,7 @@ def run_ffa(
         resource_scale=resource_scale,
         resource_replenish_every=resource_replenish_every,
         respawn_style=respawn_style,
+        rule_variant=rule_variant,
     )
 
     initial_resources: dict[str, int] = {}
