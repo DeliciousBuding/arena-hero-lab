@@ -9,8 +9,26 @@ deterministic terminal row with decisions actually exercised.
 
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
+
 from arena_hero_sim.ffa import RandomBot, run_ffa
 from arena_hero_sim.ffa.evolve_shim import EvolveHeuristicStrategy
+
+_EVOLVE_GENES = (
+    Path(__file__).resolve().parents[4]
+    / "reference"
+    / "third-party"
+    / "arena-evolve"
+    / "genes"
+    / "evolve_v7_best.json"
+)
+
+pytestmark = pytest.mark.skipif(
+    not _EVOLVE_GENES.is_file(),
+    reason="reference/third-party/arena-evolve not present (vendored workspace dependency)",
+)
 
 
 def _smoke(ticks: int = 50):
