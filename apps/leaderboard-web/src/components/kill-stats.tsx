@@ -92,7 +92,7 @@ export function KillStats({ contestantId }: { contestantId: string }) {
           <StatValue className="text-base">
             {stats.topVictim ? stats.topVictim.label : "—"}
           </StatValue>
-          <StatHint>{stats.topVictim ? `${stats.topVictim.count} 次击杀` : "无斩首"}</StatHint>
+          <StatHint>{stats.topVictim ? `${stats.topVictim.count} 次击杀` : "时序未记录"}</StatHint>
         </Stat>
         <Stat>
           <StatLabel>主要威胁</StatLabel>
