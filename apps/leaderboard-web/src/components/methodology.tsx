@@ -20,7 +20,7 @@ export function Methodology() {
     },
     {
       title: "评测规模",
-      text: `${totalMatches} 场 = ${benchData.scenarios.length} 个互不相同场景 × ${benchData.params.seeds.length} 种子 × 2000 ticks；长期对抗 / 大混战 / 荒区重生为 opt-in 专场`,
+      text: `${totalMatches} 场 = ${benchData.scenarios.length} 个互不相同场景 × ${benchData.params.seeds.length} 种子 × ${benchData.params.ticks} ticks；长期对抗 / 大混战 / 荒区重生为 opt-in 专场`,
     },
   ];
 

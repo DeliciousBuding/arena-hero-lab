@@ -14,7 +14,7 @@ const PLAYER_COLORS = [
   "var(--color-rank-silver)",
   "var(--color-rank-bronze)",
   "var(--color-muted-foreground)",
-  "var(--color-border-strong)",
+  "var(--color-border)",
   "#8a7a5a",
   "#5a6a8a",
 ];

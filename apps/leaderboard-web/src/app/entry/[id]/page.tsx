@@ -110,7 +110,7 @@ export default async function EntryPage({
               <Badge variant="outline" className="tnum">{contestant.id}</Badge>
               <Badge variant="brand" className="gap-1">
                 <Trophy className="h-3 w-3" />
-                社区第三方 agent
+                {contestant.kind === "control" ? "对照 bot" : "社区第三方 agent"}
               </Badge>
             </div>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
@@ -182,7 +182,7 @@ export default async function EntryPage({
                 );
               })}
               <p className="pt-1 text-[11px] leading-relaxed text-muted-foreground">
-                综合分 = rank 60% + kill 30% + economy 10%（v3 公式）。维度排名由各分项在全体主榜中的降序位置得出。
+                综合分 = rank 60% + kill 30% + economy 10%。维度排名由各分项在全体主榜中的降序位置得出。
               </p>
             </div>
           </div>

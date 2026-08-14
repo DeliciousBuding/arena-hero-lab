@@ -75,7 +75,7 @@ export function AppChrome() {
     if (!href.includes("#")) {
       return pathname === href;
     }
-    if (href === "/#rankings" && activeSection === null) {
+    if (href === "/#rankings" && activeSection === null && pathname === "/") {
       return true;
     }
     return activeSection === href.slice(2);

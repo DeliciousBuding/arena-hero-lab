@@ -112,17 +112,9 @@ export function ScoreBars({ entries }: { entries: ScoreBarEntry[] }) {
                   })}
                   <text
                     x={cx}
-                    y={CHART_HEIGHT - PAD.bottom + 20}
+                    y={CHART_HEIGHT - PAD.bottom + 24}
                     textAnchor="middle"
                     style={{ fontSize: 11, fill: "var(--color-foreground)" }}
-                  >
-                    {entry.label}
-                  </text>
-                  <text
-                    x={cx}
-                    y={CHART_HEIGHT - PAD.bottom + 34}
-                    textAnchor="middle"
-                    style={{ fontSize: 9.5, fill: "var(--color-muted-foreground)" }}
                   >
                     {entry.id}
                   </text>

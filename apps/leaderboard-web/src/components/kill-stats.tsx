@@ -23,9 +23,15 @@ function aggregateKillStats(contestantId: string): KillAggregate {
   const killerCounts = new Map<string, number>();
   for (const scenario of benchData.scenarios) {
     for (const match of scenario.matches) {
+      // Total kills come from the terminal player stats (always available);
+      // per-victim/killer breakdown requires killEvents (may be empty if the
+      // battery was run before the kill-event derivation fix).
+      const playerStats = match.players?.[contestantId];
+      if (playerStats) {
+        kills += playerStats.kills ?? 0;
+      }
       for (const event of match.killEvents ?? []) {
         if (event.destroyedBy.includes(contestantId)) {
-          kills += 1;
           if (event.victim !== undefined && event.victim !== contestantId) {
             victimCounts.set(event.victim, (victimCounts.get(event.victim) ?? 0) + 1);
           }

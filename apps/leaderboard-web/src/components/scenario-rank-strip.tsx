@@ -3,10 +3,10 @@ import { cn } from "@/lib/utils";
 
 /** 名次 → 徽章色（1 金 / 2 银 / 3 铜 / 其余中性）。 */
 function rankColor(rank: number): string {
-  if (rank <= 1) return "bg-rank-gold text-rank-gold";
-  if (rank <= 2) return "bg-rank-silver text-rank-silver";
-  if (rank <= 3) return "bg-rank-bronze text-rank-bronze";
-  return "bg-muted-foreground/15 text-muted-foreground";
+  if (rank <= 1) return "text-rank-gold";
+  if (rank <= 2) return "text-rank-silver";
+  if (rank <= 3) return "text-rank-bronze";
+  return "text-muted-foreground";
 }
 
 /**

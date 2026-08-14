@@ -157,30 +157,45 @@ def _first_kill_ticks(trace: list[dict], roster: Sequence[str]) -> dict[str, int
 def _kill_events(trace: list[dict], roster: Sequence[str]) -> list[dict]:
     """Derive core-destruction events with killer attribution.
 
-    Attribution uses the cumulative ``core_kills`` stat recorded per tick: the
-    engine increments the winner's ``core_kills`` in the same tick it destroys
-    a victim's core, so a delta between consecutive frames identifies the
-    killer exactly.
+    Cores can be destroyed and respawned within the same tick (respawn is the
+    last engine step), so an alive=True→False transition is invisible in the
+    end-of-tick frame.  Instead we detect kills via two independent signals:
+
+    1. ``core_kills`` stat delta → identifies the killer.
+    2. ``core.uid`` change (or core disappearance) → identifies the victim
+       (a respawned core has a new uid because ``Core.__init__`` calls
+       ``next_id()``).
     """
     events: list[dict] = []
-    prev_alive = {cid: True for cid in roster}
-    prev_kills = {cid: 0 for cid in roster}
+    prev_kills: dict[str, int] = {cid: 0 for cid in roster}
+    prev_core_uid: dict[str, object] = {cid: None for cid in roster}
     for frame in trace:
         tick = int(frame.get("tick", 0))
-        players = frame.get("players", {})
-        curr_alive: dict[str, bool] = {}
+        players_raw = frame.get("players")
+        players: dict[str, dict] = players_raw if isinstance(players_raw, dict) else {}
         curr_kills: dict[str, int] = {}
-        for cid, player in players.items():
-            curr_alive[cid] = bool(player.get("alive"))
-            curr_kills[cid] = int((player.get("stats") or {}).get("core_kills", 0))
+        curr_core_uid: dict[str, object] = {}
         for cid in roster:
-            was = prev_alive.get(cid, True)
-            now = curr_alive.get(cid, True)
-            if was and not now:
-                killers = [k for k in roster if curr_kills.get(k, 0) > prev_kills.get(k, 0)]
-                events.append({"tick": tick, "victim": cid, "destroyedBy": killers})
-        prev_alive = curr_alive
+            p = players.get(cid) or {}
+            stats = p.get("stats") or {}
+            curr_kills[cid] = int(stats.get("core_kills", 0))
+            core = p.get("core")
+            curr_core_uid[cid] = core.get("uid") if isinstance(core, dict) else None
+        killers = [k for k in roster if curr_kills.get(k, 0) > prev_kills.get(k, 0)]
+        victims: list[str] = []
+        for cid in roster:
+            prev_uid = prev_core_uid.get(cid)
+            curr_uid = curr_core_uid.get(cid)
+            if prev_uid is not None and curr_uid != prev_uid:
+                victims.append(cid)
+        if killers or victims:
+            events.append({
+                "tick": tick,
+                "victim": victims[0] if victims else None,
+                "destroyedBy": killers,
+            })
         prev_kills = curr_kills
+        prev_core_uid = curr_core_uid
     return events
 
 

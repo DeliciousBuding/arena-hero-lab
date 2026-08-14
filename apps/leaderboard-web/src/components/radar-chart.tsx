@@ -5,8 +5,8 @@ export interface RadarValue {
 }
 
 /**
- * v3 四维雷达图：纯 SVG 渲染（服务端可执行）。
- * 维度为 kill / rank / economy / survival 四项 0–1 分数，
+ * 三维雷达图：纯 SVG 渲染（服务端可执行）。
+ * 维度为 kill / rank / economy 三项 0–1 分数（survival 恒 1.0 已弃用），
  * 网格环 25/50/75/100%，值为 0 的顶点收缩到圆心。
  * 颜色取自设计 token（brand 渐变 → rank-bronze）。
  */
@@ -40,7 +40,7 @@ export function RadarChart({
       width={size}
       height={size}
       role="img"
-      aria-label="v3 四维分数雷达图"
+      aria-label="三维分数雷达图"
       className="mx-auto"
     >
       <defs>
