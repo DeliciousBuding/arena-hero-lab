@@ -24,6 +24,12 @@ function pct(v: number): string {
 function rowFor(entry: LeaderboardRow, dim: SortDimension, rank: number): RankBarRow {
   const contestant = contestantOf(entry.contestantId);
   const option = DIM_OPTIONS.find((o) => o.key === dim) ?? DIM_OPTIONS[0];
+  // 综合分视图附 bootstrap 95% 置信区间（按场次重采样，非按选手行重采样）。
+  const band = benchData.bootstrap?.[entry.contestantId];
+  const ciText =
+    dim === "composite" && band
+      ? ` · 95% CI ${(band.composite[0] * 100).toFixed(1)}–${(band.composite[1] * 100).toFixed(1)}%`
+      : "";
   return {
     rank,
     id: entry.contestantId,
@@ -32,7 +38,7 @@ function rowFor(entry: LeaderboardRow, dim: SortDimension, rank: number): RankBa
     value: entry[dim] as number,
     ascending: option.ascending,
     primary: dim === "avgRank" ? entry.avgRank.toFixed(2) : pct(entry[dim] as number),
-    secondary: `均排 ${entry.avgRank.toFixed(2)} · 综合 ${pct(entry.composite)}`,
+    secondary: `均排 ${entry.avgRank.toFixed(2)} · 综合 ${pct(entry.composite)}${ciText}`,
     href: `/entry/${entry.contestantId}`,
     repoUrl: contestant?.repoUrl,
   };
@@ -62,7 +68,7 @@ export function RankingsSection() {
         id="rankings"
         title="Overall Rankings"
         enTitle="综合排名"
-        description="按综合分（v3 composite）排序，可切换维度查看不同视角；点击条目进入详情页。"
+        description="按综合分（composite）排序，可切换维度查看不同视角；点击条目进入详情页。"
         action={
           <div className="inline-flex rounded-md border border-border bg-secondary/50 p-1">
             {DIM_OPTIONS.map((option) => (

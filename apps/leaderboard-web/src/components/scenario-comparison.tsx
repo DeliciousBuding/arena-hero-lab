@@ -21,7 +21,7 @@ export function ScenarioComparison({ limit }: { limit?: number }) {
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
       {scenarios.map((scenario) => {
-        /** 全部参赛条目（统一主榜，含 legacy TypeScript contestant），按场景内平均名次排序。 */
+        /** 全部参赛条目（统一主榜），按场景内平均名次排序。 */
         const entries = [...benchData.leaderboard]
           .map((row) => ({ row, stat: scenario.perEntry[row.contestantId] }))
           .filter((e): e is { row: (typeof benchData.leaderboard)[number]; stat: NonNullable<typeof e.stat> } =>

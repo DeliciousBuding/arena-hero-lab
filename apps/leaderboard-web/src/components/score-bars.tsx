@@ -49,7 +49,7 @@ export function ScoreBars({ entries }: { entries: ScoreBarEntry[] }) {
           </span>
         ))}
         <span className="text-xs text-muted-foreground">
-          分数为 0–1 归一化（v3 composite 分项）· 悬浮查看精确值
+          分数为 0–1 归一化（composite 分项）· 悬浮查看精确值
         </span>
       </div>
 

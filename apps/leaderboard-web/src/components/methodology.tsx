@@ -8,18 +8,19 @@ import { SectionHeader } from "@/components/section-header";
  */
 export function Methodology() {
   const totalMatches = benchData.scenarios.reduce((n, s) => n + s.matches.length, 0);
+  const subBoardCount = Object.keys(benchData.subLeaderboards ?? {}).length;
   const rows: { title: string; text: string }[] = [
     {
       title: "综合分公式",
-      text: "rank 60% + kill 30% + economy 10%（v3 composite）",
+      text: "rank 60% + kill 30% + economy 10%，同池 0-1 归一化（composite）；名次与综合分附 1000 次 bootstrap 95% 置信区间",
     },
     {
       title: "胜负判定",
-      text: `每场 ${benchData.params.players} 条目同场对抗，资源结算最高者胜`,
+      text: "每场同场对抗，判定链：存活 → 核心击杀 → 上交 → 资源 → 人口；同分同排",
     },
     {
       title: "评测规模",
-      text: `${totalMatches} 场 = ${benchData.scenarios.length} 场景 × ${benchData.params.seeds.length} 种子 × ${benchData.params.ticks.toLocaleString("zh-CN")} ticks`,
+      text: `${totalMatches} 场 = ${benchData.scenarios.length} 个互不相同场景 × ${benchData.params.seeds.length} 种子 × 2000 ticks；长期对抗 / 大混战 / 荒区重生为 opt-in 专场`,
     },
   ];
 
@@ -29,7 +30,7 @@ export function Methodology() {
         id="methodology"
         title="Methodology"
         enTitle="评测方法"
-        description="数据来源为 arena.bench.report.v3 评测产物（确定性转换，无 mock）。"
+        description={`数据来源为 arena.bench.report.v4 内容寻址评测产物（确定性，无 mock）。总榜 1 张 + 阶段/策略小榜 ${subBoardCount} 张，全部同池归一化。`}
       />
       <Card className="p-6">
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">

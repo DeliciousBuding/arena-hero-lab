@@ -1,0 +1,59 @@
+{
+  "contestants": {
+    "drew-z": {
+      "git_head": "4374331456e5adf84975cb298d0cbd01a0a6d366",
+      "kind": "third-party",
+      "repo": "reference/third-party/arena-hero-agent"
+    },
+    "evolve": {
+      "git_head": "bef407ebe1dd98f409763b72f17a1687d3e7777d",
+      "kind": "third-party",
+      "repo": "reference/third-party/arena-evolve"
+    },
+    "guide": {
+      "git_head": "735f640ab1a2fef792edc30aaee7214a313f934c",
+      "kind": "third-party",
+      "repo": "reference/third-party/arena-hero-guide"
+    },
+    "massarmy": {
+      "git_head": "0e351f6c9811bc97f333d71e1cd931d3807664b4",
+      "kind": "third-party",
+      "repo": "reference/third-party/arena-hero-agent-massarmy"
+    },
+    "rand": {
+      "git_head": null,
+      "kind": "control",
+      "repo": null
+    },
+    "tactic": {
+      "git_head": "beff52e6014b071a2cefc459c2e51c3bd111ed14",
+      "kind": "third-party",
+      "repo": "reference/third-party/arena-hero-tactic"
+    },
+    "waaiging": {
+      "git_head": "54fb956fba1c802bbb029c21c6d77eef627f8bb7",
+      "kind": "third-party",
+      "repo": "reference/third-party/arena-hero-clone-waaiging"
+    },
+    "wait": {
+      "git_head": null,
+      "kind": "control",
+      "repo": null
+    },
+    "wuwd": {
+      "git_head": "c2531fb69b2b008d74ceddfc960b4cade4d56e12",
+      "kind": "third-party",
+      "repo": "reference/third-party/arena-hero-agent-wuwd"
+    }
+  },
+  "evolve_genes_sha256": "1e3ed5ffbba906c6b8fc336d7defe6ca1331e47c040686a1c6df289874a1f1b0",
+  "generated_at": "2026-08-14T16:59:52.417696+00:00",
+  "lab_git_head": "4908dcf94a94e590d6d4e8c42381252c0695babc",
+  "schema": "arena.leaderboard.manifest.v1",
+  "sdk": {
+    "git_head": "96fc85bc6097fedb48697de058b704608af1fddd",
+    "repo": "arena-hero-sdk-py",
+    "version": "0.3.0a4"
+  },
+  "sim_generator_version": "0.2.0"
+}

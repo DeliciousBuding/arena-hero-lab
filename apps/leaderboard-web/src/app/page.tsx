@@ -3,6 +3,7 @@ import { Heatmap } from "@/components/heatmap";
 import { Methodology } from "@/components/methodology";
 import { RankingsSection } from "@/components/rankings-section";
 import { ScenarioSection } from "@/components/scenario-section";
+import { SubLeaderboards } from "@/components/sub-leaderboards";
 import { ScoreBars, type ScoreBarEntry } from "@/components/score-bars";
 import { SectionHeader } from "@/components/section-header";
 import { ACTIVE_SCORE_DIMENSIONS, benchData, contestantOf } from "@/lib/bench";
@@ -33,6 +34,20 @@ export default function HomePage() {
     minute: "2-digit",
   });
 
+  const allTicks = benchData.scenarios.flatMap((s) =>
+    s.matches.flatMap((m) =>
+      m.perTickSamples && m.perTickSamples.length > 0
+        ? [m.perTickSamples[m.perTickSamples.length - 1].tick]
+        : [],
+    ),
+  );
+  const tickLo = allTicks.length ? Math.min(...allTicks) : benchData.params.ticks;
+  const tickHi = allTicks.length ? Math.max(...allTicks) : benchData.params.ticks;
+  const tickLabel =
+    tickLo === tickHi
+      ? tickLo.toLocaleString("zh-CN")
+      : `${tickLo.toLocaleString("zh-CN")}–${tickHi.toLocaleString("zh-CN")}`;
+
   return (
     <div className="container-page px-4 py-10 sm:px-6">
       {/* ===== Hero ===== */}
@@ -50,7 +65,7 @@ export default function HomePage() {
         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground tnum">
           <span>
             {benchData.leaderboard.length} 条目同场 · {benchData.params.seeds.length} 种子 ×{" "}
-            {benchData.params.ticks.toLocaleString("zh-CN")} ticks · {totalMatches} 场
+            {tickLabel} ticks · {totalMatches} 场
           </span>
           <span className="hidden h-3 w-px bg-border-faint sm:block" />
           <span>schema {benchData.schema}</span>
@@ -65,13 +80,16 @@ export default function HomePage() {
       {/* ===== 2. 场景榜（前 4 卡 + 展开） ===== */}
       <ScenarioSection />
 
+      {/* ===== 2.5 阶段 / 策略小榜 ===== */}
+      <SubLeaderboards />
+
       {/* ===== 3. 三维画像 ===== */}
       <section className="mb-16">
         <SectionHeader
           id="scores"
           title="Score Profile"
           enTitle="三维画像"
-          description="击杀 / 名次 / 经济 三项归一化分数（0–100%）。生存维度 v3 评测规则下恒 1.0 无区分度，已弃用不展示。"
+          description="击杀 / 名次 / 经济 三项归一化分数（0–100%）。生存维度在本引擎（核心可重生）下恒 1.0 无区分度，已弃用不展示。"
         />
         <ScoreBars entries={scoreEntries()} />
       </section>

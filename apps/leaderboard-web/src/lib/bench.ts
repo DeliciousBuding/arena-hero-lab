@@ -1,14 +1,14 @@
 /**
  * 静态数据层：直接 import scripts/convert.mts 生成的 bench.json。
- * 所有展示数字均来自 arena.bench.report.v3 评测产物，不包含任何 mock 数据。
+ * 所有展示数字均来自 arena.bench.report.v4 评测产物，不包含任何 mock 数据。
  */
 import rawBench from "@/data/bench.json";
 
 export interface Contestant {
   id: string;
   label: string;
-  /** 展示层统一为第三方 agent（legacy TypeScript contestant 与社区实现同等待遇）。 */
-  kind: "python";
+  /** python = 第三方社区 agent；control = 确定性对照 bot。 */
+  kind: "python" | "control" | "ours";
   configNote: string;
   /** GitHub 仓库（社区 agent 第三方来源；v3.1，convert 侧映射）。 */
   repoUrl?: string;
@@ -33,6 +33,12 @@ export interface LeaderboardRow {
   /** v2 兼容字段：v3 恒 1.0（展示时标注已弃用） */
   survivalScore: number;
   scenarioRanks: Record<string, number | null>;
+}
+
+/** 1000 次 bootstrap 重采样得到的 95% 置信区间（2.5 / 97.5 分位）。 */
+export interface BootstrapBand {
+  composite: [number, number];
+  rank: [number, number];
 }
 
 /** v3 场景级 perEntry 指标（与 results.json 契约一致，null = 未参赛） */
@@ -113,6 +119,14 @@ export interface BenchmarkScenario {
   matches: BenchmarkMatch[];
 }
 
+export interface SubLeaderboardRow {
+  rank: number;
+  contestant: string;
+  score: number;
+  components: Record<string, number>;
+  raw: Record<string, number>;
+}
+
 export interface BenchmarkData {
   schema: string;
   generatedAt: string;
@@ -127,9 +141,13 @@ export interface BenchmarkData {
   };
   contestants: Contestant[];
   leaderboard: LeaderboardRow[];
+  /** 阶段/策略小榜：early_economy / mid_game / late_game / military。 */
+  subLeaderboards: Record<string, SubLeaderboardRow[]>;
   scenarios: BenchmarkScenario[];
   entryScenarioStats: Record<string, Record<string, EntryScenarioStat>>;
   scenarioOrder: string[];
+  /** 综合分 / 名次的 bootstrap 95% 置信区间（旧产物可能缺失）。 */
+  bootstrap?: Record<string, BootstrapBand>;
 }
 
 export const benchData = rawBench as unknown as BenchmarkData;

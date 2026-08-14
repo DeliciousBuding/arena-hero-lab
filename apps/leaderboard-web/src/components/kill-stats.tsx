@@ -15,7 +15,7 @@ function contestantLabel(id: string): string {
   return benchData.contestants.find((c) => c.id === id)?.label ?? id;
 }
 
-/** 聚合该 entry 跨全部 35 场的击杀/被击杀统计 */
+/** 聚合该 entry 跨全部场次的击杀/被击杀统计 */
 function aggregateKillStats(contestantId: string): KillAggregate {
   let kills = 0;
   let deaths = 0;
@@ -57,7 +57,7 @@ function aggregateKillStats(contestantId: string): KillAggregate {
   };
 }
 
-/** 击杀贡献统计面板（server component，跨 35 场聚合 killEvents） */
+/** 击杀贡献统计面板（server component，跨全部场次聚合 killEvents） */
 export function KillStats({ contestantId }: { contestantId: string }) {
   const stats = aggregateKillStats(contestantId);
   const totalMatches = benchData.scenarios.reduce((n, s) => n + s.matches.length, 0);
