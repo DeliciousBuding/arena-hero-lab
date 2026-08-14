@@ -112,6 +112,53 @@ def _git_head(rel: str) -> str:
     return proc.stdout.strip() if proc.returncode == 0 else "unavailable"
 
 
+def _git_dirty(rel: str) -> bool:
+    """True when the repo working tree has uncommitted changes.
+
+    ``git rev-parse HEAD`` alone is insufficient to reproduce a run launched
+    from a dirty tree (the v3 production scenarios were first run before they
+    were committed), so the manifest records this flag plus a content-address
+    of the actual source files (see ``_lab_source_sha256``).
+    """
+    repo = _ARENA_ROOT / rel
+    if not (repo / ".git").exists():
+        return False
+    proc = subprocess.run(
+        ["git", "-C", str(repo), "status", "--porcelain"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return proc.returncode == 0 and bool(proc.stdout.strip())
+
+
+def _lab_source_sha256() -> str:
+    """Content-address the sim-relevant lab source files (path + bytes).
+
+    Covers the files that actually determine match outcomes — the sim package
+    and the battery scripts — so a reader can reproduce a run even when it was
+    launched from an uncommitted working tree.  Deterministic: same files ->
+    same digest.
+    """
+    repo = _ARENA_ROOT / "arena-hero-lab"
+    proc = subprocess.run(
+        ["git", "-C", str(repo), "ls-files", "packages/arena-hero-sim/src", "scripts"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return "unavailable"
+    digests = {}
+    for rel in proc.stdout.splitlines():
+        path = repo / rel
+        if path.is_file():
+            digests[rel] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return hashlib.sha256(
+        json.dumps(digests, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+
+
 def _sdk_python() -> str:
     for candidate in (
         _ARENA_ROOT / _SDK_REPO / ".venv" / "Scripts" / "python.exe",
@@ -162,6 +209,8 @@ def build_manifest() -> dict:
             "version": _sdk_version(),
         },
         "lab_git_head": _git_head("arena-hero-lab"),
+        "lab_working_tree_dirty": _git_dirty("arena-hero-lab"),
+        "lab_source_sha256": _lab_source_sha256(),
     }
 
 

@@ -48,7 +48,9 @@
   },
   "evolve_genes_sha256": "1e3ed5ffbba906c6b8fc336d7defe6ca1331e47c040686a1c6df289874a1f1b0",
   "generated_at": "2026-08-14T18:14:36.088329+00:00",
-  "lab_git_head": "e23a6e81a080ed7d4816440f2f42515c74facc93",
+  "lab_git_head": "b2ed95c6ac2380dc59772c038dd0f2dd36dec669",
+  "lab_working_tree_dirty": true,
+  "note": "lab_git_head corrected post-run: the manifest was captured at battery start (02:13) when HEAD was e23a6e8 (pre-v3); the v3 production scenarios were still uncommitted in the working tree and were later committed as b2ed95c. The sim code that actually produced these results is b2ed95c. See docs/progress/LOG.md.",
   "schema": "arena.leaderboard.manifest.v1",
   "sdk": {
     "git_head": "96fc85bc6097fedb48697de058b704608af1fddd",
