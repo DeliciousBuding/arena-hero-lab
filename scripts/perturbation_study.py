@@ -46,7 +46,9 @@ def _lab_scenarios() -> tuple[ScenarioPreset, ...]:
     return tuple(s for s in SCENARIOS if s.size == 256)
 
 
-def _run_one(args: tuple[ScenarioPreset, str | None, int]) -> tuple[str, str | None, int, list[dict]]:
+def _run_one(
+    args: tuple[ScenarioPreset, str | None, int],
+) -> tuple[str, str | None, int, list[dict]]:
     scenario, variant, seed = args
     contestants, sdk = build_public_leaderboard_contestants()
     try:
