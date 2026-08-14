@@ -32,7 +32,7 @@ same command on each slice, copy the ``results/`` files back and re-aggregate.
 Usage:
     uv run python scripts/leaderboard_battery.py --seeds 0 1 2
     uv run python scripts/leaderboard_battery.py --seeds 0 1 2 --workers 6
-    uv run python scripts/leaderboard_battery.py --seeds 0 1 2 3 4 5 6 7 8 9 --out-dir C:/Users/Ding/tmp/arena-lb
+    uv run python scripts/leaderboard_battery.py --seeds 0 1 2 3 4 5 6 7 8 9 --out-dir artifacts/leaderboard
 """
 
 from __future__ import annotations

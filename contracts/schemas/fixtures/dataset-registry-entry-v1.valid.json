@@ -8,7 +8,7 @@
   "rulesVersion": "v0.11",
   "rulesManifestHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "sourceCommit": "cccccccccccccccccccccccccccccccccccccccc",
-  "engine": { "name": "arena-ts", "version": "0.2.0" },
+  "engine": { "name": "legacy-ts", "version": "0.2.0" },
   "processRunIds": ["process-run-1", "process-run-2"],
   "runIds": ["logical-run-1", "logical-run-2"],
   "tickRange": { "first": 10, "last": 20 },

@@ -83,7 +83,7 @@
       "additionalProperties": false,
       "required": ["name", "version"],
       "properties": {
-        "name": { "enum": ["arena-ts", "arena-rs"] },
+        "name": { "enum": ["legacy-ts", "legacy-rs"] },
         "version": { "type": "string", "minLength": 1 }
       }
     },

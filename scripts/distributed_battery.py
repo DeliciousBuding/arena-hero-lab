@@ -18,14 +18,14 @@ env var:
     ]
 
 ``python``/``script``/``out`` are remote paths (out is wiped + recreated per
-run).  Windows hosts add ``"posix": false`` and use e.g.
-``"python": "C:/Users/x/.../.venv/Scripts/python.exe"`` (launch is then skipped;
-start the battery via the host's own scheduler and use ``status``/``collect``).
+run).  Windows hosts add ``"posix": false`` and point ``python`` at their local
+venv ``python.exe`` (launch is then skipped; start the battery via the host's
+own scheduler and use ``status``/``collect``).
 
 Usage:
     uv run python scripts/distributed_battery.py deploy --seeds 0 9
     uv run python scripts/distributed_battery.py status
-    uv run python scripts/distributed_battery.py collect --out-dir C:/Users/Ding/tmp/arena-lb-v5
+    uv run python scripts/distributed_battery.py collect --out-dir /tmp/arena-lb-v5
     uv run python scripts/distributed_battery.py run --seeds 0 9 --out-dir ...   (all-in-one)
 
 Deploy pushes the five battery-relevant files from this working tree; hosts must

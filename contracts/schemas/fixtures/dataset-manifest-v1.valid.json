@@ -7,7 +7,7 @@
   "rulesVersion": "v0.11",
   "rulesManifestHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "sourceCommit": "cccccccccccccccccccccccccccccccccccccccc",
-  "engine": { "name": "arena-ts", "version": "0.2.0" },
+  "engine": { "name": "legacy-ts", "version": "0.2.0" },
   "tickRange": { "first": 10, "last": 20 },
   "sourceRefs": [
     {

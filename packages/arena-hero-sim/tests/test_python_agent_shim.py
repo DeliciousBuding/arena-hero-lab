@@ -201,7 +201,7 @@ def test_python_agent_plays_a_real_ffa_match() -> None:
 
 
 def test_runner_argv_forwards_switches() -> None:
-    python = "C:\\agent\\python.exe"
+    python = "/opt/agent/python"
 
     argv_off = _runner_argv(python, False, False, False, False, False, False)
     assert argv_off[0] == python
