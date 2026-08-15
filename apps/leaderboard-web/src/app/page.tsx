@@ -1,4 +1,5 @@
 import { StaticLink } from "@/components/static-link";
+import { FriendLinks } from "@/components/friend-links";
 import { Heatmap } from "@/components/heatmap";
 import { Methodology } from "@/components/methodology";
 import { RankingsSection } from "@/components/rankings-section";
@@ -107,6 +108,9 @@ export default function HomePage() {
 
       {/* ===== 5. 评测方法（收尾闭环） ===== */}
       <Methodology />
+
+      {/* ===== 6. 友情链接（L站友链等） ===== */}
+      <FriendLinks />
     </div>
   );
 }
