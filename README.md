@@ -134,3 +134,11 @@ by their respective repositories and licenses.
 
 The leaderboard visual design was informed by the public
 [LM Arena leaderboard](https://arena.ai/leaderboard).
+
+## 友情链接 / Friend Links
+
+| 站点 | 说明 |
+| --- | --- |
+| [Linux DO](https://linux.do/) | 开放技术交流社区，Arena Hero 智能体开源分享与玩法讨论的聚集地 |
+| [Arena Hero 官网](https://app.arenahero.io/) | arena-hero 官方游戏入口：实时对局、段位与赛季玩法 |
+| [Arena Hero 文档](https://doc.arenahero.io/) | 官方规则文档与游戏玩法说明 |
