@@ -77,3 +77,13 @@
   唯一未透传的 contestant 身份属请求侧属性（work 信封每 request 已带 `contestant_ids`），
   补到 result 信封需改 `SimulationResult`（sim 契约）与 result 信封 schema 字段 →
   版本化信封协议变化，按指令 SKIP，不改协议。无代码改动。
+
+## 研究阶段 Phase 1/2a/2b/3（2026-08-14 起，均合入 master）
+
+- Phase 1 规则扰动稳健性：`1b531bc`（opt-in rule_variant）、`ccc1f67`（perturbation runner）、
+  `28922e8` / `d07e805`（修复 + 格式）。
+- Phase 2a no-controls 生态研究 runner：`8d3e3de`。
+- Phase 2b 1v1 head-to-head 与 FFA 一致性 runner：`44b2da8`。
+- Phase 3 30-seed 缩放本地 runner（lab battery + bootstrap CI）：`9ac0133`。
+- 结果：30-seed/120-match waaiging 0.934（95% CI 0.908–0.957）> massarmy 0.532
+  （0.487–0.581），冠亚军稳定、3–7 名 CI 重叠；FFA vs 1v1 Spearman ρ=+0.571。
