@@ -30,7 +30,7 @@ public repository; override with `NEXT_PUBLIC_BASE_PATH=""` for another host.
 
 ## Deployment
 
-- Pushing to `master` triggers the repository GitHub Actions Pages workflow, which builds
+- Pushing to `main` triggers the repository GitHub Actions Pages workflow, which builds
   and deploys the static export automatically.
 - `scripts/deploy-gh-pages.sh` is a manual legacy path that updates the `gh-pages` branch;
   on Windows it must be run with an explicit Git Bash or WSL bash.

@@ -77,7 +77,7 @@ pnpm convert:oracle
 python apps/leaderboard-web/scripts/release.py --force
 ```
 
-注意：推送到 `master` 也会触发现有的 GitHub Actions Pages 工作流（`.github/workflows/deploy.yml`），它会自动构建并部署静态导出到 GitHub Pages。`--deploy` 标志是额外的手动路径，CI 部署不需要它。
+注意：推送到 `main` 也会触发现有的 GitHub Actions Pages 工作流（`.github/workflows/deploy.yml`），它会自动构建并部署静态导出到 GitHub Pages。`--deploy` 标志是额外的手动路径，CI 部署不需要它。
 
 ## 公开排行榜
 
