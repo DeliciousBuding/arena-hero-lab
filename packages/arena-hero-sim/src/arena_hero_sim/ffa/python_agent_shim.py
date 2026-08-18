@@ -21,6 +21,7 @@ import json
 import os
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -65,6 +66,76 @@ def _beacon_canonical(beacon: dict[str, Any]) -> dict[str, Any]:
         "status": status,
         "carrier_id": None if carrier_id is None else str(carrier_id),
     }
+
+
+# Map FFA engine event types to the agent's canonical event kinds. Events not
+# in this table pass their ``type`` through unchanged so nothing is dropped.
+_EVENT_KIND = {
+    "MOVED": "UNIT_MOVE_SUCCEEDED",
+    "MOVE_BLOCKED": "UNIT_MOVE_FAILED",
+    "HARVESTED": "UNIT_HARVESTED",
+    "HARVEST_FAILED": "UNIT_HARVEST_FAILED",
+    "DEPOSITED": "UNIT_DEPOSITED",
+    "DEPOSIT_FAILED": "UNIT_DEPOSIT_FAILED",
+    "CORE_DESTROYED": "CORE_DESTROYED",
+    "CORE_MOVE_CANCELLED": "CORE_MOVE_CANCELLED",
+    "CORE_DAMAGED": "CORE_DAMAGED",
+    "UNIT_DAMAGED": "UNIT_DAMAGED",
+    "SHOT_MISSED": "UNIT_SHOT_MISSED",
+    "SPAWN_FAILED": "CORE_SPAWN_FAILED",
+    "BEACON_PICKED_UP": "BEACON_PICKED_UP",
+    "BEACON_DROPPED": "BEACON_DROPPED",
+}
+
+
+def _canonical_events(observation: Observation) -> list[dict[str, Any]]:
+    """Convert the sim's private resolution events to the agent's canonical form.
+
+    The FFA engine emits ``{"type", ...}`` dicts addressed to this player; the
+    agent's ``decode_event`` expects ``{id, tick, kind, reason, actor_id,
+    target_id, position}``. Event ids are deterministic UUID5s so replays stay
+    reproducible. Unit positions for MOVE_BLOCKED are recovered from the
+    observation's own units (the engine event carries only the uid).
+    """
+
+    raw_events = observation.prev_events or []
+    if not raw_events:
+        return []
+
+    position_by_uid: dict[Any, list[int]] = {}
+    for unit in observation.units:
+        position_by_uid[unit["uid"]] = _cell(unit["pos"])
+    if observation.core is not None:
+        position_by_uid[observation.core["uid"]] = _cell(observation.core["pos"])
+
+    canonical: list[dict[str, Any]] = []
+    for index, event in enumerate(raw_events):
+        event_type = event.get("type", "")
+        kind = _EVENT_KIND.get(event_type, event_type)
+        actor_uid = event.get("obj_id") or event.get("unit")
+        actor_id = None if actor_uid is None else str(actor_uid)
+        position = None
+        if event_type == "MOVED" and event.get("to") is not None:
+            position = _cell(event["to"])
+        elif actor_uid is not None and actor_uid in position_by_uid:
+            position = position_by_uid[actor_uid]
+        canonical.append(
+            {
+                "id": str(
+                    uuid.uuid5(
+                        uuid.NAMESPACE_URL,
+                        f"sim-event-{observation.tick}-{index}-{event_type}",
+                    )
+                ),
+                "tick": observation.tick,
+                "kind": kind,
+                "reason": event.get("reason"),
+                "actor_id": actor_id,
+                "target_id": None,
+                "position": position,
+            }
+        )
+    return canonical
 
 
 def observation_to_canonical(observation: Observation) -> dict[str, Any]:
@@ -161,7 +232,7 @@ def observation_to_canonical(observation: Observation) -> dict[str, Any]:
             "terrain": terrain,
             "beacon": _beacon_canonical(observation.beacon),
         },
-        "events": [],
+        "events": _canonical_events(observation),
         "respawn_at_tick": respawn_at_tick,
     }
 
