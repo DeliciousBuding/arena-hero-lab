@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final, cast
 
@@ -192,6 +192,9 @@ def run_ffa(
     respawn_style: str = "ring",
     rule_variant: str | None = None,
     progress_callback: Callable[[int], None] | None = None,
+    world_obstacles: Iterable[tuple[int, int]] | None = None,
+    world_resource_cells: Iterable[tuple[int, int]] | None = None,
+    initial_state: Mapping[str, object] | None = None,
 ) -> FfaReport:
     """Run one free-for-all match in a shared world and return a report.
 
@@ -200,6 +203,10 @@ def run_ffa(
     The returned report carries a world-state trace plus a terminal table
     (survival / resources / population / core_hp / unit_count) and a content
     address that is stable across repeated runs with the same seed.
+
+    world_obstacles / world_resource_cells / initial_state are the state-seed
+    replay injections (all default None → classic generated-world behavior).
+    See ``Game`` and ``World`` docstrings for the accepted shapes.
     """
     ordered = _ordered_contestants(contestants)
     contestant_ids = [contestant_id for contestant_id, _ in ordered]
@@ -225,6 +232,9 @@ def run_ffa(
         resource_replenish_every=resource_replenish_every,
         respawn_style=respawn_style,
         rule_variant=rule_variant,
+        initial_state=initial_state,
+        world_obstacles=world_obstacles,
+        world_resource_cells=world_resource_cells,
     )
 
     initial_resources: dict[str, int] = {}

@@ -11,9 +11,12 @@
   EMPTY（官方：Beacon 不会被围死）。
 - 资源按 chunk 配额生成；每 RESOURCE_REPLENISH_EVERY 个已解析 Tick，
   只补给本 Tick 有消耗的 chunk 缺口，位置由派生 PRNG 确定性选出。
+- state-seed replay 注入：`obstacles` / `resource_cells` 提供时跳过生成，
+  以 EMPTY 底 + 显式打点构造自定义世界（生产状态重放用，近似）。
 """
 
 import random
+from collections.abc import Iterable
 
 from .config import (
     CHUNK_SIZE,
@@ -35,8 +38,16 @@ class World:
         plain=False,
         resource_scale=1.0,
         replenish_every=RESOURCE_REPLENISH_EVERY,
+        obstacles: Iterable[tuple[int, int]] | None = None,
+        resource_cells: Iterable[tuple[int, int]] | None = None,
     ):
-        """plain=True：纯平地（全 EMPTY）——引擎/移动类单元测试用。"""
+        """plain=True：纯平地（全 EMPTY）——引擎/移动类单元测试用。
+
+        obstacles / resource_cells：state-seed replay 注入（两者默认 None，
+        此时世界按原有生成路径构造，行为不变）。传入 obstacles 时地形为
+        EMPTY 底 + 指定障碍格；resource_cells 直接成为初始资源点集
+        （未传则为空）。越界格忽略。
+        """
         self.size = size
         self.offset = size // 2
         self.seed = seed
@@ -47,12 +58,30 @@ class World:
         self.resources = set()  # 当前可用的自然资源点（真实坐标）{(x, y)}
         self.dirty_chunks = set()  # 本补给周期内有消耗的 chunk
         self.since_replenish = 0
-        if plain:
+        if obstacles is not None:
+            self._apply_custom_layout(obstacles, resource_cells)
+        elif plain:
             n = size
             self.terrain = [bytearray([EMPTY]) * n for _ in range(n)]
             self._seed_initial_resources()
         else:
             self._generate(obstacle_density, cluster_iters)
+
+    def _apply_custom_layout(
+        self,
+        obstacles: Iterable[tuple[int, int]],
+        resource_cells: Iterable[tuple[int, int]] | None,
+    ) -> None:
+        """EMPTY 底 + 显式障碍/资源打点（state-seed replay 的近似世界）。"""
+        n = self.size
+        self.terrain = [bytearray([EMPTY]) * n for _ in range(n)]
+        for x, y in obstacles:
+            if self.in_bounds(x, y):
+                self.terrain[y + self.offset][x + self.offset] = OBSTACLE
+        if resource_cells is not None:
+            for x, y in resource_cells:
+                if self.in_bounds(x, y):
+                    self.resources.add((x, y))
 
     # ---------- 生成 ----------
     def _generate(self, density, cluster_iters):

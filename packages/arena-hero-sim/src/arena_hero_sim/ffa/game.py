@@ -6,9 +6,11 @@
 3. Engine.resolve 按官方 resolution order 解析
 """
 
+from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any
 
-from .config import BEACON_START, RESOURCE_REPLENISH_EVERY
+from .config import BEACON_START, CORE_HP, CORE_SHIELD, RESOURCE_REPLENISH_EVERY
 from .engine import Engine
 from .entities import Core, Player, Unit
 from .vision import visible_cells
@@ -29,6 +31,9 @@ class Game:
         resource_replenish_every=RESOURCE_REPLENISH_EVERY,
         respawn_style="ring",
         rule_variant=None,
+        initial_state: Mapping[str, Any] | None = None,
+        world_obstacles=None,
+        world_resource_cells=None,
     ):
         """strategies: {player_id: Strategy}（至少 2 个玩家）。
 
@@ -41,6 +46,15 @@ class Game:
         spawn_profile: {pid: {"res": N, "units": {WORKER: a, RANGER: b}}}}
         预发育出生——模拟线上永久世界的老玩家（出生即带人口/资源），
         新号（被测）则是 1 Worker + 5 资源的标准开局。
+
+        initial_state: state-seed replay 注入（默认 None，行为不变）。
+        形如 {"players": {pid: {"core": {"pos": (x, y), "hp": int,
+        "shield": int, "resources": int}, "units": [{"utype": "WORKER",
+        "pos": (x, y), "hp": int, "cargo": int}]}},
+        "beacon": ("ground", x, y) | ("carried", uid)}。
+        在默认出生之后覆盖指定玩家（清默认单位、按注入重建；单位视为
+        已存在、当 Tick 即可行动）。非法位置（越界 / Core 落在障碍）
+        抛 ValueError。
         """
         # 每场对局重置 uid 生成器（seed 派生）：保证跨运行确定性，且 uid 分布
         # 与官方 UUID 一致（稀疏大整数，仲裁不被创建顺序偏袒）
@@ -56,6 +70,8 @@ class Game:
             cluster_iters=cluster_iters,
             resource_scale=resource_scale,
             replenish_every=resource_replenish_every,
+            obstacles=world_obstacles,
+            resource_cells=world_resource_cells,
         )
         half = size // 2
         self.bounds = (-half, half - 1, -half, half - 1)
@@ -64,7 +80,8 @@ class Game:
         self.max_ticks = max_ticks
         self.tick = 0
         self.players = {pid: Player(pid) for pid in strategies}
-        self.beacon = ("ground", BEACON_START[0], BEACON_START[1])
+        # 形状因状态而异：ground 为 3 元组、carried 为 2 元组（与引擎一致）。
+        self.beacon: tuple[Any, ...] = ("ground", BEACON_START[0], BEACON_START[1])
         self.last_events = []
         self.spawn_center = spawn_center
         self.spawn_profile = spawn_profile or {}
@@ -80,13 +97,13 @@ class Game:
         # ~20s of pure thread churn.  Results are identical because the engine
         # resolves plans in stable player_id order either way.
         self._decide_pool: ThreadPoolExecutor | None = None
-        self._initial_spawn()
+        self._initial_spawn(initial_state)
         # 单位出生当 Tick 不能行动：初始单位允许行动
         for p in self.players.values():
             for u in p.units.values():
                 u.just_spawned = False
 
-    def _initial_spawn(self):
+    def _initial_spawn(self, initial_state: Mapping[str, Any] | None):
         for pid in sorted(self.players):
             # 每个玩家可有独立出生中心（老玩家分散在四周，模拟线上稀疏分布）
             center = self.spawn_center
@@ -111,6 +128,48 @@ class Game:
                     for _ in range(n):
                         u = Unit(pid, utype, pos)
                         p.units[u.uid] = u
+        if initial_state is not None:
+            self._apply_initial_state(initial_state)
+
+    def _apply_initial_state(self, initial_state: Mapping[str, Any]) -> None:
+        """state-seed replay：用注入状态覆盖指定玩家（近似，非精确重演）。"""
+        players_state = initial_state.get("players") or {}
+        for pid, state in players_state.items():
+            if pid not in self.players:
+                raise ValueError(f"initial_state player {pid!r} is not a contestant")
+            player = self.players[pid]
+            core_state = state.get("core")
+            if core_state is None:
+                continue
+            core_pos = tuple(core_state["pos"])
+            if not self.world.in_bounds(*core_pos):
+                raise ValueError(f"initial_state core pos {core_pos} is out of bounds")
+            if self.world.is_obstacle(*core_pos):
+                raise ValueError(f"initial_state core pos {core_pos} is an obstacle")
+            player.core = Core(pid, core_pos)
+            player.core.hp = int(core_state.get("hp", CORE_HP))
+            player.core.shield = int(core_state.get("shield", CORE_SHIELD))
+            player.core.resources = int(core_state.get("resources", 0))
+            player.core.just_respawned = False
+            player.units = {}
+            for unit_state in state.get("units") or []:
+                unit_pos = tuple(unit_state["pos"])
+                if not self.world.in_bounds(*unit_pos):
+                    raise ValueError(f"initial_state unit pos {unit_pos} is out of bounds")
+                unit = Unit(pid, unit_state["utype"], unit_pos)
+                unit.hp = int(unit_state.get("hp", unit.hp))
+                unit.cargo = int(unit_state.get("cargo", 0))
+                unit.just_spawned = False
+                player.units[unit.uid] = unit
+        beacon_state = initial_state.get("beacon")
+        if beacon_state is not None:
+            kind = beacon_state[0]
+            if kind == "ground":
+                self.beacon = ("ground", int(beacon_state[1]), int(beacon_state[2]))
+            elif kind == "carried":
+                self.beacon = ("carried", beacon_state[1])
+            else:
+                raise ValueError(f"initial_state beacon kind {kind!r} is not supported")
 
     # ------------------------------------------------------------------
     def run(self):
