@@ -453,6 +453,9 @@ class Engine:
                     else:
                         self.cargo[(x, y)] = amt - gain
                     succeeded = True
+                    p = self._player_of(u.owner)
+                    if p is not None:
+                        p.stats["harvested"] += gain
                     events.append(
                         {
                             "type": "HARVESTED",
@@ -704,6 +707,16 @@ class Engine:
             if not plan or not plan["core"] or plan["core"][0] != "SELF_DESTRUCT":
                 continue
             core = p.core
+            # 自毁时库存随之摧毁（与战斗摧毁同口径计入 resources_lost，
+            # 否则经济守恒等式缺一块：收割-消耗-损失无法对账）。
+            p.stats["resources_lost"] += core.resources
+            events.append(
+                {
+                    "type": "CORE_RESOURCES_DESTROYED",
+                    "victim": p.player_id,
+                    "amount": core.resources,
+                }
+            )
             # Core self-destruction removes the whole fleet, just like combat
             # destruction.  Keeping these entries after ``core = None`` would
             # create ghost units that survive forever and block respawn.

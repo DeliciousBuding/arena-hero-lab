@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from typing import Any, cast
 
 from arena_hero_sim.ffa import WaitStrategy, run_ffa
 from arena_hero_sim.ffa.python_agent_shim import PythonAgentStrategy
@@ -46,8 +47,9 @@ def main() -> int:
 
     python_cid = "python"
     for frame in report.trace:
-        tick = int(frame["tick"])
-        player = frame["players"].get(python_cid, {})
+        tick = cast(int, frame["tick"])
+        players = cast(dict[str, Any], frame["players"])
+        player = players.get(python_cid, {})
         core = player.get("core") or {}
         resources = core.get("resources")
         core_pos = tuple(core["pos"]) if core else None

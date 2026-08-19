@@ -172,7 +172,9 @@ def main() -> None:
                 f"  {t.contestant_id:8s} alive={int(t.survival_alive)} hp={t.core_hp} "
                 f"res={t.final_resources:3d} pop={t.population_final:2d} "
                 f"growth={t.resource_growth:+3d} "
-                f"harvest={t.stats.get('harvested', 0)} dmg={t.stats.get('damage_dealt', 0)}"
+                f"harvest={t.stats.get('harvested', 0)} dep={t.stats.get('deposited', 0)} "
+                f"spawn_cost={t.stats.get('spawn_cost', 0)} respawn={t.respawn_count} "
+                f"dmg={t.stats.get('damage_dealt', 0)}"
             )
             rows.append(
                 (
@@ -183,6 +185,9 @@ def main() -> None:
                     t.population_final,
                     t.resource_growth,
                     t.stats.get("harvested", 0),
+                    t.stats.get("deposited", 0),
+                    t.stats.get("spawn_cost", 0),
+                    t.respawn_count,
                     t.stats.get("damage_dealt", 0),
                 )
             )
@@ -197,7 +202,8 @@ def main() -> None:
             f"  {cid:8s} alive={sum(r[2] for r in sub)}/{n} "
             f"res={sum(r[3] for r in sub) / n:.1f} pop={sum(r[4] for r in sub) / n:.1f} "
             f"growth={sum(r[5] for r in sub) / n:.1f} harvest={sum(r[6] for r in sub) / n:.1f} "
-            f"dmg={sum(r[7] for r in sub) / n:.1f}"
+            f"dep={sum(r[7] for r in sub) / n:.1f} spawn_cost={sum(r[8] for r in sub) / n:.1f} "
+            f"respawn={sum(r[9] for r in sub) / n:.2f} dmg={sum(r[10] for r in sub) / n:.1f}"
         )
 
 

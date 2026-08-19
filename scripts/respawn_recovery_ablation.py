@@ -11,15 +11,16 @@ import argparse
 import json
 from itertools import pairwise
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from arena_hero_sim.ffa.contestants import HunterBot
 from arena_hero_sim.ffa.orchestrator import FfaReport, run_ffa
 from arena_hero_sim.ffa.python_agent_shim import PythonAgentStrategy
+from arena_hero_sim.ffa.strategy import Strategy
 from arena_hero_sim.serialization import content_sha256, to_json_value
 
 
-def _contestants(recovery_enabled: bool) -> dict[str, object]:
+def _contestants(recovery_enabled: bool) -> dict[str, Strategy]:
     return {
         "python+production": PythonAgentStrategy(
             exploration_v2=True,
@@ -31,7 +32,7 @@ def _contestants(recovery_enabled: bool) -> dict[str, object]:
 
 
 def _recovery_metrics(report: FfaReport, contestant_id: str) -> dict[str, Any]:
-    frames = [frame["players"][contestant_id] for frame in report.trace]
+    frames = [cast(dict[str, Any], frame["players"])[contestant_id] for frame in report.trace]
     respawn_ticks: list[int] = []
     for tick, (previous, current) in enumerate(pairwise(frames), start=1):
         previous_core = previous["core"]
@@ -77,7 +78,7 @@ def run_paired_ablation(
 
     rows: list[dict[str, Any]] = []
     for seed in seeds:
-        common = {
+        common: dict[str, Any] = {
             "seed": seed,
             "ticks": ticks,
             "size": size,
