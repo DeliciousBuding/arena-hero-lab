@@ -9,6 +9,10 @@ Approximation contract — this is a state-seed replay, NOT an exact replay:
 - only the tenant-visible slice is seeded: terrain obstacles, own core
   position/hp/shield, own units (role/pos/hp/cargo), core resources, visible
   resource cells; everything else is a blank world
+- production tick_state stores terrainObstacles/resourceCells as int counts
+  without coordinates; in that case the replay world is obstacle-free and a
+  deterministic resource ring is synthesized around the seeded core so the
+  agent's harvest/deposit loop actually runs (explicit APPROXIMATION line)
 - opponents are wait bots; no enemy units/cores are placed (no global state)
 - cross-tick state (plan / deciderState / submitResult / events /
   visibleEnemies / nearest* distances / stats counters) cannot be mapped and
@@ -148,6 +152,13 @@ def parse_cell_list(value: object, context: str, warnings: list[str]) -> list[tu
     if value is None:
         warnings.append(f"WARNING: {context}: field missing; treated as empty")
         return []
+    if isinstance(value, int):
+        # 生产日志 tick_state 只存计数（如 terrainObstacles=15），不含坐标列表。
+        warnings.append(
+            f"WARNING: {context}: production count-only field ({value}); "
+            "coordinates unavailable; treated as empty"
+        )
+        return []
     if not isinstance(value, list):
         warnings.append(f"WARNING: {context}: expected a list, got {type(value).__name__}")
         return []
@@ -194,9 +205,15 @@ def parse_tick_state(record: dict[str, Any], base_size: int = DEFAULT_WORLD_SIZE
         source_tick = None
 
     core = record.get("core")
-    if not isinstance(core, dict) or not isinstance(core.get("position"), (list, tuple)):
+    if not isinstance(core, dict):
+        raise ValueError("record has no usable core (expected an object)")
+    # 生产日志用 core.pos；合成样本用 core.position，两者都接受。
+    raw_core_pos = core.get("pos")
+    if raw_core_pos is None:
+        raw_core_pos = core.get("position")
+    if raw_core_pos is None:
         raise ValueError("record has no usable core.position")
-    core_pos = parse_cell_entry(core.get("position"), "core.position", warnings)
+    core_pos = parse_cell_entry(raw_core_pos, "core.position", warnings)
     if core_pos is None:
         raise ValueError("record core.position is unparseable")
 
@@ -267,8 +284,11 @@ def parse_tick_state(record: dict[str, Any], base_size: int = DEFAULT_WORLD_SIZE
     beacon = record.get("beacon")
     if isinstance(beacon, dict):
         status = str(beacon.get("status", "")).upper()
-        if status == "GROUND":
-            pos = parse_cell_entry(beacon.get("position"), "beacon.position", warnings)
+        raw_beacon_pos = beacon.get("pos")
+        if raw_beacon_pos is None:
+            raw_beacon_pos = beacon.get("position")
+        if status == "GROUND" and raw_beacon_pos is not None:
+            pos = parse_cell_entry(raw_beacon_pos, "beacon.position", warnings)
             if pos is not None:
                 beacon_ground = pos
         else:
@@ -331,6 +351,48 @@ def _format_seed_summary(parsed: ParsedSeed, record_index: int) -> list[str]:
     return lines
 
 
+def _synthetic_resource_patch(parsed: ParsedSeed, cap: int = 12) -> list[tuple[int, int]]:
+    """Deterministic resource ring around the seeded core (logs without cell coords).
+
+    Production tick_state only stores ``resourceCells`` as an int count, so no
+    coordinates survive to the replay world.  An empty world starves workers
+    structurally (no harvest -> no deposit -> every seed "stalls") and makes
+    behavior attribution impossible.  Instead we place a fixed ring (radius
+    2-3, row-major, skipping the core and occupied unit cells) so the agent's
+    real harvest/deposit loop runs.  This is a documented approximation, not a
+    reconstruction of the live world.
+    """
+    core_x, core_y = parsed.core_pos
+    occupied = {unit.pos for unit in parsed.units}
+    cells: list[tuple[int, int]] = []
+    for radius in (2, 3):
+        for dy in range(-radius, radius + 1):
+            for dx in range(-radius, radius + 1):
+                if max(abs(dx), abs(dy)) != radius:
+                    continue
+                pos = (core_x + dx, core_y + dy)
+                if pos in occupied or pos == parsed.core_pos:
+                    continue
+                cells.append(pos)
+                if len(cells) >= cap:
+                    return cells
+    return cells
+
+
+def _resolve_resource_cells(
+    parsed: ParsedSeed,
+) -> tuple[list[tuple[int, int]], str | None]:
+    """Pick the replay world's resource cells; synthesize when the log lacks coords."""
+    if parsed.resource_cells:
+        return parsed.resource_cells, None
+    patch = _synthetic_resource_patch(parsed)
+    note = (
+        "APPROXIMATION: log has no resource cell coordinates (count-only "
+        f"field); synthesized {len(patch)}-cell resource ring around the core"
+    )
+    return patch, note
+
+
 def run_state_seed_replay(
     parsed: ParsedSeed,
     *,
@@ -340,6 +402,10 @@ def run_state_seed_replay(
     record_index: int = 0,
 ) -> ReplayResult:
     lines: list[str] = [*parsed.warnings, *_format_seed_summary(parsed, record_index), ""]
+
+    resource_cells, resource_note = _resolve_resource_cells(parsed)
+    if resource_note is not None:
+        lines.append(resource_note)
 
     core_state: dict[str, object] = {"pos": parsed.core_pos}
     if parsed.core_hp is not None:
@@ -381,7 +447,7 @@ def run_state_seed_replay(
             ticks=ticks,
             size=parsed.world_size,
             world_obstacles=parsed.obstacles,
-            world_resource_cells=parsed.resource_cells,
+            world_resource_cells=resource_cells,
             initial_state=initial_state,
         )
     finally:

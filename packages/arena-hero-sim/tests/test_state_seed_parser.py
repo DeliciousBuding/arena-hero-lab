@@ -142,3 +142,94 @@ def test_make_sample_records_parse_cleanly() -> None:
     assert parsed_minimal.core_pos == (-3, -2)
     assert parsed_minimal.units[0].pos == (-3, -3)
     assert parsed_minimal.obstacles == [(-1, -1)]
+
+
+def test_parse_production_core_pos_shape() -> None:
+    """生产日志用 core.pos（而非合成样本的 core.position）。"""
+    record = _base_record()
+    record["core"] = {"pos": [311, 328], "hp": 5, "shield": 5, "state": "normal"}
+    record["units"] = [
+        {"id": "u1", "role": "worker", "pos": [311, 327], "hp": 1, "cargo": 0},
+    ]
+    record["beacon"] = {"pos": [-49, -720], "status": "unknown"}
+
+    parsed = rss.parse_tick_state(record)
+
+    assert parsed.core_pos == (311, 328)
+    assert parsed.core_hp == 5
+    assert parsed.core_shield == 5
+    assert parsed.units[0].pos == (311, 327)
+    # status=unknown 不重放 beacon 地面位置
+    assert parsed.beacon_ground is None
+    assert any("unknown" in warning for warning in parsed.warnings)
+
+
+def test_parse_production_count_only_cells_degrade_to_empty() -> None:
+    """生产日志 resourceCells/terrainObstacles 是 int 计数，坐标不可用。"""
+    record = _base_record()
+    record["resourceCells"] = 0
+    record["terrainObstacles"] = 15
+
+    parsed = rss.parse_tick_state(record)
+
+    assert parsed.resource_cells == []
+    assert parsed.obstacles == []
+    text = "\n".join(parsed.warnings)
+    assert "count-only" in text
+    assert "resourceCells" in text
+    assert "terrainObstacles" in text
+
+
+def test_parse_production_beacon_ground_pos_shape() -> None:
+    """生产日志 beacon 若为 ground 状态，坐标键同样叫 pos。"""
+    record = _base_record()
+    record["beacon"] = {"pos": [12, -7], "status": "ground"}
+
+    parsed = rss.parse_tick_state(record)
+
+    assert parsed.beacon_ground == (12, -7)
+
+
+def test_synthetic_resource_patch_is_deterministic_ring_around_core() -> None:
+    record = _base_record()
+    record["core"] = {"pos": [311, 328]}
+    record["units"] = [
+        {"id": "u1", "role": "worker", "pos": [311, 327], "hp": 1, "cargo": 0},
+        {"id": "u2", "role": "worker", "pos": [313, 328], "hp": 2, "cargo": 0},
+    ]
+    parsed = rss.parse_tick_state(record)
+
+    patch_a = rss._synthetic_resource_patch(parsed)
+    patch_b = rss._synthetic_resource_patch(parsed)
+
+    assert patch_a == patch_b  # 确定性：同一 seed 两次生成一致
+    assert len(patch_a) == 12
+    core_x, core_y = parsed.core_pos
+    for x, y in patch_a:
+        radius = max(abs(x - core_x), abs(y - core_y))
+        assert radius in (2, 3)  # 全部落在核心 2-3 圈
+    occupied = {unit.pos for unit in parsed.units}
+    assert all(pos not in occupied for pos in patch_a)
+    assert parsed.core_pos not in patch_a
+
+
+def test_resolve_resource_cells_uses_log_cells_when_present() -> None:
+    parsed = rss.parse_tick_state(_base_record())  # 含 resourceCells ["3,3"]
+
+    cells, note = rss._resolve_resource_cells(parsed)
+
+    assert cells == [(3, 3)]
+    assert note is None
+
+
+def test_resolve_resource_cells_synthesizes_when_count_only() -> None:
+    record = _base_record()
+    record["resourceCells"] = 0  # 生产形状：只有计数
+    parsed = rss.parse_tick_state(record)
+
+    cells, note = rss._resolve_resource_cells(parsed)
+
+    assert len(cells) == 12
+    assert note is not None
+    assert "synthesized" in note
+    assert "count-only" in note
