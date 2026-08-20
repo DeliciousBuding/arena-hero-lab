@@ -10,7 +10,9 @@
   交汇处自然出现一格宽瓶颈（官方：瓶颈往往很关键）；[0,0] 永久
   EMPTY（官方：Beacon 不会被围死）。
 - 资源按 chunk 配额生成；每 RESOURCE_REPLENISH_EVERY 个已解析 Tick，
-  只补给本 Tick 有消耗的 chunk 缺口，位置由派生 PRNG 确定性选出。
+  只补给本 Tick 有消耗的 chunk 缺口，位置由派生 PRNG 确定性选出；
+  补给落点须可通行、非障碍、在 chunk 主干通道之外（官方：替代位置
+  不得落在 backbone 通道上），且避开结算后 Core 占据的格。
 - state-seed replay 注入：`obstacles` / `resource_cells` 提供时跳过生成，
   以 EMPTY 底 + 显式打点构造自定义世界（生产状态重放用，近似）。
 """
@@ -247,6 +249,14 @@ class World:
         self.dirty_chunks.add((x // CHUNK_SIZE, y // CHUNK_SIZE))
 
     # ---------- 补给 ----------
+    def _is_backbone(self, x, y):
+        """chunk 十字主干通道：每 chunk 本地 x==0 整列 + y==0 整行。
+
+        官方（map-and-vision §Consumption and replenishment）：替代位置
+        必须在 chunk backbone 通道之外——通道格虽 EMPTY 也不可作落点。
+        """
+        return x % CHUNK_SIZE == 0 or y % CHUNK_SIZE == 0
+
     def replenish_if_due(self, resolved_tick, occupied_by_core):
         """每个补给周期结束（resolved_tick % 4 == 0）时补齐脏 chunk 的缺口。
 
@@ -271,6 +281,7 @@ class World:
                     self.in_bounds(x, y)
                     and self.terrain[y + self.offset][x + self.offset] == EMPTY
                     and (x, y) not in self.resources
+                    and not self._is_backbone(x, y)
                     and not occupied_by_core(x, y)
                 ):
                     self.resources.add((x, y))
