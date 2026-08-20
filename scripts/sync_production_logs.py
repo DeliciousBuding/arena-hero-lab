@@ -14,9 +14,9 @@ Usage (from the arena-hero-lab repo root):
 Requirements:
 - `rsync` installed locally and on the source host.
 - Passwordless SSH from this host to the source host (see ~/.ssh/config).
-- The tenant path on the source is always /opt/arena-hero/data/runtime/python.
-- The source host alias is passed via --host (no hard-coded host in the repo,
-  because the lab repo is public; the production host is internal).
+- The source tenant root is passed via ``--source-root``; both it and the
+  host alias stay out of the repo because the lab repo is public while the
+  production host and its paths are internal.
 """
 
 from __future__ import annotations
@@ -28,7 +28,6 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUTPUT_ROOT = REPO_ROOT / "data" / "runtime" / "production"
-SOURCE_TENANT_ROOT = "/opt/arena-hero/data/runtime/python"
 TENANTS = ("t1", "t2", "t3", "t4")
 FILE_PATTERNS = ("ticks.jsonl*", "telemetry.jsonl*", "live_status.json", "writer-lease.json")
 
@@ -39,6 +38,13 @@ def parse_args() -> argparse.Namespace:
         "--host",
         required=True,
         help="source SSH host alias (required; the production host is internal)",
+    )
+    parser.add_argument(
+        "--source-root",
+        required=True,
+        help="source tenant root on the production host, the directory that "
+        "contains one subdirectory per tenant (required; internal paths "
+        "never enter the public repo)",
     )
     parser.add_argument(
         "--tenants",
@@ -81,14 +87,14 @@ def run_sync(args: argparse.Namespace) -> int:
         if args.dry_run:
             cmd.append("--dry-run")
         for pattern in FILE_PATTERNS:
-            cmd.append(f"{args.host}:{SOURCE_TENANT_ROOT}/{tenant}/{pattern}")
+            cmd.append(f"{args.host}:{args.source_root}/{tenant}/{pattern}")
         cmd.append(str(output_dir) + "/")
 
         if args.dry_run:
             print(" ".join(cmd))
             continue
 
-        print(f"[sync] {tenant} <- {args.host}:{SOURCE_TENANT_ROOT}/{tenant}/")
+        print(f"[sync] {tenant} <- {args.host}:{args.source_root}/{tenant}/")
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
             failed.append(tenant)
