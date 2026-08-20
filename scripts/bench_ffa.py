@@ -4,16 +4,20 @@ Deterministic, content-addressed; prints per-seed terminal and aggregate.
 Usage:
     uv run python scripts/bench_ffa.py --seeds 0 1 2 --ticks 500
     uv run python scripts/bench_ffa.py --hunter --no-python --ticks 500
+    uv run python scripts/bench_ffa.py --seeds 0 1 --ticks 500 --json
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 
 from arena_hero_sim.ffa.contestants import HunterBot, RandomBot, WaitStrategy
 from arena_hero_sim.ffa.evolve_shim import EvolveHeuristicStrategy
 from arena_hero_sim.ffa.orchestrator import run_ffa
 from arena_hero_sim.ffa.python_agent_shim import PythonAgentStrategy
+
+FFA_MANIFEST_SCHEMA: str = "arena.bench.ffa.v1"
 
 
 def build_contestants(
@@ -125,6 +129,11 @@ def main() -> None:
         action="store_true",
         help="barren far-respawn preset: size 1024, sparse, no replenish, far respawn",
     )
+    ap.add_argument(
+        "--json",
+        action="store_true",
+        help="print one machine-readable JSON manifest instead of the text table",
+    )
 
     args = ap.parse_args()
 
@@ -145,6 +154,7 @@ def main() -> None:
         respawn_style = "barren"
 
     rows = []
+    seed_shas: dict[int, str] = {}
     for seed in args.seeds:
         rep = run_ffa(
             build_contestants(
@@ -166,6 +176,7 @@ def main() -> None:
             resource_replenish_every=resource_replenish_every,
             respawn_style=respawn_style,
         )
+        seed_shas[seed] = rep.artifact_sha256
         print(f"seed={seed} sha={rep.artifact_sha256[:16]}")
         for t in rep.terminal:
             print(
@@ -195,16 +206,69 @@ def main() -> None:
     # aggregate
     print("\naggregate (mean over seeds)")
     ids = sorted({r[1] for r in rows})
+    aggregate: list[dict[str, object]] = []
     for cid in ids:
         sub = [r for r in rows if r[1] == cid]
         n = len(sub)
+        entry: dict[str, object] = {
+            "contestant": cid,
+            "alive": sum(r[2] for r in sub),
+            "alive_total": n,
+            "res_mean": sum(r[3] for r in sub) / n,
+            "pop_mean": sum(r[4] for r in sub) / n,
+            "growth_mean": sum(r[5] for r in sub) / n,
+            "harvest_mean": sum(r[6] for r in sub) / n,
+            "dep_mean": sum(r[7] for r in sub) / n,
+            "spawn_cost_mean": sum(r[8] for r in sub) / n,
+            "respawn_mean": sum(r[9] for r in sub) / n,
+            "dmg_mean": sum(r[10] for r in sub) / n,
+        }
+        aggregate.append(entry)
         print(
-            f"  {cid:8s} alive={sum(r[2] for r in sub)}/{n} "
-            f"res={sum(r[3] for r in sub) / n:.1f} pop={sum(r[4] for r in sub) / n:.1f} "
-            f"growth={sum(r[5] for r in sub) / n:.1f} harvest={sum(r[6] for r in sub) / n:.1f} "
-            f"dep={sum(r[7] for r in sub) / n:.1f} spawn_cost={sum(r[8] for r in sub) / n:.1f} "
-            f"respawn={sum(r[9] for r in sub) / n:.2f} dmg={sum(r[10] for r in sub) / n:.1f}"
+            f"  {cid:8s} alive={entry['alive']}/{n} "
+            f"res={entry['res_mean']:.1f} pop={entry['pop_mean']:.1f} "
+            f"growth={entry['growth_mean']:.1f} harvest={entry['harvest_mean']:.1f} "
+            f"dep={entry['dep_mean']:.1f} spawn_cost={entry['spawn_cost_mean']:.1f} "
+            f"respawn={entry['respawn_mean']:.2f} dmg={entry['dmg_mean']:.1f}"
         )
+
+    if args.json:
+        manifest: dict[str, object] = {
+            "schema": FFA_MANIFEST_SCHEMA,
+            "ticks": args.ticks,
+            "size": size,
+            "density": density,
+            "spawn_center": [spawn[0], spawn[1]],
+            "resource_scale": resource_scale,
+            "resource_replenish_every": resource_replenish_every,
+            "respawn_style": respawn_style,
+            "seeds": [
+                {
+                    "seed": seed,
+                    "sha": seed_shas[seed],
+                    "contestants": [
+                        {
+                            "contestant": r[1],
+                            "alive": int(r[2]),
+                            "final_resources": int(r[3]),
+                            "population_final": int(r[4]),
+                            "resource_growth": int(r[5]),
+                            "harvested": int(r[6]),
+                            "deposited": int(r[7]),
+                            "spawn_cost": int(r[8]),
+                            "respawn_count": int(r[9]),
+                            "damage_dealt": int(r[10]),
+                        }
+                        for r in rows
+                        if r[0] == seed
+                    ],
+                }
+                for seed in args.seeds
+            ],
+            "aggregate": aggregate,
+        }
+        print(json.dumps(manifest, indent=2, sort_keys=True))
+        return
 
 
 if __name__ == "__main__":
