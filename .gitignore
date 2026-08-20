@@ -57,3 +57,6 @@ next-env.d.ts
 /packages/*/dist/
 /dist/
 **/node_modules/
+
+# Local production-log dataset (pulled by scripts/sync_production_logs.py)
+/data/runtime/
