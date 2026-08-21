@@ -60,3 +60,6 @@ next-env.d.ts
 
 # Local production-log dataset (pulled by scripts/sync_production_logs.py)
 /data/runtime/
+
+# Local replay/bench run output (scripts/replay_state_seed.py default)
+/runs/
